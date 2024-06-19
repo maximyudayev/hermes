@@ -3,10 +3,29 @@ import xme
 import AwindaHelper as AwH
 from xdpchandler import *
 from time import sleep
-from pynput import keyboard
+from pynput import keyboard as pyKey
+import keyboard
+import queue
+from datetime import datetime
 
 
 class IMUManager(ABC):
+    def __init__(self):
+        super().__init__()
+        self.buffer = queue.Queue(50000)
+
+    def put_in_queue(self, item):
+        if self.buffer.full():
+            print("IMU data buffer is full, future data will be overwritten...")
+            self.buffer.get()  # remove 1 item from queue
+        self.buffer.put(item)
+
+    def pop_from_queue(self):
+        if self.buffer.empty():
+            print("No data has been buffered currently...")
+        else:
+            return self.buffer.get()
+
     @abstractmethod
     def init_sensors(self):
         pass
@@ -20,8 +39,21 @@ class IMUManager(ABC):
         pass
 
 
-class DotManager(IMUManager):
+class DotPacket:
+    def __init__(self, sensor_id, timestamp, arrival_time, data):
+        self.sensor_id = sensor_id
+        self.timestamp = timestamp
+        self.arrival_time = arrival_time
+        self.data = data
 
+
+class DotManager(IMUManager):
+    """
+    Some notes: if the dots are not shutdown properly they stay in sync mode (2 fast green blinks)
+    which messes up the timing when rerun. Fix is to rerun and quit a recording with "q".
+    To guarantee heading accuracy and, therefore, to avoid drift in orientation data, the
+    sensors must be kept still at the beginning of the measurement for 2-3 seconds.
+    """
     def __init__(self):
         super().__init__()
         self.xdpcHandler = XdpcHandler()
@@ -51,7 +83,7 @@ class DotManager(IMUManager):
         print(f"\nMain loop. Recording data for {record_time} seconds. Quit recording by pressing 'Q'.")
         print("-----------------------------------------")
 
-        # First printing some headers so we see which data belongs to which device
+        # First printing some headers, so we see which data belongs to which device
         s = ""
         for device in self.xdpcHandler.connectedDots():
             s += f"{device.portInfo().bluetoothAddress():27}"
@@ -72,6 +104,7 @@ class DotManager(IMUManager):
 
                     if packet.containsOrientation():
                         euler = packet.orientationEuler()
+                        self.put_in_queue(DotPacket(device.bluetoothAddress(), packet.sampleTimeFine(), datetime.now(), (euler.x(), euler.y(), euler.z(), euler.pitch(), euler.yaw(), euler.roll())))
                         s += f"TS:{packet.sampleTimeFine()}, Roll:{euler.x():7.2f}| "
 
                 print("%s" % s, flush=True)
@@ -172,10 +205,10 @@ class AwindaManager(IMUManager):
         self.xmeControl.setScanMode(True)
         self.xmeControl.setRealTimePoseMode(True)
         while not self.xmeControl.status().isConnected():
-            with keyboard.Events() as events:
+            with pyKey.Events() as events:
                 # Block at most one second
                 event = events.get(1)
-                if event is not None and event.key == keyboard.Events.Press(keyboard.KeyCode.from_char("q")).key:
+                if event is not None and event.key == pyKey.Events.Press(pyKey.KeyCode.from_char("q")).key:
                     print('Exiting program...')
                     AwH.exitClean(0, self.xmeControl)
                 else:
@@ -189,7 +222,7 @@ class AwindaManager(IMUManager):
 
         while not self.cb.calibrationComplete:
             event = events.get(1)
-            if event is not None and event.key == keyboard.Events.Press(keyboard.KeyCode.from_char("q")).key:
+            if event is not None and event.key == pyKey.Events.Press(pyKey.KeyCode.from_char("q")).key:
                 print('Exiting program...')
                 AwH.exitClean(0, self.xmeControl)
             else:
@@ -200,7 +233,7 @@ class AwindaManager(IMUManager):
 
         while not self.cb.calibrationComplete:
             event = events.get(1)
-            if event is not None and event.key == keyboard.Events.Press(keyboard.KeyCode.from_char("q")).key:
+            if event is not None and event.key == pyKey.Events.Press(pyKey.KeyCode.from_char("q")).key:
                 print('Exiting program...')
                 AwH.exitClean(0, self.xmeControl)
             else:
@@ -238,4 +271,5 @@ class AwindaManager(IMUManager):
 
 imu_manager = DotManager()
 imu_manager.init_sensors()
+imu_manager.sensor_sync()
 imu_manager.start_streaming()
