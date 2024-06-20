@@ -84,10 +84,10 @@ class DotManager(IMUManager):
         print("-----------------------------------------")
 
         # First printing some headers, so we see which data belongs to which device
-        s = ""
+        ''''s = ""
         for device in self.xdpcHandler.connectedDots():
             s += f"{device.portInfo().bluetoothAddress():27}"
-        print("%s" % s, flush=True)
+        print("%s" % s, flush=True)'''
 
         startTime = movelladot_pc_sdk.XsTimeStamp_nowMs()
         while movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= 1000 * record_time:
@@ -97,17 +97,14 @@ class DotManager(IMUManager):
                 return
 
             if self.xdpcHandler.packetsAvailable():
-                s = ""
                 for device in self.xdpcHandler.connectedDots():
                     # Retrieve a packet
                     packet = self.xdpcHandler.getNextPacket(device.portInfo().bluetoothAddress())
-
                     if packet.containsOrientation():
                         euler = packet.orientationEuler()
                         self.put_in_queue(DotPacket(device.bluetoothAddress(), packet.sampleTimeFine(), datetime.now(), (euler.x(), euler.y(), euler.z(), euler.pitch(), euler.yaw(), euler.roll())))
-                        s += f"TS:{packet.sampleTimeFine()}, Roll:{euler.x():7.2f}| "
 
-                print("%s" % s, flush=True)
+                #print("%s" % s, flush=True)
         self.stop_streaming()
 
     def stop_streaming(self):
@@ -267,9 +264,3 @@ class AwindaManager(IMUManager):
 
     def stop_streaming(self):
         pass
-
-
-imu_manager = DotManager()
-imu_manager.init_sensors()
-imu_manager.sensor_sync()
-imu_manager.start_streaming()
