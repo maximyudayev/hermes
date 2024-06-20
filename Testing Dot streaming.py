@@ -1,6 +1,6 @@
 import time
 
-from Streamers.IMUStreamer import DotManager
+from IMUStreamer import DotManager
 import threading
 
 
