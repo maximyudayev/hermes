@@ -1,6 +1,6 @@
 # Temporary/generated files
 ###################################
-.idea/
+.idea
 *.pyc
 *.asv
 

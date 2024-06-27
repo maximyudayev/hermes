@@ -1,4 +1,3 @@
-
 # ActionNet
 
 See https://action-net.csail.mit.edu for more information about the ActionNet project and dataset.
@@ -12,12 +11,3 @@ See the ReadMe file in that folder for more information and for installation/usa
 ## Using the Data
 
 The folder `parsing_data` contains example scripts for parsing data offered by the ActionNet dataset.
-
-
-
-
-
-
-
-
-

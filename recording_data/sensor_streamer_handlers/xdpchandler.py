@@ -31,7 +31,7 @@ import movelladot_pc_sdk
 from collections import defaultdict
 from threading import Lock
 from pynput import keyboard
-from user_settings import *
+from recording_data.sensor_streamer_handlers.user_settings import *
 import time
 
 waitForConnections = True
@@ -102,7 +102,7 @@ class XdpcHandler(movelladot_pc_sdk.XsDotCallback):
 
         print("Successful exit.")
 
-    def scanForDots(self):
+    def scanForDots(self, timeout_s=20):
         """
         Scan if any Movella DOT devices can be detected via Bluetooth
 
@@ -115,14 +115,9 @@ class XdpcHandler(movelladot_pc_sdk.XsDotCallback):
         print("Scanning for devices...")
         self.__manager.enableDeviceDetection()
 
-        # Setup the keyboard input listener
-        listener = keyboard.Listener(on_press=on_press)
-        listener.start()
-
-        print("Press any key or wait 20 seconds to stop scanning...")
         connectedDOTCount = 0
         startTime = movelladot_pc_sdk.XsTimeStamp_nowMs()
-        while waitForConnections and not self.errorReceived() and movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= 20000:
+        while waitForConnections and not self.errorReceived() and movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= timeout_s*1000:
             time.sleep(0.1)
 
             nextCount = len(self.detectedDots())
@@ -174,6 +169,45 @@ class XdpcHandler(movelladot_pc_sdk.XsDotCallback):
 
                 self.__connectedUsbDots.append(device)
                 print(f"Device: {device.productCode()}, with ID: {device.deviceId().toXsString()} opened.")
+
+    def sync(self):
+        if len(self.__connectedDots) == 1:
+            print("Only 1 device connected, sync not needed...")
+        else:
+            print(f"\nStarting sync for connected devices... Root node: {self.__connectedDots[-1].bluetoothAddress()}")
+            print("This takes at least 14 seconds")
+            if not self.__manager.startSync(self.__connectedDots[-1].bluetoothAddress()):
+                print(f"Could not start sync. Reason: {self.__manager.lastResultText()}")
+                if self.__manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
+                    print("Sync could not be started. Aborting.")
+                    self.cleanup()
+                    return False
+
+                # If (some) devices are already in sync mode, disable sync on all devices first.
+                self.__manager.stopSync()
+                print(f"Retrying start sync after stopping sync")
+                if not self.__manager.startSync(self.__connectedDots[-1].bluetoothAddress()):
+                    print(f"Could not start sync. Reason: {self.__manager.lastResultText()}. Aborting.")
+                    self.cleanup()
+                    return False
+        return True
+
+    def stream(self):
+        # Start live data output. Make sure root node is last to go to measurement.
+        print("Putting devices into measurement mode.")
+        for device in self.__connectedDots:
+            if not device.startMeasurement(movelladot_pc_sdk.XsPayloadMode_ExtendedEuler):
+                print(f"Could not put device into measurement mode. Reason: {device.lastResultText()}")
+                continue
+
+        print("Resetting device headings")
+        for device in self.__connectedDots:
+            print(f"\nResetting heading for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            if device.resetOrientation(movelladot_pc_sdk.XRM_Heading):
+                print("OK", end="", flush=True)
+            else:
+                print(f"NOK: {device.lastResultText()}", end="", flush=True)
+        print("\n", end="", flush=True)
 
     def detectUsbDevices(self):
         """
@@ -464,9 +498,3 @@ class XdpcHandler(movelladot_pc_sdk.XsDotCallback):
         """
         self.__exportDone = True
         self._outputDeviceProgress()
-
-
-
-
-
-

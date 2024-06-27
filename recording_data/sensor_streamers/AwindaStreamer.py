@@ -64,7 +64,7 @@ from utils.angle_utils import *
 #  The system timestamp of the first one will be used for all of them.
 ################################################
 ################################################
-class XsensStreamer(SensorStreamer):
+class AwindaStreamer(SensorStreamer):
 
   ########################
   ###### INITIALIZE ######
@@ -575,7 +575,7 @@ class XsensStreamer(SensorStreamer):
       return payload_end_index-1
 
     # Check that the entire message was parsed.
-    assert payload_end_index == next_index, 'The Xsens payload should end at byte %d, but the last byte processed was %d' % (payload_end_index, next_index-1)
+    assert payload_end_index == next_index, 'The Awinda payload should end at byte %d, but the last byte processed was %d' % (payload_end_index, next_index-1)
 
     # The message was successfully parsed.
     # Return the last index of the message that was used.
@@ -609,7 +609,7 @@ class XsensStreamer(SensorStreamer):
             self._buffer = data
         except:
           # Xsens stopped running / needs recalibration?
-          self._log_warn('WARNING: Did not receive data from the Xsens. Attempting to reconnect in 5 seconds.')
+          self._log_warn('WARNING: Did not receive data from the Awinda. Attempting to reconnect in 5 seconds.')
           time.sleep(5)
           self._buffer = b''
           continue
@@ -636,13 +636,13 @@ class XsensStreamer(SensorStreamer):
     except KeyboardInterrupt: # The program was likely terminated
       pass
     except:
-      self._log_error('\n\n***ERROR RUNNING XsensStreamer:\n%s\n' % traceback.format_exc())
+      self._log_error('\n\n***ERROR RUNNING AwindaStreamer:\n%s\n' % traceback.format_exc())
     finally:
       pass
 
   # Clean up and quit
   def quit(self):
-    self._log_debug('XsensStreamer quitting')
+    self._log_debug('AwindaStreamer quitting')
     SensorStreamer.quit(self)
 
 
@@ -1937,7 +1937,7 @@ class XsensStreamer(SensorStreamer):
 #####################
 if __name__ == '__main__':
   duration_s = 60
-  xsens_streamer = XsensStreamer(print_status=True, print_debug=False)
+  xsens_streamer = AwindaStreamer(print_status=True, print_debug=False)
   xsens_streamer.connect()
   xsens_streamer.run()
   start_time_s = time.time()

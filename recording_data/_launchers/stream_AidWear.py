@@ -37,6 +37,7 @@ if __name__ == '__main__':
   # Configure printing and logging.
   print_status = True
   print_debug = False
+  subject_id = 1
   
   # Helper methods for logging/printing.
   def _log_status(msg, *extra_msgs, **kwargs):
@@ -60,66 +61,46 @@ if __name__ == '__main__':
   sensor_streamers_enabled = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
     ('ExperimentControlStreamer', True),  # A GUI to label activities/calibrations and enter notes
-    ('NotesStreamer',             False),  # A command-line based way to submit notes during the experiment (but not label activities explicitly)
+    ('NotesStreamer',             False), # A command-line based way to submit notes during the experiment (but not label activities explicitly)
     # Sensors!
-    ('MyoStreamer',        False),  # One or more Myo EMG/IMU armbands
-    ('TouchStreamer',      True),  # Custom tactile sensors streaming via an Arduino
-    ('XsensStreamer',      True),  # The Xsens body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
-    ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
-    ('MoticonStreamer',    False),  # Moticon insole pressure sensors
-    ('ScaleStreamer',      False),  # The Dymo M25 digital postal scale
+    ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
+    ('DotsStreamer',       True),   # The Dots lower limb tracking system
+    ('EyeStreamer',        True),   # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
     ('CameraStreamer',     False),  # One or more cameras
     ('DummyStreamer',      False),  # Dummy data (no hardware required)
   ])
   sensor_streamer_specs = [
+    # # The template streamer!
+    # {'class': 'TemplateStreamer',
+    #   # Add any keyword arguments here that you added to __init__()
+    #  'print_debug': print_debug, 'print_status': print_status
+    #  },
     # Allow the experimenter to label data and enter notes.
     {'class': 'ExperimentControlStreamer',
-     'activities': [ # TODO: Enter your activities that you want to label
-        'Standing at rest',
-        'Walking',
-        'Running',
-        'Jumping',
-        'Standing on right foot',
-        'Standing on left foot',
-        'Standing on toes',
-        'Standing on right toes',
-        'Standing on left toes',
-     ],
+    #  'activities': [ # TODO: Enter your activities that you want to label
+    #    'My first activity',
+    #    'Another activity',
+    #  ],
      'print_debug': print_debug, 'print_status': print_status
      },
     # Allow the experimenter to record timestamped notes at any time.
     {'class': 'NotesStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
-    # Stream from the Xsens body tracking and Manus gloves.
-    {'class': 'XsensStreamer',
+    # Stream from the Awinda body tracking and Manus gloves.
+    {'class': 'AwindaStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
-    # Stream from one or more tactile sensors, such as the ones on the gloves.
-    # See the __init__ method of TouchStreamer to configure settings such as
-    #  what sensors are available and their COM ports.
-    {'class': 'TouchStreamer',
-     'com_ports': {
-       'tactile-shoe-left' : 'COM3', # None
-       'tactile-shoe-right': 'COM6', # None
-     },
-     'print_debug': print_debug, 'print_status': print_status
-     },
-    # Stream from the Myo device including EMG, IMU, and gestures.
-    {'class': 'MyoStreamer',
-     'num_myos': 2,
+    # Stream from the Dots lower limb tracking.
+    {'class': 'DotsStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Pupil Labs eye tracker, including gaze and video data.
     {'class': 'EyeStreamer',
-     'stream_video_world'    : False, # the world video
+     'stream_video_world'    : True, # the world video
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
-     'stream_video_eye'      : False, # video of the eye
-     'print_debug': print_debug, 'print_status': print_status
-     },
-    # Stream from the Dymo M25 scale.
-    {'class': 'ScaleStreamer',
+     'stream_video_eye'      : True, # video of the eye
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from one or more microphones.
@@ -151,10 +132,10 @@ if __name__ == '__main__':
   if enable_data_logging:
     script_dir = os.path.dirname(os.path.realpath(__file__))
     (log_time_str, log_time_s) = get_time_str(return_time_s=True)
-    log_tag = 'my_log_tag'
+    log_tag = 'aidWear-wearables'
     log_dir_root = os.path.join(script_dir, '..', '..', 'data',
                                 'experiments', # recommend 'tests' and 'experiments' for testing vs "real" data
-                                '%s_my_folder_tag' % get_time_str(format='%Y-%m-%d'))
+                                '{0}_experiment_S0{1}'.format(get_time_str(format='%Y-%m-%d'), subject_id))
     log_subdir = '%s_%s' % (log_time_str, log_tag)
     log_dir = os.path.join(log_dir_root, log_subdir)
     datalogging_options = {
@@ -163,12 +144,12 @@ if __name__ == '__main__':
       'videos_in_hdf5': False,
       'audio_in_hdf5': False,
       # Choose whether to periodically write data to files.
-      'stream_csv'  : True,
-      'stream_hdf5' : True,
+      'stream_hdf5' : True, # recommended over CSV since it creates a single file
+      'stream_csv'  : True, # will create a CSV per stream
       'stream_video': True,
       'stream_audio': True,
-      'stream_period_s': 15,
-      'clear_logged_data_from_memory': True, # ignored if dumping is also enabled
+      'stream_period_s': 15, # how often to save streamed data to disk
+      'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
       # Choose whether to write all data at the end.
       'dump_csv'  : False,
       'dump_hdf5' : False,
@@ -188,26 +169,26 @@ if __name__ == '__main__':
     datalogging_options = None
   
   # TODO: Configure visualization.
-  # visualization_options = None
   composite_frame_size = (1800, 3000) # height, width # (1800, 3000)
   composite_col_width = int(composite_frame_size[1]/2)
   composite_row_height = int(composite_frame_size[0]/3)
   visualization_options = {
-    'visualize_streaming_data'       : True,
+    'visualize_streaming_data'       : False,
     'visualize_all_data_when_stopped': False,
     'wait_while_visualization_windows_open': False,
-    'update_period_s': 0.25,
-    # 'classes_to_visualize': ['TouchStreamer']
+    'update_period_s': 0.1,
+    # 'classes_to_visualize': ['TemplateStreamer']
     'use_composite_video': True,
+    'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
     'composite_video_layout':
       [
         [ # row  0
-          {'device_name':'tactile-shoe-left',  'stream_name':'tactile_data', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
-          {'device_name':'xsens-segments',     'stream_name':'position_cm',  'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
-          {'device_name':'tactile-shoe-right', 'stream_name':'tactile_data', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'template-sensor-device',  'stream_name':'stream_1', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+        ],
+        [ # row  1
+          {'device_name':'template-sensor-device',  'stream_name':'stream_2', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
         ],
       ],
-    'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
   }
   
   # Create a sensor manager.
@@ -275,7 +256,3 @@ if __name__ == '__main__':
   sensor_manager.connect()
   sensor_manager.run(duration_s=36000, stopping_condition_fn=check_if_user_quit)
   sensor_manager.stop()
-
-
-
-

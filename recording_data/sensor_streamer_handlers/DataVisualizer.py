@@ -714,7 +714,7 @@ if __name__ == '__main__':
 
   from sensor_streamers.NotesStreamer import NotesStreamer
   from sensor_streamers.MyoStreamer   import MyoStreamer
-  from sensor_streamers.XsensStreamer import XsensStreamer
+  from recording_data.sensor_streamers.AwindaStreamer import AwindaStreamer
   from sensor_streamers.TouchStreamer import TouchStreamer
   from sensor_streamers.EyeStreamer   import EyeStreamer
   from sensor_streamers.DummyStreamer   import DummyStreamer

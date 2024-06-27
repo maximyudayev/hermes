@@ -60,14 +60,11 @@ if __name__ == '__main__':
   sensor_streamers_enabled = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
     ('ExperimentControlStreamer', True),  # A GUI to label activities/calibrations and enter notes
-    ('NotesStreamer',             False),  # A command-line based way to submit notes during the experiment (but not label activities explicitly)
+    ('NotesStreamer',             False), # A command-line based way to submit notes during the experiment (but not label activities explicitly)
     # Sensors!
-    ('MyoStreamer',        True),  # One or more Myo EMG/IMU armbands
-    ('TouchStreamer',      False),  # Custom tactile sensors streaming via an Arduino
-    ('XsensStreamer',      True),  # The Xsens body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
-    ('EyeStreamer',        True),  # The Pupil Labs eye-tracking headset
-    ('ScaleStreamer',      True),  # The Dymo M25 digital postal scale
-    ('MoticonStreamer',    False),  # Moticon insole pressure sensors
+    ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
+    ('DotsStreamer',       True),   # The Dots lower limb tracking system
+    ('EyeStreamer',        True),   # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
     ('CameraStreamer',     False),  # One or more cameras
     ('DummyStreamer',      False),  # Dummy data (no hardware required)
@@ -81,30 +78,19 @@ if __name__ == '__main__':
     {'class': 'NotesStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
-    # Stream from the Myo device including EMG, IMU, and gestures.
-    {'class': 'MyoStreamer',
-     'num_myos': 2,
+    # Stream from the Awinda body tracking and Manus gloves.
+    {'class': 'AwindaStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
-    # Stream from the Xsens body tracking and Manus gloves.
-    {'class': 'XsensStreamer',
-     'print_debug': print_debug, 'print_status': print_status
-     },
-    # Stream from one or more tactile sensors, such as the ones on the gloves.
-    # See the __init__ method of TouchStreamer to configure settings such as
-    #  what sensors are available and their COM ports.
-    {'class': 'TouchStreamer',
+    # Stream from the Dots lower limb tracking.
+    {'class': 'DotsStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Pupil Labs eye tracker, including gaze and video data.
     {'class': 'EyeStreamer',
-     'stream_video_world'    : False, # the world video
+     'stream_video_world'    : True, # the world video
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
-     'stream_video_eye'      : False, # video of the eye
-     'print_debug': print_debug, 'print_status': print_status
-     },
-    # Stream from the Dymo M25 scale.
-    {'class': 'ScaleStreamer',
+     'stream_video_eye'      : True, # video of the eye
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from one or more microphones.
@@ -273,7 +259,3 @@ if __name__ == '__main__':
   sensor_manager.connect()
   sensor_manager.run(duration_s=36000, stopping_condition_fn=check_if_user_quit)
   sensor_manager.stop()
-
-
-
-
