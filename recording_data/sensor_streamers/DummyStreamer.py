@@ -24,11 +24,11 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.LinePlotVisualizer import LinePlotVisualizer
-from visualizers.HeatmapVisualizer import HeatmapVisualizer
-from visualizers.VideoVisualizer import VideoVisualizer
-from visualizers.XsensSkeletonVisualizer import XsensSkeletonVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import LinePlotVisualizer
+from visualizers import HeatmapVisualizer
+from visualizers import VideoVisualizer
+from visualizers import XsensSkeletonVisualizer
 
 import time
 import numpy as np

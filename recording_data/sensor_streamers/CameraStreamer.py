@@ -24,8 +24,8 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.VideoVisualizer import VideoVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import VideoVisualizer
 
 import cv2
 from threading import Thread

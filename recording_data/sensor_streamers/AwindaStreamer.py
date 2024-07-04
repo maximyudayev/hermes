@@ -24,8 +24,8 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.XsensSkeletonVisualizer import XsensSkeletonVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import XsensSkeletonVisualizer
 
 import socket
 import struct

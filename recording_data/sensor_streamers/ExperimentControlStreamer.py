@@ -24,7 +24,7 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
+from sensor_streamers import SensorStreamer
 
 import tkinter
 from tkinter import ttk

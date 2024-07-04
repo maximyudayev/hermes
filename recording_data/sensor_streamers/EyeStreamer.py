@@ -24,8 +24,8 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.VideoVisualizer import VideoVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import VideoVisualizer
 
 import cv2
 import numpy as np
@@ -116,10 +116,12 @@ class EyeStreamer(SensorStreamer):
     if self._stream_video_world or self._stream_video_worldGaze:
       topics.append('frame.world')
     if self._stream_video_eye:
-      topics.append('frame.eye.0')
-    self._receiver = Msg_Receiver(self._zmq_context,
-                           'tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port),
-                           topics=topics)
+      topics.append('frame.eye.')
+    
+    self._receiver = self._zmq_context.socket(zmq.SUB)
+    self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
+    for t in topics: self._receiver.subscribe(t)
+
     self._log_debug('Subscribed to eye tracking topics')
 
     # # Start gaze tracking.
@@ -305,7 +307,7 @@ class EyeStreamer(SensorStreamer):
   # The dict keys correspond to device names after the 'eye-tracking-' prefix.
   #   Each sub-dict has keys that are stream names.
   def _process_pupil_data(self):
-    topic, payload = self._receiver.recv()
+    data = self._receiver.recv_multipart()
     time_s = time.time()
     pupilCore_time_s = self._get_pupil_time()
 
@@ -318,10 +320,13 @@ class EyeStreamer(SensorStreamer):
       ('pupilCore_time_s', pupilCore_time_s)
     ]
 
+    topic = data[0].decode('utf-8')
+
     # self._log_debug('Received eye-tracking data for topic %s:' % (topic))
 
     # Process gaze/pupil data
     if topic in ['gaze.2d.0.', 'gaze.3d.0.']:
+      payload = msgpack.loads(data[1])
       pupil_data = payload['base_data'][0] # pupil detection on which the gaze detection was based (just use the first one for now if there were multiple)
       # Record data common to both 2D and 3D formats
       gaze_items = [
@@ -365,13 +370,15 @@ class EyeStreamer(SensorStreamer):
 
     # Process world video data
     elif topic == 'frame.world':
-      frame_timestamp = float(payload['timestamp'])
-      img_data = np.frombuffer(payload['__raw_data__'][0], dtype=np.uint8)
+      metadata = msgpack.loads(data[1])
+      payload = data[2]
+      frame_timestamp = float(metadata['timestamp'])
+      img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
-        img = img_data.reshape(payload['height'], payload['width'], 3)
+        img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-        img = img_data.reshape(payload['height'], payload['width'], 3)
+        img = img_data.reshape(metadata['height'], metadata['width'], 3)
       # cv2.imshow('world_frame', img)
       # cv2.waitKey(1) # waits until a key is pressed
       # print(time.time() - frame_timestamp)
@@ -411,14 +418,17 @@ class EyeStreamer(SensorStreamer):
         pass
 
     # Process eye video data
+    # TODO: add the other eye
     elif topic == 'frame.eye.0':
-      frame_timestamp = float(payload['timestamp'])
-      img_data = np.frombuffer(payload['__raw_data__'][0], dtype=np.uint8)
+      metadata = msgpack.loads(data[1])
+      payload = data[2]
+      frame_timestamp = float(metadata['timestamp'])
+      img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
-        img = img_data.reshape(payload['height'], payload['width'], 3)
+        img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-        img = img_data.reshape(payload['height'], payload['width'], 3)
+        img = img_data.reshape(metadata['height'], metadata['width'], 3)
       # cv2.imshow('eye_frame', img)
       # cv2.waitKey(10) # waits until a key is pressed
       video_eye_items = [
@@ -958,7 +968,7 @@ class EyeStreamer(SensorStreamer):
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
     ])
     
-    # Eye video
+    # Eye video TODO: the other eye
     self._data_notes['eye-tracking-video-eye']['frame_timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Core service, '
                       'which should be more precise than the system time when the data was received (the time_s field).  '
@@ -1018,11 +1028,11 @@ if __name__ == '__main__':
   
   if test_external_data_merging:
     # Final post-processed outputs
-    data_dir_toUpdate = 'P:/MIT/Lab/Wearativity/data/2022-01-28 test eye video sizes/2022-01-28_18-59-55_notes-eye - Copy'
-    hdf5_file_toUpdate = h5py.File(os.path.join(data_dir_toUpdate, '2022-01-28_19-00-01_streamLog_notes-eye.hdf5'), 'a')
+    data_dir_toUpdate = 'C:/Users/Owner/AidWear/recording_data/temp_processed'
+    hdf5_file_toUpdate = h5py.File(os.path.join(data_dir_toUpdate, 'streamLog_notes-eye.hdf5'), 'a')
     # Original streamed and external data
     data_dir_streamed = data_dir_toUpdate
-    data_dir_external_original = 'C:/Users/jdelp/recordings/test_data/005 - Copy'
+    data_dir_external_original = 'C:/Users/Owner/AidWear/recording_data/temp_raw'
     # Archives for data no longer needed
     data_dir_archived = os.path.join(data_dir_toUpdate, '_archived_data_before_postprocessing')
     os.makedirs(data_dir_archived, exist_ok=True)
@@ -1078,17 +1088,3 @@ if __name__ == '__main__':
           ]:
       num_timesteps = eye_streamer.get_num_timesteps('eye-tracking-%s' % device_name_key, stream_name)
       print('Stream %s %s: N=%d, Fs=%0.2f' % (device_name_key, stream_name, num_timesteps, (num_timesteps/duration_s)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -947,33 +947,3 @@ class SensorStreamer(ABC):
     else:
       self._log_debug('Not waiting for run thread to finish')
     self._run_thread = None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

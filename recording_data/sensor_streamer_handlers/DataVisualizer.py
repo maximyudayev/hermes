@@ -713,9 +713,7 @@ class DataVisualizer:
 if __name__ == '__main__':
 
   from sensor_streamers.NotesStreamer import NotesStreamer
-  from sensor_streamers.MyoStreamer   import MyoStreamer
   from recording_data.sensor_streamers.AwindaStreamer import AwindaStreamer
-  from sensor_streamers.TouchStreamer import TouchStreamer
   from sensor_streamers.EyeStreamer   import EyeStreamer
   from sensor_streamers.DummyStreamer   import DummyStreamer
   import time
@@ -788,12 +786,3 @@ if __name__ == '__main__':
 
   # Wait for user to close windows.
   data_visualizer.wait_while_windows_open()
-
-
-
-
-
-
-
-
-

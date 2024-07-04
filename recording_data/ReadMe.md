@@ -2,65 +2,20 @@
 A brief summary of the required software and the currently tested versions is below.  The following subsections contain more information about each one.
 
 - Python 3.9
-- Xsens MVN 2022.0.0
+- Movella DOT SDK 2023.6
 - Pupil Capture 3.5.1
 - HDFView 3.1.3 [optional but useful]
 
 ### Python
-- Install Python 3.9 such as the version available from https://www.python.org/downloads/release/python-399.
-- Add the `code` folder of this repository to the Python path.  On Windows, this can be done as follows:
-  - Search for Environment Variables from the Start menu, and select `Edit the system environment variables`
-  - Click `Environment Variables`
-  - If `PYTHONPATH` is not listed, add it via `New...`
-  - Add the full path to the `code` folder to the variable.
-  - You may need to relaunch the terminal or IDE that you were using to run the Python program.
-- Install the following packages:
-  - _For general processing:_
-  - `pip install numpy`
-  - _For reading/writing data via HDF5 files:_ 
-  - `pip install h5py` 
-  - _For handling videos/images:_
-  - `pip install opencv-python`
-  - _For handling audio:_
-  - `pip install pyaudio`
-  - `pip install wave`
-  - _For data visualization:_
-    - Visualizers can be configured to either use matplotlib or pyqtgraph.  Using pyqtgraph is faster and thus recommended:
-    - `pip install pyqtgraph` 
-    - `pip install PyQt6`
-    - `pip install PyQt5` might also be needed
-    - `pip install PyOpenGL`
-  - _For the Pupil Labs eye tracker:_
-  - `pip install msgpack`
-  - `pip install pyzmq`
-  - _For post-processing data exported from the Xsens software:_
-  - `pip install pandas`
-  - `pip install openpyxl`
-  - `pip install beautifulsoup4`
-- For reference, the versions currently used are listed below:
-  - numpy==1.19.5
-  - h5py==3.1.0
-  - opencv-python==4.5.5.62
-  - PyAudio-0.2.11-cp39-cp39-win_amd64.whl
-  - Wave==0.0.2
-  - pyqtgraph==0.12.4
-  - PyQt6==6.3.0
-  - PyOpenGL==3.1.6
-  - matplotlib==3.5.1
-  - msgpack==1.0.3
-  - pyzmq==22.3.0
-  - cffi==1.15.0
-  - pandas==1.3.5
-  - openpyxl==3.0.9
-  - beautifulsoup4==4.10.0
-  - pyserial==3.5
-  - pyusb==1.2.1
+#### Windows
+- Install Python 3.9 with Anaconda.
+- Recreate the environment by `conda create --name <env> --file environment.txt`
 
-### Xsens MVN
+### Xsens Movella DOT SDK
 
-Install `MVN Analyze` from https://www.xsens.com/software-downloads.  Version 2021.2 has been tested so far.
-
-Note that the USB dongle with our license key on it must be plugged in when the software is launched (and remain plugged in while the software is running).
+Install `DOT SDK` from https://www.xsens.com/software-downloads.  Version 2023.6 has been tested so far.
+Install the wheel file into the active Anaconda environment:
+`pip install --no-deps "C:\Program Files\Movella\DOT PC SDK 2023.6\SDK Files\Python\x64\movelladot_pc_sdk-2023.6.0-cp39-none-win_amd64.whl"`
 
 ### Pupil Capture
 

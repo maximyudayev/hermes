@@ -194,7 +194,8 @@ if __name__ == '__main__':
   # Create a sensor manager.
   sensor_manager = SensorManager(sensor_streamer_specs=sensor_streamer_specs,
                                  data_logger_options=datalogging_options,
-                                 data_visualizer_options=visualization_options,
+                                #  data_visualizer_options=visualization_options,
+                                 data_visualizer_options=None,
                                  print_status=print_status, print_debug=print_debug,
                                  log_history_filepath=log_history_filepath)
   

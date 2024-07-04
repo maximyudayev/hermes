@@ -31,7 +31,7 @@ import movelladot_pc_sdk
 from collections import defaultdict
 from threading import Lock
 from pynput import keyboard
-from recording_data.sensor_streamer_handlers.user_settings import *
+from sensor_streamer_handlers.user_settings import *
 import time
 
 waitForConnections = True
@@ -174,14 +174,14 @@ class XdpcHandler(movelladot_pc_sdk.XsDotCallback):
         if len(self.__connectedDots) == 1:
             print("Only 1 device connected, sync not needed...")
         else:
-            print(f"\nStarting sync for connected devices... Root node: {self.__connectedDots[-1].bluetoothAddress()}")
+            print(f"\nStarting sync for connected devices {' | '.join([str(device.bluetoothAddress()) for device in self.__connectedDots])} Root node: {self.__connectedDots[-1].bluetoothAddress()}")
             print("This takes at least 14 seconds")
             if not self.__manager.startSync(self.__connectedDots[-1].bluetoothAddress()):
                 print(f"Could not start sync. Reason: {self.__manager.lastResultText()}")
-                if self.__manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
-                    print("Sync could not be started. Aborting.")
-                    self.cleanup()
-                    return False
+                # if self.__manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
+                #     print("Sync could not be started. Aborting.")
+                #     self.cleanup()
+                #     return False
 
                 # If (some) devices are already in sync mode, disable sync on all devices first.
                 self.__manager.stopSync()

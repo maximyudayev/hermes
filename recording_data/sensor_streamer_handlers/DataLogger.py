@@ -923,9 +923,7 @@ class DataLogger:
 if __name__ == '__main__':
 
   from sensor_streamers.NotesStreamer      import NotesStreamer
-  from sensor_streamers.MyoStreamer        import MyoStreamer
   from recording_data.sensor_streamers.AwindaStreamer      import AwindaStreamer
-  from sensor_streamers.TouchStreamer      import TouchStreamer
   from sensor_streamers.EyeStreamer        import EyeStreamer
   from sensor_streamers.MicrophoneStreamer import MicrophoneStreamer
   import time
@@ -943,9 +941,7 @@ if __name__ == '__main__':
 
   # Create the streamers.
   notes_streamer = NotesStreamer(print_debug=print_debug, print_status=print_status)
-  myo_streamer = MyoStreamer(num_myos=2, print_debug=print_debug, print_status=print_status)
   xsens_streamer = AwindaStreamer(print_debug=print_debug, print_status=print_status)
-  touch_streamer = TouchStreamer(print_debug=print_debug, print_status=print_status)
   eye_streamer = EyeStreamer(stream_video_world=True, stream_video_worldGaze=True,
                               stream_video_eye=True,
                               print_debug=print_debug, print_status=print_status)
@@ -961,9 +957,7 @@ if __name__ == '__main__':
   #   Any combination of these options can be enabled.
   streamers = [
       notes_streamer,
-      myo_streamer,
       xsens_streamer,
-      touch_streamer,
       eye_streamer,
       microphone_streamer,
     ]
@@ -1013,5 +1007,3 @@ if __name__ == '__main__':
       if print_status: print('\nStopping streamer %d/%d of class %s' % (streamer_index+1, len(streamers), type(streamers[streamer_index]).__name__))
       streamer.stop()
   logger.stop()
-
-

@@ -24,9 +24,9 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.LinePlotVisualizer import LinePlotVisualizer
-from visualizers.HeatmapVisualizer import HeatmapVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import LinePlotVisualizer
+from visualizers import HeatmapVisualizer
 
 import numpy as np
 import time
@@ -34,7 +34,7 @@ from collections import OrderedDict
 import traceback
 
 from utils.print_utils import *
-from recording_data.sensor_streamer_handlers.xdpchandler import *
+from sensor_streamer_handlers.xdpchandler import *
 
 ################################################
 ################################################
@@ -84,7 +84,17 @@ class DotsStreamer(SensorStreamer):
     ## TODO: Initialize any state that your sensor needs.
     self._output_rate = 20
     self._device_name = 'dots-imu'
+    self._num_joints = 5
     self._packet = dict()
+    self._data_notes_stream = {
+      "dots-imu": {
+        "acceleration": None,
+        "gyroscope": None
+      },
+      "dots-time": {
+        "device_timestamp_s": None
+      }
+    }
     
     ## TODO: Add devices and streams to organize data from your sensor.
     #        Data is organized as devices and then streams.
@@ -95,32 +105,22 @@ class DotsStreamer(SensorStreamer):
                     data_type='float32',
                     sample_size=(self._num_joints, 3),     # the size of data saved for each timestep
                     sampling_rate_hz=None, # the expected sampling rate for the stream
-                    extra_data_info=extra_data_info, 
-                    # Notes can add metadata about the stream,
-                    #  such as an overall description, data units, how to interpret the data, etc.
-                    # The SensorStreamer.metadata_data_headings_key is special, and is used to
-                    #  describe the headings for each entry in a timestep's data.
-                    #  For example - if the data was saved in a spreadsheet with a row per timestep, what should the column headings be.
+                    extra_data_info=None,
                     data_notes=self._data_notes_stream['dots-imu']['acceleration'])
     self.add_stream(device_name=self._device_name,
                     stream_name='gyroscope',
                     data_type='float32',
                     sample_size=(self._num_joints, 3),
                     sampling_rate_hz=None,
-                    extra_data_info=extra_data_info, 
+                    extra_data_info=None, 
                     data_notes=self._data_notes_stream['dots-imu']['gyroscope'])
-    # Time codes sent from the Xsens device
-    if message_type == self._xsens_msg_types['time_code_str']:
-      extra_data_info_time = extra_data_info.copy()
-      extra_data_info_time['device_time_utc_str']  = {'data_type': 'S12', 'sample_size': [1]}
-      extra_data_info_time['device_timestamp_str'] = {'data_type': 'S26', 'sample_size': [1]}
-      self.add_stream(device_name=self._device_name,
-                      stream_name='timestamp',
-                      data_type='float64',
-                      sample_size=(1),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info_time,
-                      data_notes=self._data_notes_stream['xsens-time']['device_timestamp_s'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='timestamp',
+                    data_type='float64',
+                    sample_size=(1),
+                    sampling_rate_hz=None,
+                    extra_data_info=None,
+                    data_notes=self._data_notes_stream['dots-time']['device_timestamp_s'])
 
   #######################################
   # Connect to the sensor.
@@ -186,10 +186,10 @@ class DotsStreamer(SensorStreamer):
   def _run(self):
     try:
       # Set dots to streaming mode
-      self._manager.stream()
+      self.xdpcHandler.stream()
       while self._running:
         if self.xdpcHandler.packetsAvailable():
-          time_s = datetime.now()
+          time_s = time.time()
           for device in self.xdpcHandler.connectedDots():
             # Retrieve a packet
             packet = self.xdpcHandler.getNextPacket(device.portInfo().bluetoothAddress())
@@ -289,10 +289,10 @@ class DotsStreamer(SensorStreamer):
 if __name__ == '__main__':
   # Configuration.
   duration_s = 30
-  
+  print('\nStarting debugging')
   # Connect to the device(s).
-  dots_streamer = DotsStreamer(print_status=True, print_debug=False)
-  dots_streamer.connect()
+  dots_streamer = DotsStreamer(print_status=True, print_debug=True)
+  dots_streamer.connect(20)
   
   # Run for the specified duration and periodically print the sample rate.
   print('\nRunning for %gs!' % duration_s)

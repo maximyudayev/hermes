@@ -24,9 +24,9 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.LinePlotVisualizer import LinePlotVisualizer
-from visualizers.HeatmapVisualizer import HeatmapVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import LinePlotVisualizer
+from visualizers import HeatmapVisualizer
 
 import socket
 import numpy as np

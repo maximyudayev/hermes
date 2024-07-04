@@ -24,8 +24,8 @@
 #
 ############
 
-from sensor_streamers.SensorStreamer import SensorStreamer
-from visualizers.LinePlotVisualizer import LinePlotVisualizer
+from sensor_streamers import SensorStreamer
+from visualizers import LinePlotVisualizer
 
 import pyaudio
 import wave

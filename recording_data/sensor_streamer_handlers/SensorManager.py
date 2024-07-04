@@ -563,7 +563,3 @@ if __name__ == '__main__':
   sensor_manager.connect()
   sensor_manager.run(duration_s=3)
   sensor_manager.stop()
-
-
-
-
