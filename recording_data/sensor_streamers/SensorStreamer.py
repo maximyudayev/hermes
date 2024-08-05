@@ -477,14 +477,12 @@ class SensorStreamer(ABC):
         except KeyError: # legacy log that didn't have this metadata yet
           if 'experiment-notes' in device_name:
             streamer_class_name = 'NotesStreamer'
-          elif 'myo' in device_name:
-            streamer_class_name = 'MyoStreamer'
           elif 'eye-tracking' in device_name:
             streamer_class_name = 'EyeStreamer'
-          elif 'glove' in device_name:
-            streamer_class_name = 'TouchStreamer'
-          elif 'xsens' in device_name:
-            streamer_class_name = 'XsensStreamer'
+          elif 'dots' in device_name:
+            streamer_class_name = 'DotsStreamer'
+          elif 'awinda' in device_name:
+            streamer_class_name = 'AwindaStreamer'
           else:
             raise AssertionError('Unknown streamer type in HDF5 file')
         if streamer_class_name == type(self).__name__:

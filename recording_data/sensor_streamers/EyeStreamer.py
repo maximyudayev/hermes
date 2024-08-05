@@ -58,7 +58,7 @@ class EyeStreamer(SensorStreamer):
 
   def __init__(self, streams_info=None,
                 log_player_options=None, visualization_options=None,
-                stream_video_world=True, stream_video_worldGaze=True, stream_video_eye=True,
+                stream_video_world=True, stream_video_worldGaze=True, stream_video_eye=True, is_binocular=True,
                 print_status=True, print_debug=False, log_history_filepath=None):
     SensorStreamer.__init__(self, streams_info,
                               log_player_options=log_player_options,
@@ -67,7 +67,7 @@ class EyeStreamer(SensorStreamer):
                               log_history_filepath=log_history_filepath)
 
     self._log_source_tag = 'eye'
-    
+
     # Run this streamer on the main process, since otherwise it seems like
     #   RAM usage continues to grow even if the videos are periodically saved
     #   to disk and the data buffers are correspondingly cleared.
@@ -75,10 +75,11 @@ class EyeStreamer(SensorStreamer):
     #   get_data() caused delays and incurred missed frames due to the time taken
     #   to transfer the large data between processes.
     self._always_run_in_main_process = True
-    
+
     self._stream_video_world = stream_video_world
     self._stream_video_worldGaze = stream_video_worldGaze
     self._stream_video_eye = stream_video_eye
+    self._is_binocular = is_binocular
     self._pupil_capture_ip = 'localhost'
     self._pupil_capture_port = 50020
     self._video_image_format = 'bgr' # jpeg or bgr
@@ -107,30 +108,22 @@ class EyeStreamer(SensorStreamer):
     except:
       self._log_error('ERROR: Eye tracking could not connect; is Pupil Capture running and streaming over the network at %s:%d?' % (self._pupil_capture_ip, self._pupil_capture_port))
       return False
-    
+
     # Sync the Pupil Core clock with the system clock.
     self._sync_pupil_time()
-    
+
     # Subscribe to the desired topics.
-    topics = ['notify.', 'gaze.3d.'] # 'logging.' # Note that the logging.debug topic will generate a message whenever the pupil time is requested, leading to ~3kHz messages since we request the time whenever a message is received
+    topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')] # 'logging.' # Note that the logging.debug topic will generate a message whenever the pupil time is requested, leading to ~3kHz messages since we request the time whenever a message is received
     if self._stream_video_world or self._stream_video_worldGaze:
       topics.append('frame.world')
     if self._stream_video_eye:
       topics.append('frame.eye.')
-    
+
     self._receiver = self._zmq_context.socket(zmq.SUB)
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in topics: self._receiver.subscribe(t)
 
     self._log_debug('Subscribed to eye tracking topics')
-
-    # # Start gaze tracking.
-    # if self._print_debug: print('Starting pupil services')
-    # self._send_pupil_request_dict({'subject': 'eye_process.should_start.0', 'eye_id': 0, 'args': {}})
-    # # Activate frame publishing.
-    # if self._stream_video_world or self._stream_video_worldGaze:
-    #   self._send_pupil_request_dict({'subject': 'stop_plugin',  'name': 'Frame_Publisher', 'args': {}})
-    #   self._send_pupil_request_dict({'subject': 'start_plugin', 'name': 'Frame_Publisher', 'args': {'format': self._video_image_format}})
 
     # Get some sample data to determine what gaze/pupil streams are present.
     # Will validate that all expected streams are present, and will also
@@ -145,32 +138,37 @@ class EyeStreamer(SensorStreamer):
     gaze_data = None
     pupil_data = None
     video_world_data = None
-    video_eye_data = None
+    video_eye0_data = None
+    video_eye1_data = None
     wait_start_time_s = time.time()
     wait_timeout_s = 5
     while (gaze_data is None
             or pupil_data is None
             or (video_world_data is None and self._stream_video_world)
             or (video_world_data is None and self._stream_video_worldGaze) # see above note - gaze data is not stored yet, so video_worldGaze won't be created yet, but can check if the world is streamed at least
-            or (video_eye_data is None and self._stream_video_eye)) \
+            or (video_eye0_data is None and self._stream_video_eye)
+            or (video_eye1_data is None and self._stream_video_eye and self._is_binocular)) \
           and (time.time() - wait_start_time_s < wait_timeout_s):
       time_s, data = self._process_pupil_data()
       gaze_data = gaze_data or data['gaze']
       pupil_data = pupil_data or data['pupil']
       video_world_data = video_world_data or data['video-world']
-      video_eye_data = video_eye_data or data['video-eye']
+      video_eye0_data = video_eye0_data or data['video-eye0']
+      video_eye1_data = video_eye1_data or data['video-eye1']
     if (time.time() - wait_start_time_s >= wait_timeout_s):
       msg = 'ERROR: Eye tracking did not detect all expected streams as active'
       msg+= '\n Gaze  data  is streaming? %s' % (gaze_data is not None)
       msg+= '\n Pupil data  is streaming? %s' % (pupil_data is not None)
       msg+= '\n Video world is streaming? %s' % (video_world_data is not None)
-      msg+= '\n Video eye   is streaming? %s' % (video_eye_data is not None)
+      msg+= '\n Video eye0   is streaming? %s' % (video_eye0_data is not None)
+      msg+= '\n Video eye1   is streaming? %s' % (video_eye1_data is not None)
       self._log_error(msg)
       raise AssertionError(msg)
 
     # Estimate the video frame rates
     fps_video_world = None
-    fps_video_eye = None
+    fps_video_eye0 = None
+    fps_video_eye1 = None
     def get_fps(data_key, duration_s=0.1):
       self._log_status('Estimating the eye-tracking frame rate for %s... ' % data_key, end='')
       # Wait for a new data entry, so we start timing close to a frame boundary.
@@ -191,14 +189,15 @@ class EyeStreamer(SensorStreamer):
     if self._stream_video_world or self._stream_video_worldGaze:
       fps_video_world = get_fps('video-world')
     if self._stream_video_eye:
-      fps_video_eye = get_fps('video-eye')
+      fps_video_eye0 = get_fps('video-eye0')
+      fps_video_eye1 = get_fps('video-eye1') if self._is_binocular else None
 
     # Restore the desired stream world setting, now that world-gaze data has been obtained if needed.
     self._stream_video_world = stream_video_world_original
-    
+
     # Define data notes that will be associated with streams created below.
     self._define_data_notes()
-    
+
     # Create a stream for the Pupil Core time, to help evaluate drift and offsets.
     # Note that core time is included with each other stream as well,
     #  but include a dedicated one too just in case there are delays in sending
@@ -231,6 +230,10 @@ class EyeStreamer(SensorStreamer):
                         data_type='float64', sample_size=(1),
                         sampling_rate_hz=fps_video_world, extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-world']['frame_timestamp'])
+      self.add_stream(device_name='eye-tracking-video-world', stream_name='frame_index',
+                        data_type='uint64', sample_size=(1),
+                        sampling_rate_hz=fps_video_world, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-world']['frame_index'])
       self.add_stream(device_name='eye-tracking-video-world', stream_name='frame',
                         data_type='uint8', sample_size=(video_world_data['frame'].shape),
                         sampling_rate_hz=fps_video_world, extra_data_info=None,
@@ -241,20 +244,42 @@ class EyeStreamer(SensorStreamer):
                         data_type='float64', sample_size=(1),
                         sampling_rate_hz=fps_video_world, extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame_timestamp'])
+      self.add_stream(device_name='eye-tracking-video-worldGaze', stream_name='frame_index',
+                        data_type='uint64', sample_size=(1),
+                        sampling_rate_hz=fps_video_world, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame_index'])
       self.add_stream(device_name='eye-tracking-video-worldGaze', stream_name='frame',
                         data_type='uint8', sample_size=(video_world_data['frame'].shape),
                         sampling_rate_hz=fps_video_world, extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame'],
                         is_video=True)
     if self._stream_video_eye:
-      self.add_stream(device_name='eye-tracking-video-eye', stream_name='frame_timestamp',
+      self.add_stream(device_name='eye-tracking-video-eye0', stream_name='frame_timestamp',
                         data_type='float64', sample_size=(1),
-                        sampling_rate_hz=fps_video_eye, extra_data_info=None,
-                        data_notes=self._data_notes['eye-tracking-video-eye']['frame_timestamp'])
-      self.add_stream(device_name='eye-tracking-video-eye', stream_name='frame',
-                        data_type='uint8', sample_size=(video_eye_data['frame'].shape),
-                        sampling_rate_hz=fps_video_eye, extra_data_info=None,
-                        data_notes=self._data_notes['eye-tracking-video-eye']['frame'],
+                        sampling_rate_hz=fps_video_eye0, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye0']['frame_timestamp'])
+      self.add_stream(device_name='eye-tracking-video-eye0', stream_name='frame_index',
+                        data_type='uint64', sample_size=(1),
+                        sampling_rate_hz=fps_video_eye0, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye0']['frame_index'])
+      self.add_stream(device_name='eye-tracking-video-eye0', stream_name='frame',
+                        data_type='uint8', sample_size=(video_eye0_data['frame'].shape),
+                        sampling_rate_hz=fps_video_eye0, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye0']['frame'],
+                        is_video=True)
+      if self._is_binocular:
+        self.add_stream(device_name='eye-tracking-video-eye1', stream_name='frame_timestamp',
+                        data_type='float64', sample_size=(1),
+                        sampling_rate_hz=fps_video_eye1, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye1']['frame_timestamp'])
+        self.add_stream(device_name='eye-tracking-video-eye1', stream_name='frame_index',
+                        data_type='uint64', sample_size=(1),
+                        sampling_rate_hz=fps_video_eye1, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye1']['frame_index'])
+        self.add_stream(device_name='eye-tracking-video-eye1', stream_name='frame',
+                        data_type='uint8', sample_size=(video_eye1_data['frame'].shape),
+                        sampling_rate_hz=fps_video_eye1, extra_data_info=None,
+                        data_notes=self._data_notes['eye-tracking-video-eye1']['frame'],
                         is_video=True)
 
     self._log_status('Started eye tracking streamer')
@@ -322,12 +347,11 @@ class EyeStreamer(SensorStreamer):
 
     topic = data[0].decode('utf-8')
 
-    # self._log_debug('Received eye-tracking data for topic %s:' % (topic))
-
     # Process gaze/pupil data
-    if topic in ['gaze.2d.0.', 'gaze.3d.0.']:
+    # Note it works for both, mono- and binocular gaze data
+    if topic in ['gaze.2d.0.', 'gaze.3d.0.','gaze.2d.01.', 'gaze.3d.01.']: # former two - monocular, latter two - binocular 
       payload = msgpack.loads(data[1])
-      pupil_data = payload['base_data'][0] # pupil detection on which the gaze detection was based (just use the first one for now if there were multiple)
+      pupil_data = payload['base_data'] # pupil detection on which the gaze detection was based (just use the first one for now if there were multiple)
       # Record data common to both 2D and 3D formats
       gaze_items = [
         ('timestamp'  , payload['timestamp']),  # seconds from an arbitrary reference time, but should be synced with the video timestamps
@@ -335,37 +359,37 @@ class EyeStreamer(SensorStreamer):
         ('confidence' , payload['confidence']), # gaze confidence [0-1]
       ]
       pupil_items = [
-        ('timestamp'  , pupil_data['timestamp']),  # seconds from an arbitrary reference time, but should be synced with the video timestamps
-        ('position'   , pupil_data['norm_pos']),   # normalized units [0-1]
-        ('confidence' , pupil_data['confidence']), # [0-1]
-        ('diameter'   , pupil_data['diameter']),   # 2D image space, unit: pixel
+        ('timestamp'  , [pupil['timestamp'] for pupil in pupil_data]),  # seconds from an arbitrary reference time, but should be synced with the video timestamps
+        ('position'   , [pupil['norm_pos'] for pupil in pupil_data]),   # normalized units [0-1]
+        ('confidence' , [pupil['confidence'] for pupil in pupil_data]), # [0-1]
+        ('diameter'   , [pupil['diameter'] for pupil in pupil_data]),   # 2D image space, unit: pixel
       ]
       # Add extra data available for 3D formats
-      if topic == 'gaze.3d.0.':
+      if topic in ['gaze.3d.0.', 'gaze.3d.01.']:
         gaze_items.extend([
-          ('normal_3d' , payload['gaze_normal_3d']),    # x,y,z
+          ('normal_3d' , list(payload['gaze_normal%s_3d' % ('s' if self._is_binocular else '')].values())),    # [(x,y,z),]
           ('point_3d'  , payload['gaze_point_3d']),     # x,y,z
-          ('eye_center_3d' , payload['eye_center_3d']), # x,y,z
+          ('eye_center_3d' , list(payload['eye_center%s_3d' % ('s' if self._is_binocular else '')].values())), # [(x,y,z),]
         ])
         pupil_items.extend([
-          ('polar_theta' , pupil_data['theta']),
-          ('polar_phi'   , pupil_data['phi']),
-          ('circle3d_radius' , pupil_data['circle_3d']['radius']), # mm in 3D space
-          ('circle3d_center' , pupil_data['circle_3d']['center']), # mm in 3D space
-          ('circle3d_normal' , pupil_data['circle_3d']['normal']), # mm in 3D space
-          ('diameter3d'      , pupil_data['diameter_3d']), # mm in 3D space
-          ('sphere_center' , pupil_data['sphere']['center']), # mm in 3D space
-          ('sphere_radius' , pupil_data['sphere']['radius']), # mm in 3D space
-          ('projected_sphere_center' , pupil_data['projected_sphere']['center']), # pixels in image space
-          ('projected_sphere_axes'   , pupil_data['projected_sphere']['axes']),   # pixels in image space
-          ('projected_sphere_angle'  , pupil_data['projected_sphere']['angle']),
+          ('polar_theta' , [pupil['theta'] for pupil in pupil_data]),
+          ('polar_phi'   , [pupil['phi'] for pupil in pupil_data]),
+          ('circle3d_radius' , [pupil['circle_3d']['radius'] for pupil in pupil_data]), # mm in 3D space
+          ('circle3d_center' , [pupil['circle_3d']['center'] for pupil in pupil_data]), # mm in 3D space
+          ('circle3d_normal' , [pupil['circle_3d']['normal'] for pupil in pupil_data]), # mm in 3D space
+          ('diameter3d'      , [pupil['diameter_3d'] for pupil in pupil_data]), # mm in 3D space
+          ('sphere_center' , [pupil['sphere']['center'] for pupil in pupil_data]), # mm in 3D space
+          ('sphere_radius' , [pupil['sphere']['radius'] for pupil in pupil_data]), # mm in 3D space
+          ('projected_sphere_center' , [pupil['projected_sphere']['center'] for pupil in pupil_data]), # pixels in image space
+          ('projected_sphere_axes'   , [pupil['projected_sphere']['axes'] for pupil in pupil_data]),   # pixels in image space
+          ('projected_sphere_angle'  , [pupil['projected_sphere']['angle'] for pupil in pupil_data]),
         ])
       # Add extra data available for 2D formats
       else:
         pupil_items.extend([
-          ('ellipse_center'   , pupil_data['ellipse']['center']), # pixels, in image space
-          ('ellipse_axes'     , pupil_data['ellipse']['axes']),   # pixels, in image space
-          ('ellipse_angle_deg', pupil_data['ellipse']['angle']),  # degrees
+          ('ellipse_center'   , [pupil['ellipse']['center'] for pupil in pupil_data]), # pixels, in image space
+          ('ellipse_axes'     , [pupil['ellipse']['axes'] for pupil in pupil_data]),   # pixels, in image space
+          ('ellipse_angle_deg', [pupil['ellipse']['angle'] for pupil in pupil_data]),  # degrees
         ])
 
     # Process world video data
@@ -379,19 +403,18 @@ class EyeStreamer(SensorStreamer):
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
-      # cv2.imshow('world_frame', img)
-      # cv2.waitKey(1) # waits until a key is pressed
-      # print(time.time() - frame_timestamp)
+
       if self._stream_video_world: # we might be here because we want 'worldGaze' and not 'world'
         video_world_items = [
           ('frame_timestamp', frame_timestamp),
+          ('frame_index', metadata['index']), # world view frame index used for annotation
           ('frame', img),
         ]
 
       # Synthesize a stream with the gaze superimposed on the world video.
       try:
         world_img = img
-        gaze_norm_pos = self._data['eye-tracking-gaze']['position']['data'][-1]
+        gaze_norm_pos = self._data['eye-tracking-gaze']['position']['data'][-1] # self._data is never assigned
         gaze_timestamp = self._data['eye-tracking-gaze']['timestamp']['data'][-1]
         world_gaze_time_diff_s = frame_timestamp - gaze_timestamp
         gaze_radius = 10
@@ -406,10 +429,9 @@ class EyeStreamer(SensorStreamer):
         gaze_norm_pos = tuple((gaze_norm_pos * [world_with_gaze.shape[1], world_with_gaze.shape[0]]).astype(int))
         cv2.circle(world_with_gaze, gaze_norm_pos, gaze_radius, gaze_color_outer, -1, lineType=cv2.LINE_AA)
         cv2.circle(world_with_gaze, gaze_norm_pos, round(gaze_radius*0.7), gaze_color_inner, -1, lineType=cv2.LINE_AA)
-        # cv2.imshow('world_frame_with_gaze', world_with_gaze)
-        # cv2.waitKey(10) # waits until a key is pressed
         video_worldGaze_items = [
-          ('frame_timestamp', frame_timestamp),
+          ('frame_timestamp', frame_timestamp), 
+          ('frame_index', metadata['index']), # world view frame index used for annotation
           ('frame', world_with_gaze),
         ]
       except KeyError: # Streams haven't been configured yet
@@ -418,8 +440,7 @@ class EyeStreamer(SensorStreamer):
         pass
 
     # Process eye video data
-    # TODO: add the other eye
-    elif topic == 'frame.eye.0':
+    elif topic in ['frame.eye.0', 'frame.eye.1']:
       metadata = msgpack.loads(data[1])
       payload = data[2]
       frame_timestamp = float(metadata['timestamp'])
@@ -429,24 +450,24 @@ class EyeStreamer(SensorStreamer):
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
-      # cv2.imshow('eye_frame', img)
-      # cv2.waitKey(10) # waits until a key is pressed
       video_eye_items = [
         ('frame_timestamp', frame_timestamp),
-        ('frame', img),
+        ('frame_index', metadata['index']), # world view frame index used for annotation
+        ('frame', img)
       ]
+      eye_id = int(topic.split('.')[2])
 
     # Create a data dictionary.
     # The keys should correspond to device names after the 'eye-tracking-' prefix.
     data = OrderedDict([
-      ('gaze',  OrderedDict(gaze_items)  if gaze_items  is not None else None),
+      ('gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
       ('pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
       ('video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
       ('video-worldGaze', OrderedDict(video_worldGaze_items) if video_worldGaze_items is not None else None),
-      ('video-eye', OrderedDict(video_eye_items) if video_eye_items is not None else None),
+      ('video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
+      ('video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
       ('time', OrderedDict(time_items) if time_items is not None else None),
     ])
-    # self._log_debug(get_dict_str(data))
     
     return time_s, data
 
@@ -457,7 +478,7 @@ class EyeStreamer(SensorStreamer):
       if streams_data is not None:
         for (stream_name, data) in streams_data.items():
           self.append_data(device_name, stream_name, time_s, data)
-  
+
   # Get the time of the Pupil Core clock.
   # Data exported from the Pupil Capture software uses timestamps
   #  that are relative to a random epoch time.
@@ -494,7 +515,7 @@ class EyeStreamer(SensorStreamer):
       self._log_warn('WARNING: Pupil Core clock sync may not have been successful. Offset is still %0.3f ms.' % clock_offset_ms)
       return False
     return True
-  
+
   # Measure the offset between the Pupil Core clock (relative to a random epoch)
   #  and the system clock (relative to the standard epoch).
   # See the following for more information:
@@ -528,7 +549,7 @@ class EyeStreamer(SensorStreamer):
   # Whether recording via the sensor's dedicated software will require user action.
   def external_data_recording_requires_user(self):
     return False
-  
+
   # Start the Pupil Capture software recording functionality.
   def start_external_data_recording(self, recording_dir):
     recording_dir = os.path.join(recording_dir, 'pupil_capture')
@@ -540,7 +561,7 @@ class EyeStreamer(SensorStreamer):
   def stop_external_data_recording(self):
     self._send_to_pupilCapture('r')
     self._log_status('Stopped Pupil Capture recording')
-  
+
   # Update a streamed data log with data recorded from Pupil Capture.
   def merge_external_data_with_streamed_data(self,
                                               # Final post-processed outputs
@@ -552,12 +573,12 @@ class EyeStreamer(SensorStreamer):
                                               # Archives for data no longer needed
                                               data_dir_archived,
                                               hdf5_file_archived):
-  
+
     self._log_status('EyeStreamer merging streamed data with Pupil Capture data')
     self._define_data_notes()
     # Will save some state that will be useful later for creating a world-gaze video.
     world_video_filepath = None
-    
+
     # Find the Pupil Capture recording subfolder within the main external data folder.
     # Use the most recent Pupil Capture subfolder in case the folder was used more than once.
     #   Pupil Capture will always create a folder named 000, 001, etc.
@@ -569,12 +590,13 @@ class EyeStreamer(SensorStreamer):
       return
     recent_subdir = sorted(numeric_subdirs)[-1]
     data_dir_external_original = os.path.join(data_dir_external_original, recent_subdir)
-    
+
     # Move files and deal with HDF5 timestamps.
     video_device_names = [
       'eye-tracking-video-world',
       'eye-tracking-video-worldGaze',
-      'eye-tracking-video-eye',
+      'eye-tracking-video-eye0',
+      'eye-tracking-video-eye1',
     ]
     for video_device_name in video_device_names:
       # Move the streamed video to the archive folder.
@@ -766,13 +788,14 @@ class EyeStreamer(SensorStreamer):
   ###########################
 
   # Specify how the streams should be visualized.
-  # visualization_options can have entries for 'video-worldGaze', 'video-eye', and 'video-world'.
+  # visualization_options can have entries for 'video-worldGaze', 'video-eyeX', and 'video-world'.
   def get_default_visualization_options(self, visualization_options=None):
     # Specify default options.
     processed_options = {
       'eye-tracking-video-worldGaze': {'frame': {'class': VideoVisualizer}},
       'eye-tracking-video-world':     {'frame': {'class': None}},
-      'eye-tracking-video-eye':       {'frame': {'class': None}},
+      'eye-tracking-video-eye0':      {'frame': {'class': None}},
+      'eye-tracking-video-eye1':      {'frame': {'class': None}},
     }
     # Override with any provided options.
     if isinstance(visualization_options, dict):
@@ -782,9 +805,12 @@ class EyeStreamer(SensorStreamer):
       if 'video-world' in visualization_options:
         for (k, v) in visualization_options['video-world'].items():
           processed_options['eye-tracking-video-world'][k] = v
-      if 'video-eye' in visualization_options:
-        for (k, v) in visualization_options['video-eye'].items():
-          processed_options['eye-tracking-video-eye'][k] = v
+      if 'video-eye0' in visualization_options:
+        for (k, v) in visualization_options['video-eye0'].items():
+          processed_options['eye-tracking-video-eye0'][k] = v
+      if 'video-eye1' in visualization_options:
+        for (k, v) in visualization_options['video-eye1'].items():
+          processed_options['eye-tracking-video-eye1'][k] = v
 
     # Add default options for all other devices/streams.
     for (device_name, device_info) in self._streams_info.items():
@@ -809,7 +835,8 @@ class EyeStreamer(SensorStreamer):
     video_device_names = [
       'eye-tracking-video-world',
       'eye-tracking-video-worldGaze',
-      'eye-tracking-video-eye'
+      'eye-tracking-video-eye0',
+      'eye-tracking-video-eye1'
       ]
     # Check all video files in the log directory.
     for file in os.listdir(self._log_player_options['log_dir']):
@@ -837,129 +864,130 @@ class EyeStreamer(SensorStreamer):
     self._data_notes.setdefault('eye-tracking-gaze', {})
     self._data_notes.setdefault('eye-tracking-pupil', {})
     self._data_notes.setdefault('eye-tracking-time', {})
-    self._data_notes.setdefault('eye-tracking-video-eye', {})
+    self._data_notes.setdefault('eye-tracking-video-eye0', {})
+    self._data_notes.setdefault('eye-tracking-video-eye1', {})
     self._data_notes.setdefault('eye-tracking-video-world', {})
     self._data_notes.setdefault('eye-tracking-video-worldGaze', {})
-    
+
     # Gaze data
     self._data_notes['eye-tracking-gaze']['confidence'] = OrderedDict([
       ('Range', '[0, 1]'),
       ('Description', 'Confidence of the gaze detection'),
-      ('PupilCapture key', 'gaze.Xd.0 > confidence'),
+      ('PupilCapture key', 'gaze.Xd. > confidence'),
     ])
     self._data_notes['eye-tracking-gaze']['eye_center_3d'] = OrderedDict([
       ('Units', 'mm'),
       ('Notes', 'Maps pupil positions into the world camera coordinate system'),
       (SensorStreamer.metadata_data_headings_key, ['x','y','z']),
-      ('PupilCapture key', 'gaze.Xd.0 > eye_center_3d'),
+      ('PupilCapture key', 'gaze.3d. > eye_center_3d'),
     ])
     self._data_notes['eye-tracking-gaze']['normal_3d'] = OrderedDict([
       ('Units', 'mm'),
       ('Notes', 'Maps pupil positions into the world camera coordinate system'),
       (SensorStreamer.metadata_data_headings_key, ['x','y','z']),
-      ('PupilCapture key', 'gaze.3d.0 > gaze_normal_3d'),
+      ('PupilCapture key', 'gaze.3d. > gaze_normal_3d'),
     ])
     self._data_notes['eye-tracking-gaze']['point_3d'] = OrderedDict([
       ('Units', 'mm'),
       ('Notes', 'Maps pupil positions into the world camera coordinate system'),
       (SensorStreamer.metadata_data_headings_key, ['x','y','z']),
-      ('PupilCapture key', 'gaze.3d.0 > gaze_point_3d'),
+      ('PupilCapture key', 'gaze.3d. > gaze_point_3d'),
     ])
     self._data_notes['eye-tracking-gaze']['position'] = OrderedDict([
       ('Description', 'The normalized gaze position in image space, corresponding to the world camera image'),
       ('Units', 'normalized between [0, 1]'),
       ('Origin', 'bottom left'),
       (SensorStreamer.metadata_data_headings_key, ['x','y']),
-      ('PupilCapture key', 'gaze.Xd.0 > norm_pos'),
+      ('PupilCapture key', 'gaze.Xd. > norm_pos'),
     ])
     self._data_notes['eye-tracking-gaze']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
                       'which should be more precise than the system time when the data was received (the time_s field).  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
-      ('PupilCapture key', 'gaze.Xd.0 > timestamp'),
+      ('PupilCapture key', 'gaze.Xd. > timestamp'),
     ])
-    
+
     # Pupil data
     self._data_notes['eye-tracking-pupil']['confidence'] = OrderedDict([
       ('Range', '[0, 1]'),
       ('Description', 'Confidence of the pupil detection'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > confidence'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > confidence'),
     ])
     self._data_notes['eye-tracking-pupil']['circle3d_center'] = OrderedDict([
       ('Units', 'mm'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > circle_3d > center'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > circle_3d > center'),
     ])
     self._data_notes['eye-tracking-pupil']['circle3d_normal'] = OrderedDict([
       ('Units', 'mm'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > circle_3d > normal'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > circle_3d > normal'),
     ])
     self._data_notes['eye-tracking-pupil']['circle3d_radius'] = OrderedDict([
       ('Units', 'mm'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > circle_3d > radius'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > circle_3d > radius'),
     ])
     self._data_notes['eye-tracking-pupil']['diameter'] = OrderedDict([
       ('Units', 'pixels'),
       ('Notes', 'The estimated pupil diameter in image space, corresponding to the eye camera image'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > diameter'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > diameter'),
     ])
     self._data_notes['eye-tracking-pupil']['diameter3d'] = OrderedDict([
       ('Units', 'mm'),
       ('Notes', 'The estimated pupil diameter in 3D space'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > diameter_3d'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > diameter_3d'),
     ])
     self._data_notes['eye-tracking-pupil']['polar_phi'] = OrderedDict([
       ('Notes', 'Pupil polar coordinate on 3D eye model. The model assumes a fixed eye ball size, so there is no radius key.'),
       ('See also', 'polar_theta is the other polar coordinate'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > phi'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > phi'),
     ])
     self._data_notes['eye-tracking-pupil']['polar_theta'] = OrderedDict([
       ('Notes', 'Pupil polar coordinate on 3D eye model. The model assumes a fixed eye ball size, so there is no radius key.'),
       ('See also', 'polar_phi is the other polar coordinate'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > theta'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > theta'),
     ])
     self._data_notes['eye-tracking-pupil']['position'] = OrderedDict([
       ('Description', 'The normalized pupil position in image space, corresponding to the eye camera image'),
       ('Units', 'normalized between [0, 1]'),
       ('Origin', 'bottom left'),
       (SensorStreamer.metadata_data_headings_key, ['x','y']),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > norm_pos'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > norm_pos'),
     ])
     self._data_notes['eye-tracking-pupil']['projected_sphere_angle'] = OrderedDict([
       ('Description', 'Projection of the 3D eye ball sphere into image space corresponding to the eye camera image'),
       ('Units', 'degrees'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > projected_sphere > angle'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > projected_sphere > angle'),
     ])
     self._data_notes['eye-tracking-pupil']['projected_sphere_axes'] = OrderedDict([
       ('Description', 'Projection of the 3D eye ball sphere into image space corresponding to the eye camera image'),
       ('Units', 'pixels'),
       ('Origin', 'bottom left'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > projected_sphere > axes'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > projected_sphere > axes'),
     ])
     self._data_notes['eye-tracking-pupil']['projected_sphere_center'] = OrderedDict([
       ('Description', 'Projection of the 3D eye ball sphere into image space corresponding to the eye camera image'),
       ('Units', 'pixels'),
       ('Origin', 'bottom left'),
       (SensorStreamer.metadata_data_headings_key, ['x','y']),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > projected_sphere > center'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > projected_sphere > center'),
     ])
     self._data_notes['eye-tracking-pupil']['sphere_center'] = OrderedDict([
       ('Description', 'The 3D eye ball sphere'),
       ('Units', 'mm'),
       (SensorStreamer.metadata_data_headings_key, ['x','y','z']),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > sphere > center'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > sphere > center'),
     ])
     self._data_notes['eye-tracking-pupil']['sphere_radius'] = OrderedDict([
       ('Description', 'The 3D eye ball sphere'),
       ('Units', 'mm'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > sphere > radius'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > sphere > radius'),
     ])
     self._data_notes['eye-tracking-pupil']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
                       'which should be more precise than the system time when the data was received (the time_s field).  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
-      ('PupilCapture key', 'gaze.Xd.0 > base_data > timestamp'),
+      ('PupilCapture key', 'gaze.Xd. > base_data > timestamp'),
     ])
-    
+
     # Time
     self._data_notes['eye-tracking-time']['pupilCore_time_s'] = OrderedDict([
       ('Description', 'The timestamp fetched from the Pupil Core service, which can be used for alignment to system time in time_s.  '
@@ -967,21 +995,30 @@ class EyeStreamer(SensorStreamer):
                       'so a slight communication delay is included on the order of milliseconds.  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
     ])
-    
-    # Eye video TODO: the other eye
-    self._data_notes['eye-tracking-video-eye']['frame_timestamp'] = OrderedDict([
-      ('Description', 'The timestamp recorded by the Pupil Core service, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
-                      'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
-    ])
-    self._data_notes['eye-tracking-video-eye']['frame'] = OrderedDict([
-      ('Format', 'Frames are in BGR format'),
-    ])
+
+    # Eye videos
+    for i in range(2):
+      self._data_notes['eye-tracking-video-eye%s' % i]['frame_timestamp'] = OrderedDict([
+        ('Description', 'The timestamp recorded by the Pupil Core service, '
+                        'which should be more precise than the system time when the data was received (the time_s field).  '
+                        'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
+      ])
+      self._data_notes['eye-tracking-video-eye%s' % i]['frame_index'] = OrderedDict([
+        ('Description', 'The frame index recorded by the Pupil Core service, '
+                        'which relates to world frame used for annotation'),
+      ])
+      self._data_notes['eye-tracking-video-eye%s' % i]['frame'] = OrderedDict([
+        ('Format', 'Frames are in BGR format'),
+      ])
     # World video
     self._data_notes['eye-tracking-video-world']['frame_timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Core service, '
                       'which should be more precise than the system time when the data was received (the time_s field).  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
+    ])
+    self._data_notes['eye-tracking-video-world']['frame_index'] = OrderedDict([
+      ('Description', 'The frame index recorded by the Pupil Core service, '
+                      'which relates to world frame used for annotation'),
     ])
     self._data_notes['eye-tracking-video-world']['frame'] = OrderedDict([
       ('Format', 'Frames are in BGR format'),
@@ -992,6 +1029,10 @@ class EyeStreamer(SensorStreamer):
                       'which should be more precise than the system time when the data was received (the time_s field).  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
     ])
+    self._data_notes['eye-tracking-video-worldGaze']['frame_index'] = OrderedDict([
+      ('Description', 'The frame index recorded by the Pupil Core service, '
+                      'which relates to world frame used for annotation'),
+    ])
     self._data_notes['eye-tracking-video-worldGaze']['frame'] = OrderedDict([
       ('Format', 'Frames are in BGR format'),
       ('Description', 'The world video with a gaze estimate overlay.  '
@@ -999,7 +1040,7 @@ class EyeStreamer(SensorStreamer):
                       'The gaze indicator is black if the gaze estimate is \'stale\','
                       'defined here as being predicted more than %gs before the video frame.' % self._gaze_estimate_stale_s),
     ])
-    
+
     # Use the same notes for post-processed data, with slight adjustments.
     self._data_notes_postprocessed = self._data_notes.copy()
     for (device_name, device_notes) in self._data_notes_postprocessed.items():
@@ -1007,8 +1048,8 @@ class EyeStreamer(SensorStreamer):
         if stream_name == 'frame_timestamp':
           stream_notes['Description'] = stream_notes['Description'].replace(' (the time_s field)', '')
           self._data_notes_postprocessed[device_name][stream_name] = stream_notes
-      
-    
+
+
 #####################
 ###### TESTING ######
 #####################
@@ -1016,16 +1057,16 @@ if __name__ == '__main__':
   print_status = True
   print_debug = True
   duration_s = 30
-  test_clock_syncing = False
+  test_clock_syncing = True
   test_external_recording = False
   test_external_data_merging = False
   test_streaming = True
 
   import h5py
-  
+
   # Create an eye streamer.
   eye_streamer = EyeStreamer(print_status=print_status, print_debug=print_debug)
-  
+
   if test_external_data_merging:
     # Final post-processed outputs
     data_dir_toUpdate = 'C:/Users/Owner/AidWear/recording_data/temp_processed'
@@ -1037,7 +1078,7 @@ if __name__ == '__main__':
     data_dir_archived = os.path.join(data_dir_toUpdate, '_archived_data_before_postprocessing')
     os.makedirs(data_dir_archived, exist_ok=True)
     hdf5_file_archived = h5py.File(os.path.join(data_dir_archived, 'archived.hdf5'), 'w')
-    
+
     eye_streamer.merge_external_data_with_streamed_data(# Final post-processed outputs
         hdf5_file_toUpdate,
         data_dir_toUpdate,
@@ -1047,7 +1088,7 @@ if __name__ == '__main__':
         # Archives for data no longer needed
         data_dir_archived,
         hdf5_file_archived)
-  
+
   # Connect the streamer if it will be used any more.
   if test_clock_syncing or test_external_recording or test_streaming:
     eye_streamer.connect()
@@ -1071,8 +1112,6 @@ if __name__ == '__main__':
   # Run the streamer to test data streaming.
   if test_streaming:
     eye_streamer.run()
-    # eye_streamer._running = True
-    # eye_streamer._run()
     time_start_s = time.time()
     time.sleep(duration_s)
     eye_streamer.stop()
@@ -1083,7 +1122,8 @@ if __name__ == '__main__':
     for (device_name_key, stream_name) in [
           ('gaze', 'position'),
           ('video-world', 'frame'),
-          ('video-eye', 'frame'),
+          ('video-eye0', 'frame'),
+          ('video-eye1', 'frame'),
           ('time', 'pupilCore_time_s'),
           ]:
       num_timesteps = eye_streamer.get_num_timesteps('eye-tracking-%s' % device_name_key, stream_name)

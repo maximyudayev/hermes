@@ -56,7 +56,7 @@ if __name__ == '__main__':
     write_log_message(msg, *extra_msgs, source_tag='launcher',
                       print_message=True, userAction=True, filepath=log_history_filepath, **kwargs)
 
-  # TODO: Define the streamers to use.
+  ## Define the streamers to use.
   #   Configure settings for each class in sensor_streamer_specs.
   sensor_streamers_enabled = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
