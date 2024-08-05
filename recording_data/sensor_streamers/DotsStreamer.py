@@ -76,16 +76,16 @@ class DotsStreamer(SensorStreamer):
                             print_status=print_status, print_debug=print_debug,
                             log_history_filepath=log_history_filepath)
     
-    ## TODO: Add a tag here for your sensor that can be used in log messages.
+    ## Add a tag here for your sensor that can be used in log messages.
     #        Try to keep it under 10 characters long.
     #        For example, 'myo' or 'scale'.
     self._log_source_tag = 'dots'
     
-    ## TODO: Initialize any state that your sensor needs.
+    ## Initialize any state that your sensor needs.
     self._output_rate = 20
     self._device_name = 'dots-imu'
     self._num_joints = 5
-    self._packet = dict()
+    self._packet = OrderedDict()
     self._data_notes_stream = {
       "dots-imu": {
         "acceleration": None,
@@ -95,8 +95,95 @@ class DotsStreamer(SensorStreamer):
         "device_timestamp_s": None
       }
     }
+
+  #######################################
+  # Connect to the sensor.
+  # @param timeout_s How long to wait for the sensor to respond.
+  def _connect(self, timeout_s=10):
+    ## Connecting to your sensor.
+    #        Then return True or False to indicate whether connection was successful.
+    self.xdpcHandler = XdpcHandler(log_debug=self._log_debug, log_error=self._log_error, log_status=self._log_status)
+    if not self.xdpcHandler.initialize():
+      self.xdpcHandler.cleanup()
+      return False
+
+    self.xdpcHandler.scanForDots(timeout_s)
+    if len(self.xdpcHandler.detectedDots()) == 0:
+      self._log_error("No Movella DOT device(s) found. Aborting.")
+      self.xdpcHandler.cleanup()
+      return False
+    elif len(self.xdpcHandler.detectedDots()) < self._num_joints:
+      self._log_error("Not all %s requested Movella DOT device(s) found. Aborting." % self._num_joints)
+      self.xdpcHandler.cleanup()
+      return False
+
+    def map_dot_to_joint(devices, device):
+      msg = format_log_message("Which joint is this DOT attached to? (New DOT lights up green) : ", source_tag=self._log_source_tag, userAction=True, print_message=False)
+      while True:
+        try:
+          joint_of_device = input(msg)
+          if int(joint_of_device) < 0 or str(int(joint_of_device)) in devices: raise KeyError
+          else: 
+            devices[joint_of_device] = device
+            self._log_debug("DOT @%s associated with joint %s."% (device.bluetoothAddress(), joint_of_device))
+            return devices
+        except ValueError:
+          self._log_error("Joint specifier must be a unique positive integer.")
+        except KeyError:
+          self._log_error("This joint specifier already used by %s" % devices[joint_of_device].bluetoothAddress())
+
+    def set_master_joint(devices):
+      msg = format_log_message("Which joint is center of skeleton? : ", source_tag=self._log_source_tag, userAction=True, print_message=False)
+      while True:
+        try:
+          master_joint = int(input(msg))
+          if master_joint < 0 or str(master_joint) not in devices: raise KeyError
+          else: 
+            self._log_debug("Joint %s set as master. (DOT @%s)."% (master_joint, devices[str(master_joint)].bluetoothAddress()))
+            self.xdpcHandler.setMasterDot(str(master_joint))
+            self._packet = OrderedDict([(v.bluetoothAddress(), None) for k, v in devices.items()])
+        except ValueError:
+          self._log_error("Joint specifier must be a positive integer.")
+        except KeyError:
+          self._log_error("This joint specifier does not exist in the device list.")
+        else: break
+
+    self.xdpcHandler.connectDots(onDotConnected=map_dot_to_joint, onConnected=set_master_joint, connectAttempts=10)
+
+    if len(self.xdpcHandler.connectedDots()) == 0:
+      self._log_error("Could not connect to any Movella DOT device(s). Aborting.")
+      self.xdpcHandler.cleanup()
+      return False
+    elif len(self.xdpcHandler.connectedDots()) < self._num_joints:
+      self._log_error("Not all requested Movella DOT devices connected %s/%s. Aborting." % (len(self.xdpcHandler.connectedDots()), self._num_joints))
+      self.xdpcHandler.cleanup()
+      return False
+
+    for joint, device in self.xdpcHandler.connectedDots().items():
+      # Make sure all connected devices have the same filter profile and output rate
+      if device.setOnboardFilterProfile("General"):
+          self._log_debug("Successfully set profile to General for joint %s." % joint)
+      else:
+          self._log_error("Setting filter profile for joint %s failed!" % joint)
+          return False
+
+      if device.setOutputRate(self._output_rate):
+          self._log_debug(f"Successfully set output rate for joint {joint} to {self._output_rate} Hz.")
+      else:
+          self._log_error("Setting output rate for joint %s failed!" % joint)
+          return False
+
+    self._manager = self.xdpcHandler.manager()
+    self._devices = self.xdpcHandler.connectedDots()
+
+    # Call facade sync function, not directly the backend manager proxy
+    while not self.xdpcHandler.sync():
+      self._log_error("Synchronization of dots failed! Retrying.")
     
-    ## TODO: Add devices and streams to organize data from your sensor.
+    self._log_debug(f"Successfully synchronized {len(self._devices)} dots.")
+    self._log_status('Successfully connected to the dots streamer.')
+
+    ## Add devices and streams to organize data from your sensor.
     #        Data is organized as devices and then streams.
     #        For example, a Myo device may have streams for EMG and Acceleration.
     #        If desired, this could also be done in the connect() method instead.
@@ -121,76 +208,22 @@ class DotsStreamer(SensorStreamer):
                     sampling_rate_hz=None,
                     extra_data_info=None,
                     data_notes=self._data_notes_stream['dots-time']['device_timestamp_s'])
-
-  #######################################
-  # Connect to the sensor.
-  # @param timeout_s How long to wait for the sensor to respond.
-  def _connect(self, timeout_s=10):
-    ## TODO: Add code for connecting to your sensor.
-    #        Then return True or False to indicate whether connection was successful.
-    self.xdpcHandler = XdpcHandler()
-    if not self.xdpcHandler.initialize():
-      self.xdpcHandler.cleanup()
-      return False
-
-    self.xdpcHandler.scanForDots(timeout_s)
-    if len(self.xdpcHandler.detectedDots()) == 0:
-      print("No Movella DOT device(s) found. Aborting.")
-      self.xdpcHandler.cleanup()
-      return False
-
-    self.xdpcHandler.connectDots()
-
-    if len(self.xdpcHandler.connectedDots()) == 0:
-      print("Could not connect to any Movella DOT device(s). Aborting.")
-      self.xdpcHandler.cleanup()
-      return False
-
-    for device in self.xdpcHandler.connectedDots():
-      # Make sure all connected devices have the same filter profile and output rate
-      if device.setOnboardFilterProfile("General"):
-          print("Successfully set profile to General")
-      else:
-          print("Setting filter profile failed!")
-          return False
-
-      if device.setOutputRate(self._output_rate):
-          print(f"Successfully set output rate to {self._output_rate} Hz")
-      else:
-          print("Setting output rate failed!")
-          return False
-      
-      self._packet[device.bluetoothAddress()] = None
-
-    self._manager = self.xdpcHandler.manager()
-    self._devices = self.xdpcHandler.connectedDots()
-
-    if self.xdpcHandler.sync():
-      print(f"Successfully synchronized {len(self._devices)} dots.")
-    else:
-      print("Synchronization of dots failed!")
-      return False
-
-    self._log_status('Successfully connected to the dots streamer.')
-
+    # Set dots to streaming mode
+    self.xdpcHandler.stream()
     return True
   
   #####################
   ###### RUNNING ######
   #####################
   
-  ## TODO: Continuously read data from your sensor.
   # Loop until self._running is False.
-  # Acquire data from your sensor as desired, and for each timestep
-  #  call self.append_data(device_name, stream_name, time_s, data).
+  # Acquire data from your sensor as desired, and for each timestep.
   def _run(self):
     try:
-      # Set dots to streaming mode
-      self.xdpcHandler.stream()
       while self._running:
         if self.xdpcHandler.packetsAvailable():
           time_s = time.time()
-          for device in self.xdpcHandler.connectedDots():
+          for joint, device in self.xdpcHandler.connectedDots().items():
             # Retrieve a packet
             packet = self.xdpcHandler.getNextPacket(device.portInfo().bluetoothAddress())
             if packet.containsOrientation():
@@ -200,12 +233,12 @@ class DotsStreamer(SensorStreamer):
                 'acceleration': (euler.x(), euler.y(), euler.z()),
                 'gyroscope': (euler.pitch(), euler.yaw(), euler.roll())
               }
-
+          
           # Read and store data for streams
           self.append_data(self._device_name, 'acceleration', time_s, np.array([v['acceleration'] for (_,v) in self._packet.items()]))
           self.append_data(self._device_name, 'gyroscope', time_s, np.array([v['gyroscope'] for (_,v) in self._packet.items()]))
           self.append_data(self._device_name, 'timestamp', time_s, np.array([v['timestamp'] for (_,v) in self._packet.items()]))
-        
+
     except KeyboardInterrupt: # The program was likely terminated
       pass
     except:
@@ -216,24 +249,19 @@ class DotsStreamer(SensorStreamer):
   
   # Clean up and quit
   def quit(self):
-    ## TODO: Add any desired clean-up code.
-    print("\n-----------------------------------------", end="", flush=True)
-
-    print("\nStopping measurement...")
+    self._log_debug("Stopping DOTs measurement.")
     for device in self.xdpcHandler.connectedDots():
-        if not device.stopMeasurement():
-            print("Failed to stop measurement.")
+      if not device.stopMeasurement():
+        self._log_error("Failed to stop DOT %s measurement." % device.bluetoothAddress())
 
-    print("Stopping sync...")
+    self._log_debug("Stopping DOTs sync.")
     if not self._manager.stopSync():
-        print("Failed to stop sync.")
+      self._log_error("Failed to stop DOTs sync.")
 
-    print("Closing ports...")
+    self._log_debug("Closing DOTs ports.")
     self._manager.close()
 
-    print("Successful exit.")
-
-    self._log_debug('DotsStreamer quitting')
+    self._log_debug("DotsStreamer quitting.")
     SensorStreamer.quit(self)
 
   ###########################
@@ -292,8 +320,12 @@ if __name__ == '__main__':
   print('\nStarting debugging')
   # Connect to the device(s).
   dots_streamer = DotsStreamer(print_status=True, print_debug=True)
-  dots_streamer.connect(20)
-  
+  connection_result = dots_streamer.connect(20)
+
+  if not connection_result:
+    dots_streamer.stop()
+    exit()
+
   # Run for the specified duration and periodically print the sample rate.
   print('\nRunning for %gs!' % duration_s)
   dots_streamer.run()
@@ -315,7 +347,3 @@ if __name__ == '__main__':
   
   # Stop the streamer.
   dots_streamer.stop()
-  print('\n'*2)
-  print('='*75)
-  print('Done!')
-  print('\n'*2)
