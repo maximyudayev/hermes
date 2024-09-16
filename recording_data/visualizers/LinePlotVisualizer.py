@@ -35,6 +35,7 @@ if use_matplotlib:
   import matplotlib
   import matplotlib.pyplot as plt
 else:
+  from PyQt5 import QtWidgets
   import pyqtgraph
   import pyqtgraph.exporters
   from pyqtgraph.Qt import QtCore, QtGui
@@ -68,7 +69,7 @@ class LinePlotVisualizer(Visualizer):
       self._axs = None
       self._use_blitting = False # speeds up drawing, but axis labels are fixed
     else:
-      self._app = QtGui.QApplication([])
+      self._app = QtWidgets.QApplication([])
       self._layout = parent_layout
       self._is_sub_layout = parent_layout is not None
       self._layout_size = parent_layout_size
@@ -444,14 +445,3 @@ class LinePlotVisualizer(Visualizer):
       else:
         if not self._is_sub_layout:
           self._app.exec()
-
-
-
-
-
-
-
-
-
-
-

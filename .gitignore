@@ -17,6 +17,8 @@
 *.avi
 *.ppt
 *.pptx
+data/
+recording_data/utils/TMSi_aux/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

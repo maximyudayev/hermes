@@ -374,18 +374,3 @@ class XsensSkeletonVisualizer(Visualizer):
       else:
         if not self._is_sub_layout:
           self._app.exec()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

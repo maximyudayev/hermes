@@ -26,7 +26,7 @@
 
 from sensor_streamers import SensorStreamer
 from visualizers import LinePlotVisualizer
-from visualizers import HeatmapVisualizer
+from visualizers import XsensSkeletonVisualizer
 
 import numpy as np
 import time
@@ -80,6 +80,9 @@ class DotsStreamer(SensorStreamer):
     #        Try to keep it under 10 characters long.
     #        For example, 'myo' or 'scale'.
     self._log_source_tag = 'dots'
+
+    # Run in the main process for now because accessing stdin from child process causes crashes at first input() call
+    self._always_run_in_main_process = True
     
     ## Initialize any state that your sensor needs.
     self._output_rate = 20
@@ -88,8 +91,12 @@ class DotsStreamer(SensorStreamer):
     self._packet = OrderedDict()
     self._data_notes_stream = {
       "dots-imu": {
-        "acceleration": None,
-        "gyroscope": None
+        "acceleration-x": "AccX",
+        "acceleration-y": "AccY",
+        "acceleration-z": "AccZ",
+        "gyroscope-x": "GyrX",
+        "gyroscope-y": "GyrY",
+        "gyroscope-z": "GyrZ",
       },
       "dots-time": {
         "device_timestamp_s": None
@@ -100,28 +107,12 @@ class DotsStreamer(SensorStreamer):
   # Connect to the sensor.
   # @param timeout_s How long to wait for the sensor to respond.
   def _connect(self, timeout_s=10):
-    ## Connecting to your sensor.
-    #        Then return True or False to indicate whether connection was successful.
-    self.xdpcHandler = XdpcHandler(log_debug=self._log_debug, log_error=self._log_error, log_status=self._log_status)
-    if not self.xdpcHandler.initialize():
-      self.xdpcHandler.cleanup()
-      return False
-
-    self.xdpcHandler.scanForDots(timeout_s)
-    if len(self.xdpcHandler.detectedDots()) == 0:
-      self._log_error("No Movella DOT device(s) found. Aborting.")
-      self.xdpcHandler.cleanup()
-      return False
-    elif len(self.xdpcHandler.detectedDots()) < self._num_joints:
-      self._log_error("Not all %s requested Movella DOT device(s) found. Aborting." % self._num_joints)
-      self.xdpcHandler.cleanup()
-      return False
-
+    xqp_joints = [0,1,2,3,4] # remove lines with xqp_ variables 
     def map_dot_to_joint(devices, device):
       msg = format_log_message("Which joint is this DOT attached to? (New DOT lights up green) : ", source_tag=self._log_source_tag, userAction=True, print_message=False)
       while True:
         try:
-          joint_of_device = input(msg)
+          joint_of_device = str(xqp_joints.pop(0)) #input(msg)
           if int(joint_of_device) < 0 or str(int(joint_of_device)) in devices: raise KeyError
           else: 
             devices[joint_of_device] = device
@@ -148,30 +139,50 @@ class DotsStreamer(SensorStreamer):
           self._log_error("This joint specifier does not exist in the device list.")
         else: break
 
-    self.xdpcHandler.connectDots(onDotConnected=map_dot_to_joint, onConnected=set_master_joint, connectAttempts=10)
+    ## Connecting to your sensor.
+    #        Then return True or False to indicate whether connection was successful.
+    self.xdpcHandler = XdpcHandler(log_debug=self._log_debug, log_error=self._log_error, log_status=self._log_status)
 
-    if len(self.xdpcHandler.connectedDots()) == 0:
-      self._log_error("Could not connect to any Movella DOT device(s). Aborting.")
-      self.xdpcHandler.cleanup()
-      return False
-    elif len(self.xdpcHandler.connectedDots()) < self._num_joints:
-      self._log_error("Not all requested Movella DOT devices connected %s/%s. Aborting." % (len(self.xdpcHandler.connectedDots()), self._num_joints))
-      self.xdpcHandler.cleanup()
-      return False
+    # DOTs backend is annoying and doesn't always connect/discover devices from first try, loop until success
+    while True:
+      if not self.xdpcHandler.initialize():
+        self.xdpcHandler.cleanup()
+        continue
+      else: break
+
+    while True:
+      self.xdpcHandler.scanForDots(timeout_s)
+      if len(self.xdpcHandler.detectedDots()) == 0:
+        self._log_error("No Movella DOT device(s) found. Aborting.")
+      elif len(self.xdpcHandler.detectedDots()) < self._num_joints:
+        self._log_error("Not all %s requested Movella DOT device(s) found. Aborting." % self._num_joints)
+      else:
+        self._log_debug("All %s requested Movella DOT device(s) found." % self._num_joints)
+        break
+
+    while True:
+      self.xdpcHandler.connectDots(onDotConnected=map_dot_to_joint, onConnected=set_master_joint, connectAttempts=10)
+      if len(self.xdpcHandler.connectedDots()) == 0:
+        self._log_error("Could not connect to any Movella DOT device(s). Aborting.")
+      elif len(self.xdpcHandler.connectedDots()) < self._num_joints:
+        self._log_error("Not all requested Movella DOT devices connected %s/%s. Aborting." % (len(self.xdpcHandler.connectedDots()), self._num_joints))
+      else:
+        self._log_debug("All %s detected Movella DOT device(s) connected." % self._num_joints)
+        break
 
     for joint, device in self.xdpcHandler.connectedDots().items():
       # Make sure all connected devices have the same filter profile and output rate
       if device.setOnboardFilterProfile("General"):
-          self._log_debug("Successfully set profile to General for joint %s." % joint)
+        self._log_debug("Successfully set profile to General for joint %s." % joint)
       else:
-          self._log_error("Setting filter profile for joint %s failed!" % joint)
-          return False
+        self._log_error("Setting filter profile for joint %s failed!" % joint)
+        return False
 
       if device.setOutputRate(self._output_rate):
-          self._log_debug(f"Successfully set output rate for joint {joint} to {self._output_rate} Hz.")
+        self._log_debug(f"Successfully set output rate for joint {joint} to {self._output_rate} Hz.")
       else:
-          self._log_error("Setting output rate for joint %s failed!" % joint)
-          return False
+        self._log_error("Setting output rate for joint %s failed!" % joint)
+        return False
 
     self._manager = self.xdpcHandler.manager()
     self._devices = self.xdpcHandler.connectedDots()
@@ -185,32 +196,59 @@ class DotsStreamer(SensorStreamer):
 
     ## Add devices and streams to organize data from your sensor.
     #        Data is organized as devices and then streams.
-    #        For example, a Myo device may have streams for EMG and Acceleration.
+    #        For example, a DOTs device may have streams for Gyro and Acceleration.
     #        If desired, this could also be done in the connect() method instead.
     self.add_stream(device_name=self._device_name,
-                    stream_name='acceleration',
+                    stream_name='acceleration-x',
                     data_type='float32',
-                    sample_size=(self._num_joints, 3),     # the size of data saved for each timestep
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
                     sampling_rate_hz=None, # the expected sampling rate for the stream
                     extra_data_info=None,
-                    data_notes=self._data_notes_stream['dots-imu']['acceleration'])
+                    data_notes=self._data_notes_stream['dots-imu']['acceleration-x'])
     self.add_stream(device_name=self._device_name,
-                    stream_name='gyroscope',
+                    stream_name='acceleration-y',
                     data_type='float32',
-                    sample_size=(self._num_joints, 3),
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
+                    sampling_rate_hz=None, # the expected sampling rate for the stream
+                    extra_data_info=None,
+                    data_notes=self._data_notes_stream['dots-imu']['acceleration-y'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='acceleration-z',
+                    data_type='float32',
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
+                    sampling_rate_hz=None, # the expected sampling rate for the stream
+                    extra_data_info=None,
+                    data_notes=self._data_notes_stream['dots-imu']['acceleration-z'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='gyroscope-x',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
                     sampling_rate_hz=None,
                     extra_data_info=None, 
-                    data_notes=self._data_notes_stream['dots-imu']['gyroscope'])
+                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-x'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='gyroscope-y',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=None,
+                    extra_data_info=None, 
+                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-y'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='gyroscope-z',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=None,
+                    extra_data_info=None, 
+                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-z'])
     self.add_stream(device_name=self._device_name,
                     stream_name='timestamp',
-                    data_type='float64',
-                    sample_size=(1),
+                    data_type='int64',
+                    sample_size=(self._num_joints),
                     sampling_rate_hz=None,
                     extra_data_info=None,
                     data_notes=self._data_notes_stream['dots-time']['device_timestamp_s'])
     # Set dots to streaming mode
-    self.xdpcHandler.stream()
-    return True
+    return self.xdpcHandler.stream()
   
   #####################
   ###### RUNNING ######
@@ -226,18 +264,26 @@ class DotsStreamer(SensorStreamer):
           for joint, device in self.xdpcHandler.connectedDots().items():
             # Retrieve a packet
             packet = self.xdpcHandler.getNextPacket(device.portInfo().bluetoothAddress())
-            if packet.containsOrientation():
-              euler = packet.orientationEuler()
-              self._packet[device.bluetoothAddress()] = {
-                'timestamp': packet.sampleTimeFine(),
-                'acceleration': (euler.x(), euler.y(), euler.z()),
-                'gyroscope': (euler.pitch(), euler.yaw(), euler.roll())
-              }
+            euler = packet.orientationEuler()
+            acc = packet.freeAcceleration()
+            self._packet[device.bluetoothAddress()] = {
+              'timestamp': packet.sampleTimeFine(),
+              'acceleration': (acc[0], acc[1], acc[2]),
+              'gyroscope': (euler.x(), euler.y(), euler.z()),
+            }
           
+          acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
+          gyroscope = np.array([v['gyroscope'] for (_,v) in self._packet.items()])
+          timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
+
           # Read and store data for streams
-          self.append_data(self._device_name, 'acceleration', time_s, np.array([v['acceleration'] for (_,v) in self._packet.items()]))
-          self.append_data(self._device_name, 'gyroscope', time_s, np.array([v['gyroscope'] for (_,v) in self._packet.items()]))
-          self.append_data(self._device_name, 'timestamp', time_s, np.array([v['timestamp'] for (_,v) in self._packet.items()]))
+          self.append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
+          self.append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
+          self.append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
+          self.append_data(self._device_name, 'gyroscope-x', time_s, gyroscope[:,0])
+          self.append_data(self._device_name, 'gyroscope-y', time_s, gyroscope[:,1])
+          self.append_data(self._device_name, 'gyroscope-z', time_s, gyroscope[:,2])
+          self.append_data(self._device_name, 'timestamp', time_s, timestamp)
 
     except KeyboardInterrupt: # The program was likely terminated
       pass
@@ -274,40 +320,59 @@ class DotsStreamer(SensorStreamer):
   #   'class': A subclass of Visualizer that should be used for the specified stream.
   #   Any other options that can be passed to the chosen class.
   def get_default_visualization_options(self, visualization_options=None):
-    # Start by not visualizing any streams.
+    # Visualize the segments position stream by drawing a skeleton.
     processed_options = {}
+    
+    # TODO: to visualize DOTs data as skeleton, must first process the streams of accelerometer data into positions
+    processed_options[self._device_name] = {}
+    # options['dots-imu']['position_cm'] = {
+    #   'class': XsensSkeletonVisualizer,
+    # }
+
+    # Use a line plot to visualize the acceleration.
+    processed_options[self._device_name]['acceleration-x'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    processed_options[self._device_name]['acceleration-y'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    processed_options[self._device_name]['acceleration-z'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    processed_options[self._device_name]['gyroscope-x'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    processed_options[self._device_name]['gyroscope-y'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    processed_options[self._device_name]['gyroscope-z'] = \
+      {'class': LinePlotVisualizer,
+       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    
+    # Don't visualize the other devices/streams.
     for (device_name, device_info) in self._streams_info.items():
       processed_options.setdefault(device_name, {})
       for (stream_name, stream_info) in device_info.items():
         processed_options[device_name].setdefault(stream_name, {'class': None})
-    
-    ## TODO: Specify whether some streams should be visualized.
-    #        Examples of a line plot and a heatmap are below.
-    #        To not visualize data, simply omit the following code and just leave each streamer mapped to the None class as shown above.
-    # Use a line plot to visualize the weight.
-    # processed_options[self._device_name]['acceleration'] = \
-    #   {'class': LinePlotVisualizer,
-    #    'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-    #    'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-    #    'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
-    #   }
-    # processed_options[self._device_name]['gyroscope'] = \
-    #   {'class': HeatmapVisualizer,
-    #    'colorbar_levels': 'auto', # The range of the colorbar.
-    #                               # Can be a 2-element list [min, max] to use hard-coded bounds,
-    #                               # or 'auto' to determine them dynamically based on a buffer of the data.
-    #   }
-  
-    # Override the above defaults with any provided options.
-    if isinstance(visualization_options, dict):
-      for (device_name, device_info) in self._streams_info.items():
-        if device_name in visualization_options:
-          device_options = visualization_options[device_name]
-          # Apply the provided options for this device to all of its streams.
-          for (stream_name, stream_info) in device_info.items():
-            for (k, v) in device_options.items():
-              processed_options[device_name][stream_name][k] = v
-  
+
     return processed_options
 
 

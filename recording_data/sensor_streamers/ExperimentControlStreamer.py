@@ -84,22 +84,6 @@ class ExperimentControlStreamer(SensorStreamer):
       'Straight out, palms downward (T pose)',
       'Straight up, palms inward',
       ]
-    self._hand_poses = [
-      'Fist',
-      'Spread fingers',
-      'Wave in',
-      'Wave out',
-      ]
-    self._scale_scenarios = [
-      'Flat hand on scale',
-      'Flat hand on bumps on scale',
-      'Single fingers on scale',
-      'Mug (by handle)',
-      'Pan (by handle)',
-      'Plate (from side)',
-      'Knife (by handle)',
-      'Jar (full side grasp)',
-      ]
     self._thirdparty_calibrations = [
       'Xsens: N-Pose with Walking',
       'Xsens: T-Pose with Walking',
@@ -107,33 +91,20 @@ class ExperimentControlStreamer(SensorStreamer):
       'Xsens: T-Pose without Walking',
       'PupilLabs: Target Grid',
       'PupilLabs: Single Target',
-      'Manus: IMUs',
-      'Manus: Poses Left',
-      'Manus: Poses Right',
       ]
     if activities is None:
       self._activities = [
-        'Get/replace items from refrigerator/cabinets/drawers',
-        'Clear cutting board',
-        'Peel a cucumber',
-        'Slice a cucumber',
-        'Peel a potato',
-        'Slice a potato',
-        'Slice bread',
-        'Spread almond butter on a bread slice',
-        'Spread jelly on a bread slice',
-        'Open/close a jar of almond butter',
-        'Pour water from a pitcher into a glass',
-        'Clean a plate with a sponge',
-        'Clean a plate with a towel',
-        'Clean a pan with a sponge',
-        'Clean a pan with a towel',
-        'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-        'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-        'Stack on table: 3 each large/small plates, bowls',
-        'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-        'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-        ]
+        'Balance beam',
+        'Stairs',
+        'Step over',
+        'Slopes',
+        'Bench and table',
+        'Wobbly steps',
+        'High step',
+        'Ladder',
+        'Cross country',
+        'Hurdles',
+      ]
     else:
       self._activities = activities
     
@@ -168,17 +139,6 @@ class ExperimentControlStreamer(SensorStreamer):
                   {'label': 'Right forearm pointing at', 'type': 'combo', 'values': self._target_names,   'name': None},
                 ]
                }),
-      ('hand_poses', {
-               'description': 'Periods when the person assumed a known '
-                              'hand poses.  Useful for calibrating IMU-based orientations'
-                              'such as the Xsens gloves, how the Myo is worn, and forearm EMG levels.',
-               'data_type': 'S%d' % ((int(max([len(x) for x in self._hand_poses] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Hands',
-               'inputs': [
-                  {'label': 'Left hand pose',  'type': 'combo', 'values': self._hand_poses, 'name': None},
-                  {'label': 'Right hand pose', 'type': 'combo', 'values': self._hand_poses, 'name': None},
-                ]
-               }),
       ('gaze', {
                'description': 'Periods when the person assumed a known '
                               'body position and gazed at a known target.  '
@@ -188,16 +148,6 @@ class ExperimentControlStreamer(SensorStreamer):
                'inputs': [
                   {'label': 'Body location', 'type': 'combo', 'values': self._target_names, 'name': None},
                   {'label': 'Gazing at',     'type': 'combo', 'values': self._target_names, 'name': None},
-                ]
-               }),
-      ('tactile_gloves', {
-               'description': 'Periods when the person exerted a known '
-                              'force against a known part of the glove.',
-        'data_type': 'S%d' % ((int(max([len('%10.6f' % 0)] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Tactile',
-               'inputs': [
-                  {'label': 'Left hand pose/object' , 'type': 'combo', 'values': self._scale_scenarios, 'name': None},
-                  {'label': 'Right hand pose/object', 'type': 'combo', 'values': self._scale_scenarios, 'name': None},
                 ]
                }),
       ('third_party', {
@@ -267,8 +217,6 @@ class ExperimentControlStreamer(SensorStreamer):
     self._metadata.setdefault(self._activities_device_name, {})
     self._metadata[self._calibration_device_name]['Target Locations [cm]'] = self._target_positions_cm
     self._metadata[self._calibration_device_name]['Arm Poses'] = self._arm_poses
-    self._metadata[self._calibration_device_name]['Hand Poses'] = self._hand_poses
-    self._metadata[self._calibration_device_name]['Scale Scenarios'] = self._scale_scenarios
     self._metadata[self._calibration_device_name]['Third-Party Calibrations'] = self._thirdparty_calibrations
     self._metadata[self._activities_device_name]['Activities'] = self._activities
     self._metadata[self._activities_device_name]['Target Locations [cm]'] = self._target_positions_cm
@@ -878,17 +826,3 @@ if __name__ == '__main__':
   # Print some sample rates.
   print('Stream duration [s]: ', duration_s)
   print_var(streamer._data, 'streamer data')
-  
-
-
-
-
-
-
-
-
-
-
-
-
-

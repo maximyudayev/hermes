@@ -132,17 +132,3 @@ class NotesStreamer(SensorStreamer):
       self._log_debug('NotesStreamer data:')
       self._log_debug(self._data)
     SensorStreamer.quit(self)
-
-
-
-
-
-
-
-
-
-
-
-
-
-

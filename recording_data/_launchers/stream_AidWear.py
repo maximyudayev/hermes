@@ -36,8 +36,12 @@ from utils.print_utils import *
 if __name__ == '__main__':
   # Configure printing and logging.
   print_status = True
-  print_debug = False
-  subject_id = 1
+  print_debug = True
+
+  # Configure trial
+  subject_id = 1 # UID of the subject
+  trial_id = 1 # UID of the trial
+  is_real = False # Data collection from actual trials
   
   # Helper methods for logging/printing.
   def _log_status(msg, *extra_msgs, **kwargs):
@@ -65,23 +69,27 @@ if __name__ == '__main__':
     # Sensors!
     ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
     ('DotsStreamer',       True),   # The Dots lower limb tracking system
-    ('EyeStreamer',        True),   # The Pupil Labs eye-tracking headset
+    ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
     ('CameraStreamer',     False),  # One or more cameras
     ('DummyStreamer',      False),  # Dummy data (no hardware required)
+    ('InsoleStreamer',     False),  # The Moticon pressure insoles 
   ])
   sensor_streamer_specs = [
-    # # The template streamer!
-    # {'class': 'TemplateStreamer',
-    #   # Add any keyword arguments here that you added to __init__()
-    #  'print_debug': print_debug, 'print_status': print_status
-    #  },
     # Allow the experimenter to label data and enter notes.
     {'class': 'ExperimentControlStreamer',
-    #  'activities': [ # TODO: Enter your activities that you want to label
-    #    'My first activity',
-    #    'Another activity',
-    #  ],
+     'activities': [ # Cybathlon activities that you want to label
+       'Balance beam',
+       'Stairs',
+       'Step over',
+       'Slopes',
+       'Bench and table',
+       'Wobbly steps',
+       'High step',
+       'Ladder',
+       'Cross country',
+       'Hurdles',
+     ],
      'print_debug': print_debug, 'print_status': print_status
      },
     # Allow the experimenter to record timestamped notes at any time.
@@ -98,9 +106,10 @@ if __name__ == '__main__':
      },
     # Stream from the Pupil Labs eye tracker, including gaze and video data.
     {'class': 'EyeStreamer',
-     'stream_video_world'    : True, # the world video
+     'stream_video_world'    : False, # the world video
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
-     'stream_video_eye'      : True, # video of the eye
+     'stream_video_eye'      : False, # video of the eye
+     'is_binocular'          : True, # uses both eyes for gaze data and for video
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from one or more microphones.
@@ -114,10 +123,14 @@ if __name__ == '__main__':
        'camera-built-in': 0,
      },
      'print_debug': print_debug, 'print_status': print_status
-    },
+     },
     # Dummy data.
     {'class': 'DummyStreamer',
      'update_period_s': 0.1,
+     'print_debug': print_debug, 'print_status': print_status
+     },
+     # Insole stream
+    {'class': 'InsoleStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
   ]
@@ -126,16 +139,17 @@ if __name__ == '__main__':
                            if spec['class'] in sensor_streamers_enabled
                            and sensor_streamers_enabled[spec['class']]]
 
-  # TODO: Configure where and how to save sensor data.
+  # Configure where and how to save sensor data.
   #       Adjust enable_data_logging, log_tag, and log_dir_root as desired.
   enable_data_logging = True # If False, no data will be logged and the below directory settings will be ignored
+  trial_type = 'real' if is_real else 'test' # recommend 'tests' and 'experiments' for testing vs "real" data
   if enable_data_logging:
     script_dir = os.path.dirname(os.path.realpath(__file__))
     (log_time_str, log_time_s) = get_time_str(return_time_s=True)
     log_tag = 'aidWear-wearables'
     log_dir_root = os.path.join(script_dir, '..', '..', 'data',
-                                'experiments', # recommend 'tests' and 'experiments' for testing vs "real" data
-                                '{0}_experiment_S0{1}'.format(get_time_str(format='%Y-%m-%d'), subject_id))
+                                trial_type,
+                                '{0}_S{1}_{2}'.format(get_time_str(format='%Y-%m-%d'), str(subject_id).zfill(3), str(trial_id).zfill(2)))
     log_subdir = '%s_%s' % (log_time_str, log_tag)
     log_dir = os.path.join(log_dir_root, log_subdir)
     datalogging_options = {
@@ -148,12 +162,12 @@ if __name__ == '__main__':
       'stream_csv'  : True, # will create a CSV per stream
       'stream_video': True,
       'stream_audio': True,
-      'stream_period_s': 15, # how often to save streamed data to disk
+      'stream_period_s': 5, # how often to save streamed data to disk
       'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
       # Choose whether to write all data at the end.
       'dump_csv'  : False,
-      'dump_hdf5' : False,
-      'dump_video': False,
+      'dump_hdf5' : True,
+      'dump_video': True,
       'dump_audio': False,
       # Additional configuration.
       'videos_format': 'avi', # mp4 occasionally gets openCV errors about a tag not being supported?
@@ -168,25 +182,31 @@ if __name__ == '__main__':
     log_history_filepath = None
     datalogging_options = None
   
-  # TODO: Configure visualization.
-  composite_frame_size = (1800, 3000) # height, width # (1800, 3000)
-  composite_col_width = int(composite_frame_size[1]/2)
-  composite_row_height = int(composite_frame_size[0]/3)
+  # Configure visualization.
+  composite_frame_size = (180, 180) # height, width # (1800, 3000)
+  composite_col_width = int(composite_frame_size[1])
+  composite_row_height = int(composite_frame_size[0])
   visualization_options = {
-    'visualize_streaming_data'       : False,
-    'visualize_all_data_when_stopped': False,
+    'visualize_streaming_data'       : True,
+    'visualize_all_data_when_stopped': True,
     'wait_while_visualization_windows_open': False,
-    'update_period_s': 0.1,
-    # 'classes_to_visualize': ['TemplateStreamer']
-    'use_composite_video': True,
+    'update_period_s': 0.2,
+    'classes_to_visualize': ['DotsStreamer'],
+    'use_composite_video': False,
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
     'composite_video_layout':
       [
         [ # row  0
-          {'device_name':'template-sensor-device',  'stream_name':'stream_1', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'dots-imu', 'stream_name':'gyroscope-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
         ],
         [ # row  1
-          {'device_name':'template-sensor-device',  'stream_name':'stream_2', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'dots-imu', 'stream_name':'gyroscope-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+        ],
+        [ # row  2
+          {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
+          {'device_name':'dots-imu', 'stream_name':'gyroscope-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width, 'height':composite_row_height},
         ],
       ],
   }
@@ -194,8 +214,7 @@ if __name__ == '__main__':
   # Create a sensor manager.
   sensor_manager = SensorManager(sensor_streamer_specs=sensor_streamer_specs,
                                  data_logger_options=datalogging_options,
-                                #  data_visualizer_options=visualization_options,
-                                 data_visualizer_options=None,
+                                 data_visualizer_options=visualization_options,
                                  print_status=print_status, print_debug=print_debug,
                                  log_history_filepath=log_history_filepath)
   
@@ -252,8 +271,7 @@ if __name__ == '__main__':
       def check_if_user_quit():
         return False
   
-  
   # Run!
   sensor_manager.connect()
-  sensor_manager.run(duration_s=36000, stopping_condition_fn=check_if_user_quit)
+  sensor_manager.run(duration_s=3600, stopping_condition_fn=check_if_user_quit)
   sensor_manager.stop()

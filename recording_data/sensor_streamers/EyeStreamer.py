@@ -1064,7 +1064,7 @@ if __name__ == '__main__':
 
   import h5py
 
-  # Create an eye streamer.
+  # Create an eye streamer
   eye_streamer = EyeStreamer(print_status=print_status, print_debug=print_debug)
 
   if test_external_data_merging:
