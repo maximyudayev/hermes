@@ -99,8 +99,7 @@ def get_var_str(var, name=None):
 
 # Format (and optionally print) a timestamped log message.
 def format_log_message(msg, *extra_msgs, source_tag=None,
-                       debug=False, warning=False, error=False, userAction=False,
-                       print_message=True, **kwargs):
+                       debug=False, warning=False, error=False, userAction=False, **kwargs):
   # Add a timestamp.
   timestamp_str = get_time_str(format='%Y-%m-%d %H:%M:%S.%f')
   # timestamp_str = get_time_str(format='%H:%M:%S.%f')
@@ -127,9 +126,6 @@ def format_log_message(msg, *extra_msgs, source_tag=None,
   # Mimic how print() would print multiple arguments.
   for extra_msg in extra_msgs:
     msg += ' %s' % extra_msg
-  # Print the entry if desired.
-  if print_message:
-    print(msg, **kwargs)
   # Return the formatted message.
   return msg
 
@@ -154,8 +150,15 @@ def write_log_message(msg, *extra_msgs, source_tag=None,
   return msg
 
 
+######################
+###### PRINTING ######
+######################
 
-
-
-
-
+def _log_status(source_tag, msg, *extra_msgs, **kwargs):
+  format_log_message(msg, *extra_msgs, source_tag=source_tag, **kwargs)
+def _log_debug(source_tag, msg, *extra_msgs, **kwargs):
+  format_log_message(msg, *extra_msgs, source_tag=source_tag, debug=True, **kwargs)
+def _log_error(source_tag, msg, *extra_msgs, **kwargs):
+  format_log_message(msg, *extra_msgs, source_tag=source_tag, error=True, **kwargs)
+def _log_warn(source_tag, msg, *extra_msgs, **kwargs):
+  format_log_message(msg, *extra_msgs, source_tag=source_tag, warning=True, **kwargs)

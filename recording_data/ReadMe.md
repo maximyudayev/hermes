@@ -1,31 +1,36 @@
 # Installation
 A brief summary of the required software and the currently tested versions is below.  The following subsections contain more information about each one.
 
-- Python 3.9
-- Movella DOT SDK 2023.6
+- Conda
 - Pupil Capture 3.5.1
+- Movella DOT SDK 2023.6
 - HDFView 3.1.3 [optional but useful]
 
-### Python
-#### Windows
-- Install Python 3.9 with Anaconda.
-- Recreate the environment by `conda create --name <env> --file environment.txt`
+## Windows
+### Environment
 
-### Xsens Movella DOT SDK
-
-Install `DOT SDK` from https://www.xsens.com/software-downloads.  Version 2023.6 has been tested so far.
-Install the wheel file into the active Anaconda environment:
-`pip install --no-deps "C:\Program Files\Movella\DOT PC SDK 2023.6\SDK Files\Python\x64\movelladot_pc_sdk-2023.6.0-cp39-none-win_amd64.whl"`
+Recreate the environment by `conda create --file environment.yml`
 
 ### Pupil Capture
 
 The Pupil Core software to interface with the eye tracker can be downloaded from https://docs.pupil-labs.com/core.  Version 3.5.1 has been tested so far.
+
+### Movella DOT SDK
+
+Download and install [DOT SDK](https://www.xsens.com/software-downloads).  Version 2023.6 has been tested so far.
+
+Activate project conda environment: `conda activate aidwear` 
+
+Install the wheel file for DOTs into the environment:
+`pip install --no-deps "<path to installed Movella dictionary>\DOT PC SDK <SDK version>\SDK Files\Python\x64\movelladot_pc_sdk-<SDK version>-cp39-none-win_amd64.whl"`
 
 ### HDFView
 
 While not required, this lightweight tool is great for exploring HDF5 data.  The official download page is at https://www.hdfgroup.org/downloads/hdfview, and it can also be downloaded without an account from https://www.softpedia.com/get/Others/Miscellaneous/HDFView.shtml.
 
 # Running
+
+Run `_launchers\stream_AidWear.py`, adjust parameters for experiment and active sensors as desired (also in individual sensor streamers, if needed).
 
 See `stream_and_save_data_multiProcess.py` for an example of streaming and saving data.  Adjust `sensor_streamer_specs` to reflect the available sensors, adjust `datalogging_options` as desired to select when/where/how data is saved, and adjust `duration_s` to the desired maximum runtime.
 
@@ -42,11 +47,16 @@ Each stream has a few channels that are created automatically: the data itself, 
 
 ## Implemented Streamers
 
-### NotesStreamer
-The NotesStreamer allows the user to enter notes at any time to describe experiment updates.  Each note will be timestamped in the same way as any other data, allowing notes to be syncronized with sensor data.
-
 ### DotsStreamer
 The DotsStreamer streams lower limb data from the Dots IMUs.
+
+### EyeStreamer
+The EyeStreamer streams gaze and video data from the Pupil Labs eye tracker.  Pupil Capture should be running, calibrated, and streaming before starting the Python scripts.  The following outlines the setup procedure:
+- Start Pupil Capture
+- Calibrate according to https://docs.pupil-labs.com/core/#_4-calibration
+- In Pupil Capture, select `Network API` on the right.  The code currently expects:
+  - Port `50020`
+  - Frames in `BGR` format
 
 ### AwindaStreamer
 The AwindaStreamer streams data from the Awinda body tracking suit as well as two Manus gloves if they are available.
@@ -70,13 +80,15 @@ A few optional Xsens configuration settings in `Options > Preferences` that migh
 - Check `Enable simple calibration routines` to allow calibration without movement.  This is not recommended for 'real' experiments, but can make debugging/iterating faster.
 - Uncheck `Maximum number of frames kept in memory` if long experiments are anticipated and memory is not a large concern.
 
-### EyeStreamer
-The EyeStreamer streams gaze and video data from the Pupil Labs eye tracker.  Pupil Capture should be running, calibrated, and streaming before starting the Python scripts.  The following outlines the setup procedure:
-- Start Pupil Capture
-- Calibrate according to https://docs.pupil-labs.com/core/#_4-calibration
-- In Pupil Capture, select `Network API` on the right.  The code currently expects:
-  - Port `50020`
-  - Frames in `BGR` format
+### CameraStreamer
+
+### InsoleStreamer
+
+### ExperimentControlStreamer
+The NotesStreamer allows the user to enter notes at any time to describe experiment updates.  Each note will be timestamped in the same way as any other data, allowing notes to be syncronized with sensor data.
+
+### NotesStreamer
+The NotesStreamer allows the user to enter notes at any time to describe experiment updates.  Each note will be timestamped in the same way as any other data, allowing notes to be syncronized with sensor data.
 
 ## Saving Data
 The **DataLogger** class provides functionality to save data that is streamed from SensorStreamer objects.  It can write data to HDF5 and/or CSV files.  Video data will be excluded from these files, and instead written to video files.  Data can be saved incrementally throughout the recording process, and/or at the end of an experiment.  Data can optionally be cleared from memory after it is incrementally saved, thus reducing RAM usage.
@@ -103,3 +115,12 @@ SensorManager spawns multiple processes so multiple cores can be used.
 
 So hopefully, incrementally writing to files will not unduly impact streaming performance.  This will facilitate saving data in the event of a crash, and reducing RAM usage during experiments.
 
+```bash
+conda info --envs
+conda env create -f environment.yml
+conda list --revisions
+conda install --rev REVNUM
+conda env update --file environment.yml --prune
+conda env export --from-history > environment.yml
+conda remove --name myenv --all
+```

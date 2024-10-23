@@ -54,15 +54,3 @@ def get_matrix_str(matrix, column_delim='\t', row_delim='\n'):
 # Copy a matrix as a string so it can be pasted into Excel or a similar program.
 def copy_matrix(matrix, column_delim='\t', row_delim='\n'):
   pyperclip.copy(get_matrix_str(matrix, column_delim=column_delim, row_delim=row_delim))
-  
-
-
-
-
-
-
-
-
-
-
-

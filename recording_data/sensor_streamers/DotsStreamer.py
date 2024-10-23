@@ -1,32 +1,5 @@
-############
-#
-# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# See https://action-net.csail.mit.edu for more usage information.
-# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
-#
-############
-
 from sensor_streamers import SensorStreamer
 from visualizers import LinePlotVisualizer
-from visualizers import XsensSkeletonVisualizer
 
 import numpy as np
 import time
@@ -67,24 +40,18 @@ class DotsStreamer(SensorStreamer):
   # @param print_status Whether or not to print messages with level 'status'
   # @param print_debug Whether or not to print messages with level 'debug'
   # @param log_history_filepath A filepath to save log messages if desired.
-  def __init__(self,
+  def __init__(self, port_sub=None,
                log_player_options=None, visualization_options=None,
                print_status=True, print_debug=False, log_history_filepath=None):
-    SensorStreamer.__init__(self, streams_info=None,
+    SensorStreamer.__init__(self, port_sub=port_sub, streams_info=None,
                             visualization_options=visualization_options,
                             log_player_options=log_player_options,
                             print_status=print_status, print_debug=print_debug,
                             log_history_filepath=log_history_filepath)
     
-    ## Add a tag here for your sensor that can be used in log messages.
-    #        Try to keep it under 10 characters long.
-    #        For example, 'myo' or 'scale'.
     self._log_source_tag = 'dots'
-
-    # Run in the main process for now because accessing stdin from child process causes crashes at first input() call
-    self._always_run_in_main_process = True
     
-    ## Initialize any state that your sensor needs.
+    # Initialize any state that your sensor needs.
     self._output_rate = 20
     self._device_name = 'dots-imu'
     self._num_joints = 5
@@ -292,7 +259,7 @@ class DotsStreamer(SensorStreamer):
     finally:
       ## TODO: Disconnect from the sensor if desired.
       pass
-  
+
   # Clean up and quit
   def quit(self):
     self._log_debug("Stopping DOTs measurement.")

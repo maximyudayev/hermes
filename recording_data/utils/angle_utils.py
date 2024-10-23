@@ -56,5 +56,3 @@ def euler_from_quaternion(w, x, y, z):
   
   eulers_rad = np.array([roll_x_rad, pitch_y_rad, yaw_z_rad])
   return eulers_rad*180/np.pi
-
-

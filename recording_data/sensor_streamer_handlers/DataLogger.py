@@ -1,30 +1,5 @@
-############
-#
-# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# See https://action-net.csail.mit.edu for more usage information.
-# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
-#
-############
-
-from sensor_streamers.SensorStreamer import SensorStreamer
+import zmq
+from sensor_streamers import SensorStreamer
 
 import h5py
 from threading import Thread
@@ -46,22 +21,22 @@ from utils.print_utils import *
 ################################################
 # A class to log streaming data to one or more files.
 # SensorStreamer instances are passed to the class, and the data
-#  that they stream are written to disk periodically and/or at the end.
+#   that they stream are written to disk periodically and/or at the end.
 # If using the periodic option, latest data will be fetched from the streamers
-#  and then written in a separate thread to avoid undue performance impact.
-#  Any leftover data once the program is stopped will be flushed to the files.
+#   and then written in a separate thread to avoid undue performance impact.
+#   Any leftover data once the program is stopped will be flushed to the files.
 # If using the periodic option, can optionally clear old data from memory to reduce RAM usage.
-#  Data will then be cleared each time new data is logged, unless all data is expected to be written at the end.
-#  Will treat video/audio data separately, so can choose to stream/clear non-AV data but dump AV data or vice versa.
+#   Data will then be cleared each time new data is logged, unless all data is expected to be written at the end.
+#   Will treat video/audio data separately, so can choose to stream/clear non-AV data but dump AV data or vice versa.
 # Logging currently supports CSV, HDF5, AVI/MP4, and WAV files.
-#  If using HDF5, a single file will be created for all of the SensorStreamers.
-#  If using CSV, a separate file will be created for each SensorStreamer.
-#    N-D data will be unwrapped so that each entry is its own column.
-#  Videos can be saved as AVI or MP4 files.
-#  Audio can be saved as WAV files.
+#   If using HDF5, a single file will be created for all of the SensorStreamers.
+#   If using CSV, a separate file will be created for each SensorStreamer.
+#     N-D data will be unwrapped so that each entry is its own column.
+#   Videos can be saved as AVI or MP4 files.
+#   Audio can be saved as WAV files.
 # Note that the is_video / is_audio flags of each stream will be used to identify video/audio.
-#  Classes with audio streams will also require a method get_audioStreaming_info()
-#   that returns a dict with keys num_channels, sample_width, sampling_rate.
+#   Classes with audio streams will also require a method get_audioStreaming_info()
+#     that returns a dict with keys num_channels, sample_width, sampling_rate.
 #   See MicrophoneStreamer for an example of defining these attributes.
 ################################################
 ################################################
@@ -71,14 +46,15 @@ class DataLogger:
   ###### INITIALIZE ######
   ########################
 
-  def __init__(self, sensor_streamers, log_dir=None, log_tag=None,
-                stream_csv=False, stream_hdf5=False, stream_video=False, stream_audio=False,
-                stream_period_s=30, clear_logged_data_from_memory=False,
-                dump_csv=False, dump_hdf5=False, dump_video=False, dump_audio=False,
-                use_external_recording_sources=False,
-                videos_in_csv=False, videos_in_hdf5=False, videos_format='avi',
-                audio_in_csv=False, audio_in_hdf5=False, audio_format='wav',
-                print_status=True, print_debug=False, log_history_filepath=None):
+  def __init__(self, sensor_streamers, port_sub: str = "42070",
+              log_dir=None, log_tag=None,
+              stream_csv=False, stream_hdf5=False, stream_video=False, stream_audio=False,
+              stream_period_s=30, clear_logged_data_from_memory=False,
+              dump_csv=False, dump_hdf5=False, dump_video=False, dump_audio=False,
+              use_external_recording_sources=False,
+              videos_in_csv=False, videos_in_hdf5=False, videos_format='avi',
+              audio_in_csv=False, audio_in_hdf5=False, audio_format='wav',
+              print_status=True, print_debug=False, log_history_filepath=None):
 
     # Validate the streamer objects, and make a list of them.
     if not isinstance(sensor_streamers, (list, tuple)):
@@ -88,6 +64,7 @@ class DataLogger:
     self._streamers = list(sensor_streamers)
 
     # Record the configuration options.
+    self._log_source_tag = 'logger'
     self._stream_hdf5 = stream_hdf5
     self._stream_csv = stream_csv
     self._stream_video = stream_video
@@ -109,19 +86,27 @@ class DataLogger:
     self._log_dir = log_dir
     self._print_status = print_status
     self._print_debug = print_debug
-    self._log_source_tag = 'logger'
     self._log_history_filepath = log_history_filepath
 
-    # Initialize a record of what indexes have been logged,
+    # Connect local publisher to the Proxy's XSUB socket
+    self._ctx: zmq.Context = zmq.Context.instance()
+
+    # Socket to subscribe to SensorStreamers
+    self._pub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
+    self._pub.connect("tcp://localhost:%s" % port_sub)
+    # TODO: subscribe to topics for each mentioned local and remote streamer
+
+    # Initialize a record of what indices have been logged,
     #  and how many timesteps to stay behind of the most recent step (if needed).
-    self._next_data_indexes = [OrderedDict() for i in range(len(self._streamers))]
-    self._timesteps_before_solidified = [OrderedDict() for i in range(len(self._streamers))]
+    self._next_data_indexes = [OrderedDict() for _ in range(len(self._streamers))]
+    self._timesteps_before_solidified = [OrderedDict() for _ in range(len(self._streamers))]
     # Each time an HDF5 dataset reaches its limit,
     #  its size will be increased by the following amount.
     self._hdf5_log_length_increment = 10000
-    self._next_data_indexes_hdf5 = [OrderedDict() for i in range(len(self._streamers))]
+    self._next_data_indexes_hdf5 = [OrderedDict() for _ in range(len(self._streamers))]
 
     # Initialize state for the thread that will do stream-logging.
+    # TODO: what's it for?
     self._streamLog_thread = None # the thread to periodically write data
     self._streamLogging = False   # whether periodic writing is active
     self._flush_log = False       # whether remaining data at the end should now be flushed
@@ -145,13 +130,13 @@ class DataLogger:
   def _get_filename_base(self, log_time_s, for_streaming=True):
     log_datetime_str = get_time_str(log_time_s, '%Y-%m-%d_%H-%M-%S')
     filename_base = '%s_%sLog' % (log_datetime_str,
-                              'stream' if for_streaming else 'postExperiment')
+                              'stream' if for_streaming else 'post')
     if self._log_tag is not None:
       filename_base = '%s_%s' % (filename_base, self._log_tag)
     return filename_base
 
-  # Initialize the data indexes to fetch for logging.
-  # Will record the next data indexes that should be fetched for each stream,
+  # Initialize the data indices to fetch for logging.
+  # Will record the next data indices that should be fetched for each stream,
   #  and the number of timesteps that each streamer needs before data is solidified.
   def _init_log_indexes(self):
     for (streamer_index, streamer) in enumerate(self._streamers):
@@ -894,116 +879,3 @@ class DataLogger:
                         log_time_s=log_stop_time_s)
       
     self._log_debug('DataLogger stopped')
-
-  ######################
-  ###### PRINTING ######
-  ######################
-
-  def _log_status(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=self._print_status, filepath=self._log_history_filepath, **kwargs)
-  def _log_debug(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=self._print_debug, debug=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_error(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, error=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_warn(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, warning=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_userAction(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, userAction=True, filepath=self._log_history_filepath, **kwargs)
-
-
-
-#####################
-###### TESTING ######
-#####################
-if __name__ == '__main__':
-
-  from sensor_streamers.NotesStreamer      import NotesStreamer
-  from recording_data.sensor_streamers.AwindaStreamer      import AwindaStreamer
-  from sensor_streamers.EyeStreamer        import EyeStreamer
-  from sensor_streamers.MicrophoneStreamer import MicrophoneStreamer
-  import time
-
-  # Configure printing to the console.
-  print_debug = False
-  print_status = True
-
-  # Configure where to save sensor data.
-  (log_time_str, log_time_s) = get_time_str(return_time_s=True)
-  log_tag = 'testing'
-  log_dir_root = '../data_logs'
-  log_subdir = '%s_%s' % (log_time_str, log_tag)
-  log_dir = os.path.join(log_dir_root, log_subdir)
-
-  # Create the streamers.
-  notes_streamer = NotesStreamer(print_debug=print_debug, print_status=print_status)
-  xsens_streamer = AwindaStreamer(print_debug=print_debug, print_status=print_status)
-  eye_streamer = EyeStreamer(stream_video_world=True, stream_video_worldGaze=True,
-                              stream_video_eye=True,
-                              print_debug=print_debug, print_status=print_status)
-  microphone_streamer = MicrophoneStreamer(device_names_withAudioKeywords={'internal': 'Realtek'},
-                                           print_debug=print_debug, print_status=print_status)
-
-  # Create a logger to record the streaming data.
-  # Put data from all sensors into the same HDF5 file for now.
-  #   Alternatively, multiple DataLoggers could be created with
-  #   various subsets of the streamers.
-  # Note that the stream_* arguments are whether to periodically save data,
-  #   and the dump_* arguments are whether to wait until the end and then save all data.
-  #   Any combination of these options can be enabled.
-  streamers = [
-      notes_streamer,
-      xsens_streamer,
-      eye_streamer,
-      microphone_streamer,
-    ]
-  logger = DataLogger(streamers, log_dir=log_dir, log_tag=log_tag,
-                      # Choose whether to periodically write data to files.
-                      stream_csv=False, stream_hdf5=True, stream_video=False, stream_audio=False,
-                      stream_period_s=5,
-                      # Choose whether to write all data at the end.
-                      dump_csv=False, dump_hdf5=False, dump_video=True, dump_audio=True,
-                      # Additional configuration.
-                      videos_format='avi', # mp4 occasionally gets openCV errors about a tag not being supported?
-                      audio_format='wav', # currently only supports WAV
-                      print_status=print_status, print_debug=print_debug)
-
-
-  # Connect and start the streamers.
-  for (streamer_index, streamer) in enumerate(streamers):
-    if print_status: print('\nConnecting streamer %d/%d (class %s)' % (streamer_index+1, len(streamers), type(streamer).__name__))
-    connected = streamer.connect()
-    if not connected:
-      raise AssertionError('Error connecting the streamer')
-  for (streamer_index, streamer) in enumerate(streamers):
-    if print_status: print('Starting streamer %d/%d' % (streamer_index+1, len(streamers)))
-    streamer.run()
-
-  # Log data!
-  print()
-  print('Starting data logger and streamers')
-  print('Enter \'quit\' or \'q\' as an experiment note to end the program')
-  print()
-  logger.run()
-
-  # Wait for a set time or until the user quits.
-  duration_s = 15
-  time_start_s = time.time()
-  last_notes = ''
-  while last_notes not in ['quit', 'q'] and time.time() - time_start_s < duration_s:
-    time.sleep(1)
-    last_notes = notes_streamer.get_last_notes()
-    if last_notes is not None:
-      last_notes = last_notes.lower().strip()
-
-  # Stop streamers and data logging.
-  print()
-  print('Main loop terminated - stopping data logger and streamers')
-  for (streamer_index, streamer) in enumerate(streamers):
-      if print_status: print('\nStopping streamer %d/%d of class %s' % (streamer_index+1, len(streamers), type(streamers[streamer_index]).__name__))
-      streamer.stop()
-  logger.stop()

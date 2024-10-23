@@ -75,9 +75,3 @@ def get_time_s_from_local_str(time_local_str, input_time_format='%H:%M:%S.%f',
   local_datetime = datetime.strptime(local_str, input_date_format + ' ' + input_time_format)
   
   return local_datetime.timestamp()
-
-
-
-
-
-

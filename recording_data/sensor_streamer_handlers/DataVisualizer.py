@@ -1,32 +1,6 @@
-############
-#
-# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# See https://action-net.csail.mit.edu for more usage information.
-# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
-#
-############
-
 # Whether to use OpenCV or pyqtgraph to generate a composite visualization.
 #   The OpenCV method is a bit faster, but the pyqtgraph method is interactive.
-use_opencv_for_composite = True
+use_opencv_for_composite = False
 
 if not use_opencv_for_composite:
   import pyqtgraph
@@ -686,103 +660,17 @@ class DataVisualizer:
     except:
       pass
 
-  ######################
-  ###### PRINTING ######
-  ######################
+  # A helper to visualize all data (intended for the end of an experiment rather than streaming).
+  def visualize_all_data(self):
+    if self._data_visualizer is not None:
+      self._data_visualizer.visualize_all_data()
 
-  def _log_status(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=self._print_status, filepath=self._log_history_filepath, **kwargs)
-  def _log_debug(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=self._print_debug, debug=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_error(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, error=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_warn(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, warning=True, filepath=self._log_history_filepath, **kwargs)
-  def _log_userAction(self, msg, *extra_msgs, **kwargs):
-    write_log_message(msg, *extra_msgs, source_tag=self._log_source_tag,
-                      print_message=True, userAction=True, filepath=self._log_history_filepath, **kwargs)
+  # A helper to wait until the user closes all visualizations.
+  def wait_while_visualization_windows_open(self):
+    if self._data_visualizer is not None:
+      self._data_visualizer.wait_while_windows_open()
 
-
-#####################
-###### TESTING ######
-#####################
-if __name__ == '__main__':
-
-  from sensor_streamers.NotesStreamer import NotesStreamer
-  from recording_data.sensor_streamers.AwindaStreamer import AwindaStreamer
-  from sensor_streamers.EyeStreamer   import EyeStreamer
-  from sensor_streamers.DummyStreamer   import DummyStreamer
-  import time
-
-  # Configure printing to the console.
-  print_debug = False
-  print_status = True
-
-  # Create the streamers.
-  dummy_streamer_video = DummyStreamer(update_period_s=0.2,
-                                 streamer_tag='dummy1',
-                                 visualization_type='video', # can override sample_size
-                                 print_debug=print_debug, print_status=print_status)
-  dummy_streamer_lines = DummyStreamer(sample_size=[3,4], update_period_s=0.2,
-                                 streamer_tag='dummy2',
-                                 visualization_type='line',
-                                 print_debug=print_debug, print_status=print_status)
-  dummy_streamer_heatmap = DummyStreamer(sample_size=[32,32], update_period_s=0.2,
-                                 streamer_tag='dummy3',
-                                 visualization_type='heatmap',
-                                 print_debug=print_debug, print_status=print_status)
-  dummy_streamer_xsens = DummyStreamer(sample_size=[23,3], update_period_s=0.2,
-                                 streamer_tag='dummy3',
-                                 visualization_type='xsens-skeleton',
-                                 print_debug=print_debug, print_status=print_status)
-  # notes_streamer = NotesStreamer(print_debug=print_debug, print_status=print_status)
-  # myo_streamer = MyoStreamer(num_myos=2, print_debug=print_debug, print_status=print_status)
-  # xsens_streamer = XsensStreamer(print_debug=print_debug, print_status=print_status)
-  # touch_streamer = TouchStreamer(print_debug=print_debug, print_status=print_status)
-  # eye_streamer = EyeStreamer(stream_video_world=True, stream_video_worldGaze=True,
-  #                             stream_video_eye=True,
-  #                             print_debug=print_debug, print_status=print_status)
-
-  dummy_streamers = [
-      dummy_streamer_lines,
-      dummy_streamer_heatmap,
-      dummy_streamer_video,
-      dummy_streamer_xsens,
-    ]
-  streamers = [
-      # notes_streamer,
-      # myo_streamer,
-      # xsens_streamer,
-      # touch_streamer,
-      # eye_streamer,
-    ]
-  streamers.extend(dummy_streamers)
-
-  # Create a visualizer to display the streaming data.
-  data_visualizer = DataVisualizer(streamers, update_period_s=0.5,
-                                    print_status=print_status, print_debug=print_debug)
-
-  # Start the streamers.
-  for dummy_streamer in dummy_streamers:
-    dummy_streamer.connect()
-  for dummy_streamer in dummy_streamers:
-    dummy_streamer.run()
-
-  # Run.
-  duration_s = 5
-  data_visualizer.visualize_streaming_data(duration_s=duration_s,
-                                           stopping_condition_fn=None)
-
-  # Stop the streamers.
-  for dummy_streamer in dummy_streamers:
-    dummy_streamer.stop()
-
-  # Visualize all data.
-  data_visualizer.visualize_all_data()
-
-  # Wait for user to close windows.
-  data_visualizer.wait_while_windows_open()
+# # Disable visualization if desired for this class.
+#         if 'classes_to_visualize' in self._data_visualizer_options:
+#           if class_name not in self._data_visualizer_options['classes_to_visualize']:
+#             class_args['visualization_options'] = {'disable_visualization':True}
