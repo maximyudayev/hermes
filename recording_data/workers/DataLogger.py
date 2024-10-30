@@ -1,5 +1,5 @@
 import zmq
-from sensor_streamers import SensorStreamer
+from streamers import SensorStreamer
 
 import h5py
 from threading import Thread
@@ -42,26 +42,44 @@ from utils.print_utils import *
 ################################################
 class DataLogger:
 
+  # Will store the class name of each sensor in HDF5 metadata,
+  #   to facilitate recreating classes when replaying the logs later.
+  # The following is the metadata key to store that information.
+  metadata_class_name_key = 'SensorStreamer class name'
+  # Will look for a special metadata key that labels data channels,
+  #   to use for logging purposes and general user information.
+  metadata_data_headings_key = 'Data headings'
+
   ########################
   ###### INITIALIZE ######
   ########################
 
-  def __init__(self, sensor_streamers, port_sub: str = "42070",
-              log_dir=None, log_tag=None,
-              stream_csv=False, stream_hdf5=False, stream_video=False, stream_audio=False,
-              stream_period_s=30, clear_logged_data_from_memory=False,
-              dump_csv=False, dump_hdf5=False, dump_video=False, dump_audio=False,
-              use_external_recording_sources=False,
-              videos_in_csv=False, videos_in_hdf5=False, videos_format='avi',
-              audio_in_csv=False, audio_in_hdf5=False, audio_format='wav',
-              print_status=True, print_debug=False, log_history_filepath=None):
-
-    # Validate the streamer objects, and make a list of them.
-    if not isinstance(sensor_streamers, (list, tuple)):
-      sensor_streamers = [sensor_streamers]
-    if len(sensor_streamers) == 0:
-      raise AssertionError('At least one SensorStreamer must be provided to DataLogger')
-    self._streamers = list(sensor_streamers)
+  def __init__(self,
+               port_sub: str = "42070",
+               classes_to_log: list[str] | None = None,
+               streamer_specs: list[dict] | None = None,
+               log_dir: str | None = None,
+               log_tag: str | None = None,
+               use_external_recording_sources: bool = False, # what's it for?
+               stream_csv: bool = False,
+               stream_hdf5: bool = False,
+               stream_video: bool = False,
+               stream_audio: bool = False,
+               dump_csv: bool = False, 
+               dump_hdf5: bool = False, 
+               dump_video: bool = False, 
+               dump_audio: bool = False,
+               videos_in_csv: bool = False, 
+               videos_in_hdf5: bool = False, 
+               videos_format: str = 'avi',
+               audio_in_csv: bool = False, 
+               audio_in_hdf5: bool = False, 
+               audio_format: str = 'wav',
+               stream_period_s = 30,
+               clear_logged_data_from_memory: bool = False,
+               print_status: bool = True,
+               print_debug: bool = False,
+               log_history_filepath: str | None = None):
 
     # Record the configuration options.
     self._log_source_tag = 'logger'
@@ -88,7 +106,9 @@ class DataLogger:
     self._print_debug = print_debug
     self._log_history_filepath = log_history_filepath
 
-    # Connect local publisher to the Proxy's XSUB socket
+    # TODO: Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
+
+    # Connect local publisher to the Broker's XSUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
 
     # Socket to subscribe to SensorStreamers
@@ -98,12 +118,12 @@ class DataLogger:
 
     # Initialize a record of what indices have been logged,
     #  and how many timesteps to stay behind of the most recent step (if needed).
-    self._next_data_indexes = [OrderedDict() for _ in range(len(self._streamers))]
-    self._timesteps_before_solidified = [OrderedDict() for _ in range(len(self._streamers))]
+    self._next_data_indexes = [OrderedDict() for _ in classes_to_log]
+    self._timesteps_before_solidified = [OrderedDict() for _ in classes_to_log]
     # Each time an HDF5 dataset reaches its limit,
     #  its size will be increased by the following amount.
     self._hdf5_log_length_increment = 10000
-    self._next_data_indexes_hdf5 = [OrderedDict() for _ in range(len(self._streamers))]
+    self._next_data_indexes_hdf5 = [OrderedDict() for _ in classes_to_log]
 
     # Initialize state for the thread that will do stream-logging.
     # TODO: what's it for?

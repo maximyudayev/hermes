@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
 
 import copy
-from collections import OrderedDict
 import zmq
 
-from data_structures import Stream
+from streams.Stream import Stream
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
-
 
 ################################################
 ################################################
@@ -17,83 +15,85 @@ from utils.print_utils import *
 ################################################
 ################################################
 class SensorStreamer(ABC):
+  # Read-only property that every subclass must implement.
+  @property
+  @abstractmethod
+  def _log_source_tag(self):
+    pass
 
   ########################
   ###### INITIALIZE ######
   ########################
 
-  # Will store the class name of each sensor in HDF5 metadata,
-  #   to facilitate recreating classes when replaying the logs later.
-  # The following is the metadata key to store that information.
-  metadata_class_name_key = 'SensorStreamer class name'
-  # Will look for a special metadata key that labels data channels,
-  #   to use for logging purposes and general user information.
-  metadata_data_headings_key = 'Data headings'
-
-  def __init__(self, port_pub: str = "42069",
-               streams_info: dict[str, dict[str, dict]] | None = None,
-               log_player_options = None,
+  def __init__(self, 
+               port_pub: str = "42069",
+               port_sync: str = "42071",
+               port_killsig: str = "42066",
+               stream_info: dict | None = None,
                log_history_filepath: str | None = None,
-               visualization_options: dict | None = None,
-               print_status: bool = True, print_debug: bool = False) -> None:
-    
-    # Connect local publisher to the Proxy's XSUB socket
-    self._ctx: zmq.Context = zmq.Context.instance()
-
-    # Socket to publish sensor data and log
-    self._pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
-    self._pub.connect("tcp://localhost:%s" % port_pub)
-
-    # # Socket to receive kill signal and stdin events (if needed)
-    # self._sub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
-    # self._sub.connect("tcp://localhost:%s" % port_pub)
-    # topics = ["kill.", "stdin."]
-    # for topic in topics: self._sub.subscribe(topic)
-    
-    # Data structure for keeping track of data
-    self._data: Stream = self.create_stream(streams_info)
-
-    self._metadata = OrderedDict()
-
-    self._log_source_tag = type(self).__name__
+               print_status: bool = True,
+               print_debug: bool = False) -> None:
+    self._port_pub = port_pub
+    self._port_sync = port_sync
+    self._port_killsig = port_killsig
     self._print_status = print_status
     self._print_debug = print_debug
     self._log_history_filepath = log_history_filepath
     self._running = False
 
+    # Data structure for keeping track of data
+    self._data: Stream = self.create_stream(stream_info)
+
   # A SensorStreamer instance is a callable to launch as a Process
   def __call__(self, *args: copy.Any, **kwds: copy.Any):
+    # Connect local publisher to the Proxy's XSUB socket
+    self._ctx: zmq.Context = zmq.Context.instance()
+
+    # Socket to publish sensor data and log
+    self._pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
+    self._pub.connect("tcp://localhost:%s" % self._port_pub)
+
+    # Socket to receive kill signal
+    # TODO: complete the logic with acknowledgement of streamer and notification of last packet sent-recieved before exiting
+    self._killsig: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
+    self._killsig.connect("tcp://localhost:%s" % self._port_killsig)
+    topics = ["kill"]
+    for topic in topics: self._killsig.subscribe(topic)
+
     # Start running!
     self._running = True
-    self._run()
-  
+    self.connect()
+    self.run()
+
   ############################
   ###### INTERFACE FLOW ######
   ############################
 
-  # Instantiate Stream datastructure object specific to this Streamer
+  # Instantiate Stream datastructure object specific to this Streamer.
+  #   Should also be a class method to create Stream objects on consumers. 
+  @classmethod
   @abstractmethod
-  def create_stream(self, streams_info) -> Stream:
+  def create_stream(cls) -> Stream:
     pass
 
-  # Connect to the sensor device(s)
+  # Connect to the sensor device(s).
   @abstractmethod
   def connect(self):
     pass
 
-  # Launch data streaming form the device
+  # Launch data streaming form the device.
   @abstractmethod
-  def _run(self):
+  def run(self):
     pass
 
-  # Clean up and quit
+  # Clean up and quit.
   @abstractmethod
-  def _quit(self):
+  def quit(self):
     pass
 
-  ##############################
+  #############################
   ###### GETTERS/SETTERS ######
-  ##############################
+  #############################
   
   def is_running(self):
     return self._running

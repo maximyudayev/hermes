@@ -24,7 +24,7 @@
 #
 ############
 
-from sensor_streamer_handlers.DataLogger import DataLogger
+from handlers.DataLogger import DataLogger
 import os
 import traceback
 

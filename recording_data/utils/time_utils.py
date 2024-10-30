@@ -31,7 +31,7 @@ from dateutil import tz
 
 # Get a date string from seconds since epoch.
 # If time_s is None, will use the current time.
-def get_time_str(time_s=None, format='%Y-%m-%d_%H-%M-%S', return_time_s=False):
+def get_time_str(time_s: float | None = None, format: str = '%Y-%m-%d_%H-%M-%S', return_time_s: bool = False):
   time_s = time_s or time.time()
   time_datetime = datetime.fromtimestamp(time_s)
   time_str = time_datetime.strftime(format)

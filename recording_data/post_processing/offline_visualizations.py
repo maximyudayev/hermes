@@ -24,8 +24,8 @@
 #
 ############
 
-from sensor_streamer_handlers.SensorManager import SensorManager
-from sensor_streamer_handlers.DataVisualizer import DataVisualizer
+from handlers.StreamBroker import StreamBroker
+from handlers.DataVisualizer import DataVisualizer
 
 import time
 import traceback
@@ -78,7 +78,7 @@ if __name__ == '__main__':
                                   'composite_visualization_postProcessed_10fps')
 
     # Create a sensor manager.
-    sensor_manager = SensorManager(sensor_streamer_specs=None,
+    sensor_manager = StreamBroker(streamer_specs=None,
                                    log_player_options=log_player_options,
                                    data_logger_options=datalogging_options,
                                    data_visualizer_options=visualization_options,

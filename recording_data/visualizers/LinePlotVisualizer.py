@@ -29,7 +29,7 @@
 use_matplotlib = False
 
 from visualizers.Visualizer import Visualizer
-from sensor_streamers.SensorStreamer import SensorStreamer
+from streamers.SensorStreamer import SensorStreamer
 
 if use_matplotlib:
   import matplotlib

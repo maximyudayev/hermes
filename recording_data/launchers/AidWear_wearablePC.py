@@ -1,7 +1,7 @@
 import os
 from utils.time_utils import *
 from utils.print_utils import *
-from sensor_streamer_handlers import StreamerManager
+from handlers.StreamBroker import StreamBroker
 
 # Note that multiprocessing requires the __main__ check.
 if __name__ == '__main__':
@@ -184,15 +184,17 @@ if __name__ == '__main__':
   ##################
   # Create all desired locally connected producers.
   # Create requested SensorStreamers.
-  streamer_manager = StreamerManager(ip=ip_wearablePC,
+  stream_broker = StreamBroker(ip=ip_wearablePC,
                                      sensor_streamer_specs_local=sensor_streamer_specs_local,
                                      sensor_streamer_specs_all=sensor_streamer_specs_local,
                                      workers=workers,
                                      log_history_filepath=log_history_filepath,
                                      datalogging_options=datalogging_options)
 
-  # Expose local wearable data to remote subscribers like lab PC
-  streamer_manager.expose_to_remote_sub()
+  # Expose local wearable data to remote subscribers (e.g. lab PC in AidFOG project).
+  stream_broker.expose_to_remote_sub()
+  # Subscribe to the kill signal of a remote machine.
+  stream_broker.subscribe_to_killsig(addr=ip_labPC)
 
-  # Run proxy/server's main
-  StreamerManager.run(duration_s=None)
+  # Run proxy/server's main.
+  StreamBroker.run(duration_s=None)

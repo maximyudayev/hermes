@@ -27,8 +27,8 @@
 # This script will print out activity label start/end times
 #  in a format that can be copied into YouTube descriptions to create chapters.
 
-from sensor_streamer_handlers.SensorManager import SensorManager
-from sensor_streamer_handlers.DataVisualizer import DataVisualizer
+from handlers.StreamBroker import StreamBroker
+from handlers.DataVisualizer import DataVisualizer
 
 import time
 import traceback
@@ -120,7 +120,7 @@ if __name__ == '__main__':
       # Configure visualizations to be shown as a simulation of real-time streaming.
       visualization_options = None
       # Create a sensor manager.
-      sensor_manager = SensorManager(sensor_streamer_specs=None,
+      sensor_manager = StreamBroker(streamer_specs=None,
                                      log_player_options=log_player_options,
                                      data_logger_options=datalogging_options,
                                      data_visualizer_options=visualization_options,

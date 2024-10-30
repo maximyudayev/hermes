@@ -24,7 +24,7 @@
 #
 ############
 
-from sensor_streamer_handlers.SensorManager import SensorManager
+from handlers.StreamBroker import StreamBroker
 
 import time
 import os
@@ -67,7 +67,7 @@ if __name__ == '__main__':
   }
 
   # Create a sensor manager.
-  sensor_manager = SensorManager(sensor_streamer_specs=None,
+  sensor_manager = StreamBroker(streamer_specs=None,
                                  log_player_options=log_player_options,
                                  data_logger_options=datalogging_options,
                                  data_visualizer_options=visualization_options,

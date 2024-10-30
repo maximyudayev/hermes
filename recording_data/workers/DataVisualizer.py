@@ -14,6 +14,8 @@ import os
 import time
 from collections import OrderedDict
 
+import zmq
+
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
@@ -37,21 +39,27 @@ class DataVisualizer:
   ###### INITIALIZE ######
   ########################
 
-  def __init__(self, sensor_streamers, update_period_s=None,
-               use_composite_video=False, composite_video_layout=None, composite_video_filepath=None,
-               print_status=True, print_debug=False, log_history_filepath=None):
-    # Validate the streamer objects, and make a list of them.
-    if not isinstance(sensor_streamers, (list, tuple)):
-      sensor_streamers = [sensor_streamers]
-    if len(sensor_streamers) == 0:
-      raise AssertionError('At least one SensorStreamer must be provided to DataLogger')
-    self._streamers = list(sensor_streamers)
+  def __init__(self, 
+               port_sub: str = "42070",
+               classes_to_visualize: list[str] | None = None,
+               streamer_specs: list[dict] | None = None,
+               visualize_streaming_data: bool = True,
+               visualize_all_data_when_stopped: bool = False,
+               wait_while_visualization_windows_open: bool = False,
+               update_period_s: float = 2.0,
+               use_composite_video: bool = True, 
+               composite_video_filepath: str | None = None,
+               composite_video_layout: list[list[dict]] | None = None, 
+               print_status: bool = True, 
+               print_debug: bool = False, 
+               log_history_filepath: str | None = None):
 
     # Record the configuration options.
-    self._update_period_s = 2.0 if update_period_s is None else update_period_s
+    self._log_source_tag = 'visualizer'
+    self._update_period_s = update_period_s
     self._use_composite_video = use_composite_video
-    self._composite_video_layout = composite_video_layout
     self._composite_video_filepath = composite_video_filepath
+    self._composite_video_layout = composite_video_layout
     self._composite_video_tileBorder_width = max(1, round(1/8/100*sum([tile_layout['width'] for tile_layout in composite_video_layout[0]]))) if composite_video_layout is not None else None
     self._composite_video_tileBorder_color = [225, 225, 225] # BGR
     self._composite_frame_width = None # will be computed from the layout
@@ -59,13 +67,22 @@ class DataVisualizer:
     self._composite_frame_height_withTimestamp = None # will be computed from the layout and the timestamp height
     self._print_status = print_status
     self._print_debug = print_debug
-    self._log_source_tag = 'vis'
     self._log_history_filepath = log_history_filepath
     
     self._print_debug_extra = False # Print debugging information for visualizers that probably isn't needed during normal experiment logging
     self._last_debug_updateTime_print_s = 0
     
     self._visualizers = []
+
+    # TODO: Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
+
+    # Connect local publisher to the Broker's XSUB socket
+    self._ctx: zmq.Context = zmq.Context.instance()
+
+    # Socket to subscribe to SensorStreamers
+    self._pub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
+    self._pub.connect("tcp://localhost:%s" % port_sub)
+    # TODO: subscribe to topics for each mentioned local and remote streamer
     
   # Initialize visualizers.
   # Will use the visualizer specified by each streamer,
