@@ -4,6 +4,7 @@ A brief summary of the required software and the currently tested versions is be
 - Conda
 - Pupil Capture 3.5.1
 - Movella DOT SDK 2023.6
+- Basler Pylon Viewer [optional but useful]
 - HDFView 3.1.3 [optional but useful]
 
 ## Windows
@@ -23,6 +24,12 @@ Activate project conda environment: `conda activate aidwear`
 
 Install the wheel file for DOTs into the environment:
 `pip install --no-deps "<path to installed Movella dictionary>\DOT PC SDK <SDK version>\SDK Files\Python\x64\movelladot_pc_sdk-<SDK version>-cp39-none-win_amd64.whl"`
+
+### PyPylon
+
+To interface Basler cameras, install [the official](https://github.com/basler/pypylon) Python pylon wrapper into the project conda environment. 
+
+With `aidwear` conda environment active: `pip install pypylon`
 
 ### HDFView
 

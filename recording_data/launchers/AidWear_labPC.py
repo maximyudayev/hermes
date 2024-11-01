@@ -1,7 +1,6 @@
 import os
 from utils.time_utils import *
-from utils.print_utils import *
-from handlers.StreamBroker import StreamBroker
+from handlers import StreamBroker
 
 # Note that multiprocessing requires the __main__ check.
 if __name__ == '__main__':
@@ -78,11 +77,12 @@ if __name__ == '__main__':
     # Stream from one or more cameras.
     {'class': 'CameraStreamer',
      'cameras_to_stream': { # map camera names (usable as device names in the HDF5 file) to capture device indexes
-       'basler_north': 0,
-       'basler_south': 1,
-       'basler_east' : 2,
-       'basler_west' : 3,
+       'basler_north' : "40478064",
+       'basler_east'  : "40549960",
+       'basler_south' : "40549975",
+       'basler_west'  : "40549976",
      },
+     'fps': 30.0,
      'print_debug': print_debug, 'print_status': print_status
      },
      # Insole pressure sensor.

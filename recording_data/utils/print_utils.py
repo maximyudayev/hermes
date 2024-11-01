@@ -98,8 +98,14 @@ def get_var_str(var, name=None):
 
 
 # Format (and optionally print) a timestamped log message.
-def format_log_message(msg, *extra_msgs, source_tag=None,
-                       debug=False, warning=False, error=False, userAction=False, **kwargs):
+def format_log_message(msg: str, 
+                       *extra_msgs, 
+                       source_tag: str | None = None,
+                       debug: bool = False, 
+                       warning: bool = False, 
+                       error: bool = False, 
+                       userAction: bool = False, 
+                       **kwargs):
   # Add a timestamp.
   timestamp_str = get_time_str(format='%Y-%m-%d %H:%M:%S.%f')
   # timestamp_str = get_time_str(format='%H:%M:%S.%f')
@@ -130,12 +136,25 @@ def format_log_message(msg, *extra_msgs, source_tag=None,
   return msg
 
 # Format, optionally print, and optionally write to file a timestamped log message.
-def write_log_message(msg, *extra_msgs, source_tag=None,
-                      debug=False, warning=False, error=False, userAction=False,
-                      print_message=True, filepath=None, **kwargs):
-  msg = format_log_message(msg, *extra_msgs, source_tag=source_tag,
-                           debug=debug, warning=warning, error=error, userAction=userAction,
-                           print_message=print_message, **kwargs)
+def write_log_message(msg: str, 
+                      *extra_msgs, 
+                      source_tag: str | None = None,
+                      debug: bool = False, 
+                      warning: bool = False, 
+                      error: bool = False, 
+                      userAction: bool = False,
+                      print_message: bool = True, 
+                      filepath: str | None = None, 
+                      **kwargs):
+  msg = format_log_message(msg, 
+                           *extra_msgs, 
+                           source_tag=source_tag,
+                           debug=debug, 
+                           warning=warning, 
+                           error=error, 
+                           userAction=userAction,
+                           print_message=print_message, 
+                           **kwargs)
   if filepath is not None:
     # Note that it seems multiple file handles can be opened at the same time,
     #  so it shouldn't get an error in the case of multiple threads calling
@@ -154,11 +173,11 @@ def write_log_message(msg, *extra_msgs, source_tag=None,
 ###### PRINTING ######
 ######################
 
-def _log_status(source_tag, msg, *extra_msgs, **kwargs):
-  format_log_message(msg, *extra_msgs, source_tag=source_tag, **kwargs)
-def _log_debug(source_tag, msg, *extra_msgs, **kwargs):
-  format_log_message(msg, *extra_msgs, source_tag=source_tag, debug=True, **kwargs)
-def _log_error(source_tag, msg, *extra_msgs, **kwargs):
-  format_log_message(msg, *extra_msgs, source_tag=source_tag, error=True, **kwargs)
-def _log_warn(source_tag, msg, *extra_msgs, **kwargs):
-  format_log_message(msg, *extra_msgs, source_tag=source_tag, warning=True, **kwargs)
+def log_status(source_tag, msg, *extra_msgs, **kwargs) -> str:
+  return format_log_message(msg, *extra_msgs, source_tag=source_tag, **kwargs)
+def log_debug(source_tag, msg, *extra_msgs, **kwargs) -> str:
+  return format_log_message(msg, *extra_msgs, source_tag=source_tag, debug=True, **kwargs)
+def log_error(source_tag, msg, *extra_msgs, **kwargs) -> str:
+  return format_log_message(msg, *extra_msgs, source_tag=source_tag, error=True, **kwargs)
+def log_warn(source_tag, msg, *extra_msgs, **kwargs) -> str:
+  return format_log_message(msg, *extra_msgs, source_tag=source_tag, warning=True, **kwargs)

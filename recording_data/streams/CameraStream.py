@@ -9,11 +9,13 @@ from visualizers import VideoVisualizer
 ################################################
 class CameraStream(Stream):
   def __init__(self, 
-               cameras_to_stream: dict) -> None:
+               cameras_to_stream: dict,
+               fps: float) -> None:
     super(CameraStream, self).__init__()
 
     self._data_notes_stream = {
       "frame": "Frames are in BGR format",
+      "sequence_id": "Frame index",
       "frame_timestamp": None
     }
 

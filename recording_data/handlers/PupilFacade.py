@@ -49,7 +49,7 @@ class PupilFacade:
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in topics: self._receiver.subscribe(t)
 
-    self._log_debug('Subscribed to eye tracking topics')
+    # self._log_debug('Subscribed to eye tracking topics')
   
   # Receive data and return a parsed dictionary.
   # The data dict will have keys 'gaze', 'pupil', 'video-world', 'video-worldGaze', and 'video-eye'
@@ -200,7 +200,7 @@ class PupilFacade:
     # Get some sample data to determine what gaze/pupil streams are present.
     # Will validate that all expected streams are present, and will also
     #  determine whether 2D or 3D processing is being used.
-    self._log_status('Waiting for initial eye tracking data to determine streams')
+    # self._log_status('Waiting for initial eye tracking data to determine streams')
     # Temporarily set self._stream_video_world to True if we want self._stream_video_worldGaze.
     #   Gaze data is not stored yet, so video_worldGaze won't be created yet.
     #   So instead, we can at least check that the world is streamed.
@@ -234,7 +234,7 @@ class PupilFacade:
       msg+= '\n Video world is streaming? %s' % (video_world_data is not None)
       msg+= '\n Video eye0   is streaming? %s' % (video_eye0_data is not None)
       msg+= '\n Video eye1   is streaming? %s' % (video_eye1_data is not None)
-      self._log_error(msg)
+      # self._log_error(msg)
       raise AssertionError(msg)
 
     # Estimate the video frame rates
@@ -242,7 +242,7 @@ class PupilFacade:
     fps_video_eye0 = None
     fps_video_eye1 = None
     def _get_fps(data_key, duration_s=0.1):
-      self._log_status('Estimating the eye-tracking frame rate for %s... ' % data_key, end='')
+      # self._log_status('Estimating the eye-tracking frame rate for %s... ' % data_key, end='')
       # Wait for a new data entry, so we start timing close to a frame boundary.
       data = {data_key: None}
       while data[data_key] is not None:
@@ -256,7 +256,7 @@ class PupilFacade:
           frame_count = frame_count+1
       # Since we both started and ended timing right after a sample, no need to do (frame_count-1).
       frame_rate = frame_count/(time.time() - time_start_s)
-      self._log_status('estimated frame rate as %0.2f for %s' % (frame_rate, data_key))
+      # self._log_status('estimated frame rate as %0.2f for %s' % (frame_rate, data_key))
       return frame_rate
     if self._stream_video_world or self._stream_video_worldGaze:
       fps_video_world = _get_fps('video-world')
@@ -267,7 +267,7 @@ class PupilFacade:
     # Restore the desired stream world setting, now that world-gaze data has been obtained if needed.
     self._stream_video_world = stream_video_world_original
 
-    self._log_status('Started eye tracking streamer')
+    # self._log_status('Started eye tracking streamer')
 
     data = {
       "gaze_data": gaze_data,
@@ -327,7 +327,7 @@ class PupilFacade:
 
   # Set the time of the Pupil Core clock to the system time.
   def _sync_pupil_time(self):
-    self._log_status('Syncing the Pupil Core clock with the system clock')
+    # self._log_status('Syncing the Pupil Core clock with the system clock')
     # Note that the same number of decimals will always be used,
     #  so the length of the message is always the same
     #  (this can help make delay estimates more accurate).
@@ -351,7 +351,7 @@ class PupilFacade:
     # Check that the sync was successful.
     clock_offset_ms = self._measure_pupil_clock_offset_s()/1000.0
     if abs(clock_offset_ms) > 5:
-      self._log_warn('WARNING: Pupil Core clock sync may not have been successful. Offset is still %0.3f ms.' % clock_offset_ms)
+      # self._log_warn('WARNING: Pupil Core clock sync may not have been successful. Offset is still %0.3f ms.' % clock_offset_ms)
       return False
     return True
 
@@ -376,9 +376,9 @@ class PupilFacade:
       local_time = (local_time_before + local_time_after) / 2.0
       clock_offsets_s.append(pupil_time - local_time)
     # Average multiple readings to account for variable network delays.
-    self._log_debug('Estimated Pupil Core clock offset [ms]: mean %0.3f | std %0.3f | min %0.3f | max %0.3f' % \
-                    (np.mean(clock_offsets_s)*1000.0, np.std(clock_offsets_s)*1000.0,
-                     np.min(clock_offsets_s)*1000.0, np.max(clock_offsets_s)*1000.0))
+    # self._log_debug('Estimated Pupil Core clock offset [ms]: mean %0.3f | std %0.3f | min %0.3f | max %0.3f' % \
+    #                 (np.mean(clock_offsets_s)*1000.0, np.std(clock_offsets_s)*1000.0,
+    #                  np.min(clock_offsets_s)*1000.0, np.max(clock_offsets_s)*1000.0))
     return np.mean(clock_offsets_s)
 
   # #####################################
