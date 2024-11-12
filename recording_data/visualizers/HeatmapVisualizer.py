@@ -11,13 +11,20 @@ import time
 # Visualize 2D matrix data as a heatmap.
 ################################################
 class HeatmapVisualizer(Visualizer):
-  
-  def __init__(self, visualizer_options=None, hidden=False,
-               parent_layout=None, parent_layout_size=None,
-               print_debug=False, print_status=False):
-    Visualizer.__init__(self, visualizer_options=visualizer_options, hidden=hidden,
-                              parent_layout=parent_layout, parent_layout_size=parent_layout_size,
-                              print_debug=print_debug, print_status=print_status)
+  def __init__(self, 
+               visualizer_options = None, 
+               hidden: bool = False,
+               parent_layout = None, 
+               parent_layout_size = None,
+               print_debug: bool = False, 
+               print_status: bool = False):
+    Visualizer.__init__(self, 
+                        visualizer_options=visualizer_options, 
+                        hidden=hidden,
+                        parent_layout=parent_layout, 
+                        parent_layout_size=parent_layout_size,
+                        print_debug=print_debug, 
+                        print_status=print_status)
     
     self._app = QtGui.QApplication([])
     self._layout = parent_layout
@@ -102,19 +109,7 @@ class HeatmapVisualizer(Visualizer):
     self._heatmap = h_heatmap
     self._colorbar = h_colorbar
     self._figure_size = figure_size
-  
-  # Callback for mouse moving over the heatmap, to add a tool tip with the value.
-  def _mouse_moved_callback(self, mouse_position):
-    # Check if event is inside heatmap, and convert from screen/pixels to image xy indexes.
-    if self._plot.sceneBoundingRect().contains(mouse_position):
-      mouse_point = self._plot.getViewBox().mapSceneToView(mouse_position)
-      x_i = int(mouse_point.x())
-      y_i = int(mouse_point.y())
-      if x_i >= 0 and x_i < self._data.shape[0] and y_i >= 0 and y_i < self._data.shape[1]:
-        self._layout.window().setToolTip('(y=%d, x=%d): %0.2f' %
-                                          (y_i, x_i, self._data[y_i][x_i]))
-        return
-  
+
   # Update the heatmap with new data.
   # Note that only the most recent data sample will be shown.
   # @param new_data is a dict with 'data' (all other keys will be ignored).
@@ -153,8 +148,7 @@ class HeatmapVisualizer(Visualizer):
     # Update the figure to see the changes.
     if not self._hidden:
       cv2.waitKey(1) # find a better way?
-  
-  
+
   # Retrieve an image of the most updated visualization.
   # Should return a matrix in RGB format.
   def get_visualization_image(self, device_name, stream_name):
@@ -164,14 +158,6 @@ class HeatmapVisualizer(Visualizer):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # if self._print_debug: print('Time to export heatmap for %s.%s: %0.3fs', (device_name, stream_name, time.time() - start_export_time_s))
     return img
-  
-  # Convert a QImage to a numpy ndarray in BGR format.
-  def _convertQImageToMat(self, qimg):
-    img = qimg.convertToFormat(QtGui.QImage.Format.Format_RGB32)
-    ptr = img.bits()
-    ptr.setsize(img.sizeInBytes())
-    arr = np.array(ptr).reshape(img.height(), img.width(), 4)  #  Copies the data
-    return arr
   
   # Close the figure.
   def close(self):
@@ -183,3 +169,24 @@ class HeatmapVisualizer(Visualizer):
   def wait_for_user_to_close(self):
     if not self._hidden and not self._is_sub_layout:
       self._app.exec()
+
+  # Convert a QImage to a numpy ndarray in BGR format.
+  def _convertQImageToMat(self, qimg):
+    img = qimg.convertToFormat(QtGui.QImage.Format.Format_RGB32)
+    ptr = img.bits()
+    ptr.setsize(img.sizeInBytes())
+    arr = np.array(ptr).reshape(img.height(), img.width(), 4)  #  Copies the data
+    return arr
+  
+    # Callback for mouse moving over the heatmap, to add a tool tip with the value.
+  
+  def _mouse_moved_callback(self, mouse_position):
+    # Check if event is inside heatmap, and convert from screen/pixels to image xy indexes.
+    if self._plot.sceneBoundingRect().contains(mouse_position):
+      mouse_point = self._plot.getViewBox().mapSceneToView(mouse_position)
+      x_i = int(mouse_point.x())
+      y_i = int(mouse_point.y())
+      if x_i >= 0 and x_i < self._data.shape[0] and y_i >= 0 and y_i < self._data.shape[1]:
+        self._layout.window().setToolTip('(y=%d, x=%d): %0.2f' %
+                                          (y_i, x_i, self._data[y_i][x_i]))
+        return

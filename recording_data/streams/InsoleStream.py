@@ -1,4 +1,4 @@
-from streams import Stream
+from streams.Stream import Stream
 from visualizers import HeatmapVisualizer, LinePlotVisualizer
 
 ################################################

@@ -1,0 +1,210 @@
+from collections import OrderedDict
+import numpy as np
+from streams.Stream import Stream
+from visualizers import LinePlotVisualizer
+
+################################################
+################################################
+# A structure to store Awinda MTws' stream's data.
+################################################
+################################################
+class AwindaStream(Stream):
+  def __init__(self, 
+               device_mapping: dict[str, str],
+               num_joints: int = 7,
+               sampling_rate_hz: int = 100) -> None:
+    super(AwindaStream, self).__init__()
+    
+    self._device_name = 'awinda-imu'
+    self._num_joints = num_joints
+    self._sampling_rate_hz = sampling_rate_hz
+    
+    # Invert device mapping to map device_id -> joint_name
+    (joint_names, device_ids) = tuple(zip(*(device_mapping.items())))
+    self._device_mapping: OrderedDict[str, str] = OrderedDict(zip(device_ids, joint_names))
+
+    self._define_data_notes()
+
+    # When using onLiveDataAvailable, every immediately available packet from each MTw is pushed in its own corresponding Stream.
+    # When using onAllLiveDataAvailable, packets are packaged all at once (potentially for multiple timesteps)
+    #   with interpolation of data for steps where some of sensors missed a measurement.
+    # Choose the desired behavior for the system later. (currently onAllLiveDataAvailable).
+    self.add_stream(device_name=self._device_name,
+                    stream_name='acceleration-x',
+                    data_type='float32',
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
+                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    extra_data_info=None,
+                    data_notes=self._data_notes['awinda-imu']['acceleration-x'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='acceleration-y',
+                    data_type='float32',
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
+                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    extra_data_info=None,
+                    data_notes=self._data_notes['awinda-imu']['acceleration-y'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='acceleration-z',
+                    data_type='float32',
+                    sample_size=(self._num_joints),     # the size of data saved for each timestep
+                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    extra_data_info=None,
+                    data_notes=self._data_notes['awinda-imu']['acceleration-z'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='orientation-x',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None, 
+                    data_notes=self._data_notes['awinda-imu']['orientation-x'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='orientation-y',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None, 
+                    data_notes=self._data_notes['awinda-imu']['orientation-y'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='orientation-z',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None, 
+                    data_notes=self._data_notes['awinda-imu']['orientation-z'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='timestamp',
+                    data_type='uint32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None,
+                    data_notes=self._data_notes['awinda-timestamp']['timestamp'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='counter',
+                    data_type='uint16',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None,
+                    data_notes=self._data_notes['awinda-counter']['counter'])
+
+  def append_data(self,
+                  time_s: float,
+                  acceleration: np.ndarray,
+                  orientation: np.ndarray,
+                  timestamp: np.ndarray,
+                  counter: np.ndarray):
+    self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[0])
+    self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[1])
+    self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[2])
+    self._append_data(self._device_name, 'orientation-x', time_s, orientation[0])
+    self._append_data(self._device_name, 'orientation-y', time_s, orientation[1])
+    self._append_data(self._device_name, 'orientation-z', time_s, orientation[2])
+    self._append_data(self._device_name, 'timestamp', time_s, timestamp)
+    self._append_data(self._device_name, 'counter', time_s, counter)
+
+
+  ###########################
+  ###### VISUALIZATION ######
+  ###########################
+
+  # Specify how the streams should be visualized.
+  # Return a dict of the form options[device_name][stream_name] = stream_options
+  #  Where stream_options is a dict with the following keys:
+  #   'class': A subclass of Visualizer that should be used for the specified stream.
+  #   Any other options that can be passed to the chosen class.
+  def get_default_visualization_options(self):
+    visualization_options = {}
+
+    visualization_options[self._device_name] = {}
+
+    # Use a line plot to visualize the acceleration.
+    visualization_options[self._device_name]['acceleration-x'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    visualization_options[self._device_name]['acceleration-y'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    visualization_options[self._device_name]['acceleration-z'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    visualization_options[self._device_name]['orientation-x'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    visualization_options[self._device_name]['orientation-y'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    visualization_options[self._device_name]['orientation-z'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
+      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
+      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      }
+    
+    # Don't visualize the other devices/streams.
+    for (device_name, device_info) in self._streams_info.items():
+      visualization_options.setdefault(device_name, {})
+      for (stream_name, stream_info) in device_info.items():
+        visualization_options[device_name].setdefault(stream_name, {'class': None})
+
+    return visualization_options
+  
+  def _define_data_notes(self):
+    self._data_notes = {}
+    self._data_notes.setdefault('awinda-imu', {})
+    self._data_notes.setdefault('awinda-counter', {})
+    self._data_notes.setdefault('awinda-timestamp', {})
+
+    self._data_notes['awinda-imu']['acceleration-x'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-imu']['acceleration-y'] = OrderedDict([
+      ('Description', 'Acceleration in the Y direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-imu']['acceleration-z'] = OrderedDict([
+      ('Description', 'Acceleration in the Z direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-imu']['orientation-x'] = OrderedDict([
+      ('Description', 'Orientation in the Roll direction (around X axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-imu']['orientation-y'] = OrderedDict([
+      ('Description', 'Orientation in the Pitch direction (around Y axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-imu']['orientation-z'] = OrderedDict([
+      ('Description', 'Orientation in the Yaw direction (around Z axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-counter']['counter'] = OrderedDict([
+      ('Description', 'Index of the sampled packet per device, starting from 0 on turn-on and wrapping around after 65535.'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['awinda-timestamp']['timestamp'] = OrderedDict([
+      ('Description', 'Time of sampling of the packet at the device. \
+                      If one of the device measurement is missed for timestep `i`, \
+                      data will be interpolated on the next timestep.Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])

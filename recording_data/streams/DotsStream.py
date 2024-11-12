@@ -1,6 +1,8 @@
+from collections import OrderedDict
 from numpy import ndarray
 from streams import Stream
 from visualizers import LinePlotVisualizer
+from streams.Stream import Stream
 
 ################################################
 ################################################
@@ -10,24 +12,18 @@ from visualizers import LinePlotVisualizer
 class DotsStream(Stream):
   def __init__(self, 
                num_joints: int = 5,
-               sampling_rate_hz: int = 20) -> None:
+               sampling_rate_hz: int = 20,
+               device_mapping: dict = None) -> None:
     super(DotsStream, self).__init__()
     self._device_name = 'dots-imu'
     self._num_joints = num_joints
     self._sampling_rate_hz = sampling_rate_hz
-    self._data_notes_stream = {
-      "dots-imu": {
-        "acceleration-x": "AccX",
-        "acceleration-y": "AccY",
-        "acceleration-z": "AccZ",
-        "gyroscope-x": "GyrX",
-        "gyroscope-y": "GyrY",
-        "gyroscope-z": "GyrZ",
-      },
-      "dots-time": {
-        "device_timestamp_s": None
-      }
-    }
+
+    # Invert device mapping to map device_id -> joint_name
+    (joint_names, device_ids) = tuple(zip(*(device_mapping.items())))
+    self._device_mapping: OrderedDict[str, str] = OrderedDict(zip(device_ids, joint_names))
+
+    self._define_data_notes()
 
     # Add devices and streams to organize data from your sensor.
     #   Data is organized as devices and then streams.
@@ -38,61 +34,61 @@ class DotsStream(Stream):
                     sample_size=(self._num_joints),     # the size of data saved for each timestep
                     sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
                     extra_data_info=None,
-                    data_notes=self._data_notes_stream['dots-imu']['acceleration-x'])
+                    data_notes=self._data_notes['dots-imu']['acceleration-x'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-y',
                     data_type='float32',
                     sample_size=(self._num_joints),     # the size of data saved for each timestep
                     sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
                     extra_data_info=None,
-                    data_notes=self._data_notes_stream['dots-imu']['acceleration-y'])
+                    data_notes=self._data_notes['dots-imu']['acceleration-y'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-z',
                     data_type='float32',
                     sample_size=(self._num_joints),     # the size of data saved for each timestep
                     sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
                     extra_data_info=None,
-                    data_notes=self._data_notes_stream['dots-imu']['acceleration-z'])
+                    data_notes=self._data_notes['dots-imu']['acceleration-z'])
     self.add_stream(device_name=self._device_name,
-                    stream_name='gyroscope-x',
+                    stream_name='orientation-x',
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None, 
-                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-x'])
+                    data_notes=self._data_notes['dots-imu']['orientation-x'])
     self.add_stream(device_name=self._device_name,
-                    stream_name='gyroscope-y',
+                    stream_name='orientation-y',
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None, 
-                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-y'])
+                    data_notes=self._data_notes['dots-imu']['orientation-y'])
     self.add_stream(device_name=self._device_name,
-                    stream_name='gyroscope-z',
+                    stream_name='orientation-z',
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None, 
-                    data_notes=self._data_notes_stream['dots-imu']['gyroscope-z'])
+                    data_notes=self._data_notes['dots-imu']['orientation-z'])
     self.add_stream(device_name=self._device_name,
                     stream_name='timestamp',
                     data_type='int64',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
-                    data_notes=self._data_notes_stream['dots-time']['device_timestamp_s'])
+                    data_notes=self._data_notes['dots-time']['timestamp'])
 
   def append_data(self,
                   time_s: float, 
                   acceleration: ndarray, 
-                  gyroscope: ndarray, 
+                  orientation: ndarray, 
                   timestamp: ndarray):
     self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
     self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
     self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
-    self._append_data(self._device_name, 'gyroscope-x', time_s, gyroscope[:,0])
-    self._append_data(self._device_name, 'gyroscope-y', time_s, gyroscope[:,1])
-    self._append_data(self._device_name, 'gyroscope-z', time_s, gyroscope[:,2])
+    self._append_data(self._device_name, 'orientation-x', time_s, orientation[:,0])
+    self._append_data(self._device_name, 'orientation-y', time_s, orientation[:,1])
+    self._append_data(self._device_name, 'orientation-z', time_s, orientation[:,2])
     self._append_data(self._device_name, 'timestamp', time_s, timestamp)
 
 
@@ -128,19 +124,19 @@ class DotsStream(Stream):
        'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
        'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
       }
-    visualization_options[self._device_name]['gyroscope-x'] = \
+    visualization_options[self._device_name]['orientation-x'] = \
       {'class': LinePlotVisualizer,
        'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
        'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
        'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
       }
-    visualization_options[self._device_name]['gyroscope-y'] = \
+    visualization_options[self._device_name]['orientation-y'] = \
       {'class': LinePlotVisualizer,
        'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
        'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
        'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
       }
-    visualization_options[self._device_name]['gyroscope-z'] = \
+    visualization_options[self._device_name]['orientation-z'] = \
       {'class': LinePlotVisualizer,
        'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
        'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
@@ -154,3 +150,43 @@ class DotsStream(Stream):
         visualization_options[device_name].setdefault(stream_name, {'class': None})
 
     return visualization_options
+  
+  def _define_data_notes(self):
+    self._data_notes = {}
+    self._data_notes.setdefault('dots-imu', {})
+    self._data_notes.setdefault('dots-time', {})
+
+    self._data_notes['dots-imu']['acceleration-x'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-imu']['acceleration-y'] = OrderedDict([
+      ('Description', 'Acceleration in the Y direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-imu']['acceleration-z'] = OrderedDict([
+      ('Description', 'Acceleration in the Z direction'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-imu']['orientation-x'] = OrderedDict([
+      ('Description', 'Orientation in the Roll direction (around X axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-imu']['orientation-y'] = OrderedDict([
+      ('Description', 'Orientation in the Pitch direction (around Y axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-imu']['orientation-z'] = OrderedDict([
+      ('Description', 'Orientation in the Yaw direction (around Z axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-time']['timestamp'] = OrderedDict([
+      ('Description', 'Time of sampling of the packet at the device'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])

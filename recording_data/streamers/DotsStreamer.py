@@ -1,4 +1,4 @@
-from streamers import SensorStreamer
+from streamers.SensorStreamer import SensorStreamer
 from streams import DotsStream
 
 import numpy as np
@@ -6,7 +6,7 @@ import time
 from collections import OrderedDict
 
 from utils.msgpack_utils import serialize
-from handlers import MovellaFacade
+from handlers.MovellaFacade import MovellaFacade
 
 ################################################
 ################################################
@@ -15,7 +15,9 @@ from handlers import MovellaFacade
 ################################################
 class DotsStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  _log_source_tag = 'dots'
+  @property
+  def _log_source_tag(self):
+    return 'dots'
 
   ########################
   ###### INITIALIZE ######
@@ -23,12 +25,12 @@ class DotsStreamer(SensorStreamer):
   
   # Initialize the sensor streamer.
   def __init__(self,
-               port_pub: str | None = None,
-               port_sync: str | None = None,
-               port_killsig: str | None = None,
+               device_mapping: dict[str, str],
+               port_pub: str = None,
+               port_sync: str = None,
+               port_killsig: str = None,
                sampling_rate_hz: int = 20,
                num_joints: int = 5,
-               log_history_filepath: str | None = None,
                print_status: bool = True,
                print_debug: bool = False):
 
@@ -39,7 +41,8 @@ class DotsStreamer(SensorStreamer):
 
     stream_info = {
       "num_joints": self._num_joints,
-      "sampling_rate_hz": self._sampling_rate_hz
+      "sampling_rate_hz": self._sampling_rate_hz,
+      "device_mapping": device_mapping
     }
 
     # Abstract class will call concrete implementation's creation methods
@@ -49,7 +52,6 @@ class DotsStreamer(SensorStreamer):
                                        port_sync=port_sync,
                                        port_killsig=port_killsig,
                                        stream_info=stream_info,
-                                       log_history_filepath=log_history_filepath,
                                        print_status=print_status, 
                                        print_debug=print_debug)
 
@@ -59,7 +61,7 @@ class DotsStreamer(SensorStreamer):
   ######################################
 
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
-  def create_stream(cls, stream_info: dict | None = None) -> DotsStream:
+  def create_stream(cls, stream_info: dict) -> DotsStream:
     return DotsStream(**stream_info)
 
   # Connect to the sensor.
@@ -154,15 +156,12 @@ class DotsStreamer(SensorStreamer):
         # self._log_error("Setting output rate for joint %s failed!" % joint)
         return False
 
-    self._manager = self._handler.manager()
-    self._devices = self._handler.connectedDots()
-
     # Call facade sync function, not directly the backend manager proxy
     while not self._handler.sync():
       # self._log_error("Synchronization of dots failed! Retrying.")
       pass
     
-    # self._log_debug(f"Successfully synchronized {len(self._devices)} dots.")
+    # self._log_debug(f"Successfully synchronized {len(self._handler.connectedDots())} dots.")
     # self._log_status('Successfully connected to the dots streamer.')
 
     # Set dots to streaming mode
@@ -182,18 +181,18 @@ class DotsStreamer(SensorStreamer):
           self._packet[device.bluetoothAddress()] = {
             'timestamp': packet.sampleTimeFine(),
             'acceleration': (acc[0], acc[1], acc[2]),
-            'gyroscope': (euler.x(), euler.y(), euler.z()),
+            'orientation': (euler.x(), euler.y(), euler.z()),
           }
-        
+
         acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
-        gyroscope = np.array([v['gyroscope'] for (_,v) in self._packet.items()])
+        orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
         timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
 
         # Store the captured data into the data structure.
-        self._stream.append_data(time_s=time_s, acceleration=acceleration, gyroscope=gyroscope, timestamp=timestamp)
+        self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp)
 
         # Get serialized object to send over ZeroMQ.
-        msg = serialize(time_s=time_s, acceleration=acceleration, gyroscope=gyroscope, timestamp=timestamp)
+        msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp)
 
         # Send the data packet on the PUB socket.
         self._pub.send_multipart([b"%s.data"%self._log_source_tag, msg])
@@ -201,5 +200,6 @@ class DotsStreamer(SensorStreamer):
   # Clean up and quit
   def quit(self):
     for device in self._handler.connectedDots(): device.stopMeasurement()
-    self._manager.stopSync()
-    self._manager.close()
+    self._handler.manager().stopSync()
+    self._handler.manager().close()
+    super(DotsStreamer, self).quit()

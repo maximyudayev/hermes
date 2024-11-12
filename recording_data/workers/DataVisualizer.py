@@ -8,13 +8,18 @@ if not use_opencv_for_composite:
   import numpy as np
   from pyqtgraph.Qt import QtCore, QtGui
 
+from threading import Thread
 import cv2
 import numpy as np
 import os
 import time
 from collections import OrderedDict
 
-import zmq
+from utils.msgpack_utils import deserialize
+from workers.Worker import Worker
+from streamers import STREAMERS
+from streams.Stream import Stream
+from visualizers.Visualizer import Visualizer
 
 from utils.time_utils import *
 from utils.dict_utils import *
@@ -33,7 +38,10 @@ from utils.numpy_utils import *
 #   To not show a visualization, 'class' can map to 'none' or None.
 ################################################
 ################################################
-class DataVisualizer:
+class DataVisualizer(Worker):
+  @property
+  def _log_source_tag(self):
+    return 'visualizer'
 
   ########################
   ###### INITIALIZE ######
@@ -41,21 +49,27 @@ class DataVisualizer:
 
   def __init__(self, 
                port_sub: str = "42070",
-               classes_to_visualize: list[str] | None = None,
-               streamer_specs: list[dict] | None = None,
-               visualize_streaming_data: bool = True,
-               visualize_all_data_when_stopped: bool = False,
-               wait_while_visualization_windows_open: bool = False,
+               port_sync: str = "42071",
+               port_killsig: str = "42066",
+               classes_to_visualize: list[str] = [],
+               streamer_specs: list[dict] = None,
+               is_visualize_streaming: bool = True,
+               is_visualize_all_when_stopped: bool = False,
+               is_wait_while_windows_open: bool = False,
                update_period_s: float = 2.0,
                use_composite_video: bool = True, 
-               composite_video_filepath: str | None = None,
-               composite_video_layout: list[list[dict]] | None = None, 
+               composite_video_filepath: str = None,
+               composite_video_layout: list[list[dict]] = None, 
                print_status: bool = True, 
                print_debug: bool = False, 
-               log_history_filepath: str | None = None):
+               log_history_filepath: str = None):
+
+    super(DataVisualizer, self).__init__(classes=classes_to_visualize,
+                                         port_sub=port_sub,
+                                         port_sync=port_sync,
+                                         port_killsig=port_killsig)
 
     # Record the configuration options.
-    self._log_source_tag = 'visualizer'
     self._update_period_s = update_period_s
     self._use_composite_video = use_composite_video
     self._composite_video_filepath = composite_video_filepath
@@ -68,26 +82,77 @@ class DataVisualizer:
     self._print_status = print_status
     self._print_debug = print_debug
     self._log_history_filepath = log_history_filepath
-    
+    self._is_visualize_streaming = is_visualize_streaming
+    self._is_visualize_all_when_stopped = is_visualize_all_when_stopped
+    self._is_wait_while_windows_open = is_wait_while_windows_open
     self._print_debug_extra = False # Print debugging information for visualizers that probably isn't needed during normal experiment logging
     self._last_debug_updateTime_print_s = 0
-    
-    self._visualizers = []
 
-    # TODO: Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
+    # Create Stream objects for all desired sensors we are to subscribe to from classes_to_visualize
+    self._streams: OrderedDict[str, Stream] = OrderedDict()
+    for streamer_spec in streamer_specs:
+      class_name: str = streamer_spec['class']
+      class_args = streamer_spec.copy()
+      del(class_args['class'])
+      # Create the class object.
+      class_type: type[Stream] = STREAMERS[class_name]
+      class_object: Stream = class_type.create_stream(**class_args)
+      # Store the streamer object.
+      self._streams.setdefault(class_type._log_source_tag, class_object)
 
-    # Connect local publisher to the Broker's XSUB socket
-    self._ctx: zmq.Context = zmq.Context.instance()
+  def run(self):
+    super(DataVisualizer, self).run()
 
-    # Socket to subscribe to SensorStreamers
-    self._pub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
-    self._pub.connect("tcp://localhost:%s" % port_sub)
-    # TODO: subscribe to topics for each mentioned local and remote streamer
-    
+    self._start_stream_visualization()
+
+    # TODO: Send SYNC acknowledgement that this consumer is ready to get real data
+
+
+    # Main thread polls sockets for updates and stores data into Stream objects
+    while True:
+      #################
+      ###### SUB ######
+      #################
+      sockets, events = zip(*self._poller.poll())
+      if self._sub in sockets:
+        topic, msg = self._sub.recv_multipart()
+        data = deserialize(msg)
+        # Put data into the corresponding Stream object
+        topic_tree: list[str] = topic.split(".")
+        streamer_name: str = topic_tree[0]
+        self._streams[streamer_name].append_data(**data)
+      
+      if self._killsig in sockets:
+        # Stop the visualization thread
+        self._streamVis = False
+
+        pass
+
+  def quit(self):
+    self._stop_stream_visualization()
+    self._close_visualizations()
+    super(DataVisualizer, self).quit()
+
+
+  ##############################
+  ###### VISUALIZING DATA ######
+  ##############################
+
+  # Launch thread that will visualize things
+  def _start_stream_visualization(self):
+    self._streamVis_thread = Thread(target=self._visualize_streaming_data)
+    self._streamVis = True
+    self._streamVis_thread.start()
+
+  def _stop_stream_visualization(self):
+    self._streamVis = False
+    if self._streamVis_thread is not None and self._streamVis_thread.is_alive():
+      self._streamVis_thread.join()
+
   # Initialize visualizers.
   # Will use the visualizer specified by each streamer,
   #  which may be a default visualizer defined in this file or a custom one.
-  def init_visualizations(self, hide_composite=False):
+  def _init_visualizations(self, hide_composite: bool = False):
     # Initialize the composite view.
     self._composite_video_writer = None
     self._composite_parent_layout = None
@@ -139,10 +204,10 @@ class DataVisualizer:
 
       # Check whether an ExperimentControlStreamer is present,
       #  so activity labels can be added to the composite video.
-      self._experimentControl_streamer = None
-      for streamer in self._streamers:
-        if type(streamer).__name__ == 'ExperimentControlStreamer':
-          self._experimentControl_streamer = streamer
+      self._experimentControl_stream = None
+      for _, stream in self._streams.items():
+        if type(stream).__name__ == 'ExperimentControlStream':
+          self._experimentControl_stream = stream
           
       # Get a list of streams included in the composite video.
       streams_in_composite = []
@@ -185,8 +250,7 @@ class DataVisualizer:
             if tile_info['stream_name'] is None:
               continue
             layout = pyqtgraph.GraphicsLayoutWidget()
-            self._composite_parent_layout.addWidget(layout, row_index, column_index,
-                                                    rowspan, colspan)
+            self._composite_parent_layout.addWidget(layout, row_index, column_index, rowspan, colspan)
             self._composite_visualizer_layouts.setdefault(device_name, {})
             self._composite_visualizer_layouts[device_name][stream_name] = layout
             self._composite_visualizer_layout_sizes.setdefault(device_name, {})
@@ -205,28 +269,28 @@ class DataVisualizer:
         composite_video_frame_width = self._composite_frame_width
         self._composite_video_writer = cv2.VideoWriter(self._composite_video_filepath,
                                                        cv2.VideoWriter_fourcc(*fourcc),
-                                                       fps, (composite_video_frame_width, composite_video_frame_height))
+                                                       fps, 
+                                                       (composite_video_frame_width, composite_video_frame_height))
 
     # Initialize a record of the next indexes that should be fetched for each stream,
     #  and how many timesteps to stay behind of the most recent step (if needed).
-    self._next_data_indexes = [OrderedDict() for i in range(len(self._streamers))]
-    self._timesteps_before_solidified = [OrderedDict() for i in range(len(self._streamers))]
-    for (streamer_index, streamer) in enumerate(self._streamers):
-      for (device_name, streams_info) in streamer.get_all_stream_infos().items():
-        self._next_data_indexes[streamer_index][device_name] = OrderedDict()
-        self._timesteps_before_solidified[streamer_index][device_name] = OrderedDict()
-        for (stream_name, stream_info) in streams_info.items():
-          self._next_data_indexes[streamer_index][device_name][stream_name] = 0
-          self._timesteps_before_solidified[streamer_index][device_name][stream_name] \
-                  = stream_info['timesteps_before_solidified']
+    self._next_data_indexes = [OrderedDict() for i in range(len(self._streams.items()))]
+    self._timesteps_before_solidified = [OrderedDict() for i in range(len(self._streams.items()))]
+    for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
+      for (device_name, device_info) in stream.get_all_stream_infos().items():
+        self._next_data_indexes[stream_index][device_name] = OrderedDict()
+        self._timesteps_before_solidified[stream_index][device_name] = OrderedDict()
+        for (stream_name, stream_info) in device_info.items():
+          self._next_data_indexes[stream_index][device_name][stream_name] = 0
+          self._timesteps_before_solidified[stream_index][device_name][stream_name] = stream_info['timesteps_before_solidified']
 
     # Instantiate and initialize the visualizers.
-    self._visualizers = [OrderedDict() for i in range(len(self._streamers))]
-    for (streamer_index, streamer) in enumerate(self._streamers):
-      for (device_name, streams_info) in streamer.get_all_stream_infos().items():
-        self._visualizers[streamer_index][device_name] = OrderedDict()
-        for (stream_name, stream_info) in streams_info.items():
-          visualizer_options = streamer.get_visualization_options(device_name, stream_name)
+    self._visualizers = [OrderedDict() for i in range(len(self._streams.items()))]
+    for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
+      for (device_name, device_info) in stream.get_all_stream_infos().items():
+        self._visualizers[stream_index][device_name] = OrderedDict()
+        for (stream_name, stream_info) in device_info.items():
+          visualizer_options = stream.get_default_visualization_options(device_name, stream_name)
           if callable(visualizer_options['class']):
             try:
               composite_visualizer_layout = self._composite_visualizer_layouts[device_name][stream_name]
@@ -234,81 +298,105 @@ class DataVisualizer:
             except:
               composite_visualizer_layout = None
               composite_visualizer_layout_size = None
-            visualizer = visualizer_options['class'](
-                            visualizer_options,
-                            hidden=self._use_composite_video,
-                            parent_layout=composite_visualizer_layout,
-                            parent_layout_size=composite_visualizer_layout_size,
-                            print_debug=self._print_debug, print_status=self._print_status)
+            visualizer: Visualizer = visualizer_options['class'](visualizer_options,
+                                                                 hidden=self._use_composite_video,
+                                                                 parent_layout=composite_visualizer_layout,
+                                                                 parent_layout_size=composite_visualizer_layout_size,
+                                                                 print_status=self._print_status)
             visualizer.init(device_name, stream_name, stream_info)
           else:
             visualizer = None
-          self._visualizers[streamer_index][device_name][stream_name] = visualizer
+          self._visualizers[stream_index][device_name][stream_name] = visualizer
 
     # Initialize state for visualization control.
     self._last_update_time_s = None
 
-  ##############################
-  ###### VISUALIZING DATA ######
-  ##############################
+  # Close line plot figures, video windows, and custom visualizers.
+  def _close_visualizations(self):
+    for visualizers_streamer in self._visualizers:
+      for (device_name, visualizers_device) in visualizers_streamer.items():
+        for (stream_name, visualizer) in visualizers_device.items():
+          if visualizer is not None:
+            try:
+              visualizer.close()
+            except:
+              pass
+    if self._composite_video_writer is not None:
+      self._composite_video_writer.release()
+      time.sleep(2)
+    try:
+      cv2.destroyAllWindows()
+    except:
+      pass
+    try:
+      self._app.quit()
+    except:
+      pass
 
   # Periodically update the visualizations until a stopping criteria is met.
-  # This function is blocking.
-  def visualize_streaming_data(self, duration_s=None, stopping_condition_fn=None):
+  def _visualize_streaming_data(self):
     # Initialize visualizations.
-    self.init_visualizations()
+    self._init_visualizations()
 
     # Visualize the streaming data.
-    self._log_status('DataVisualizer visualizing streaming data')
-    start_time_s = time.time()
-    while (duration_s is None or time.time() - start_time_s < duration_s) \
-          and (not callable(stopping_condition_fn) or not stopping_condition_fn()):
-      self.update_visualizations(wait_for_next_update_time=True)
+    while self._streamVis:
+      self._update_visualizations(wait_for_next_update_time=True)
   
   # Visualize data that is already logged, either from streaming or from replaying logs.
   # Periodically update the visualizations until a stopping criteria is met.
   # This function is blocking.
-  def visualize_logged_data(self, start_offset_s=None, end_offset_s=None,
-                                  start_time_s=None, end_time_s=None,
-                                  duration_s=None,
-                                  hide_composite=False, realtime=True):
+  def _visualize_logged_data(self, 
+                             start_offset_s: float = None, 
+                             end_offset_s: float = None,
+                             start_time_s: float = None, 
+                             end_time_s: float = None,
+                             duration_s: float = None,
+                             hide_composite: bool = False, 
+                             realtime: bool = True):
     # Initialize visualizations.
-    self.init_visualizations(hide_composite=hide_composite)
+    self._init_visualizations(hide_composite=hide_composite)
     
     # Determine reasonable start and end times.
-    (start_time_s, end_time_s) = self.get_loggedData_start_end_times_s(
-                                  start_offset_s=start_offset_s, end_offset_s=end_offset_s,
-                                  start_time_s=start_time_s, end_time_s=end_time_s, duration_s=duration_s)
+    (start_time_s, end_time_s) = self._get_loggedData_start_end_times_s(start_offset_s=start_offset_s,
+                                                                        end_offset_s=end_offset_s,
+                                                                        start_time_s=start_time_s,
+                                                                        end_time_s=end_time_s,
+                                                                        duration_s=duration_s)
       
     # Visualize the existing data.
-    self._log_status('DataVisualizer visualizing logged data')
+    # self._log_status('DataVisualizer visualizing logged data')
     current_time_s = start_time_s
     current_frame_index = 0
     start_viz_time_s = time.time()
     while current_time_s <= end_time_s:
-      self._log_debug('Visualizing for time %0.2f' % current_time_s)
-      self.update_visualizations(wait_for_next_update_time=False, verify_next_update_time=False,
-                                 ending_time_s=current_time_s, hide_composite=hide_composite)
+      # self._log_debug('Visualizing for time %0.2f' % current_time_s)
+      self._update_visualizations(wait_for_next_update_time=False,
+                                  verify_next_update_time=False,
+                                  ending_time_s=current_time_s, 
+                                  hide_composite=hide_composite)
       current_time_s += self._update_period_s
       current_frame_index += 1
       if realtime:
         next_update_time_s = start_viz_time_s + current_frame_index * self._update_period_s
         time.sleep(max(0, next_update_time_s - time.time()))
-    self._log_status('DataVisualizer finished visualizing logged data')
+    # self._log_status('DataVisualizer finished visualizing logged data')
     
   # Determine reasonable start and end times for visualizing logged data.
-  def get_loggedData_start_end_times_s(self, start_offset_s=None, end_offset_s=None,
-                                        start_time_s=None, end_time_s=None,
-                                        duration_s=None):
+  def _get_loggedData_start_end_times_s(self, 
+                                        start_offset_s: float = None, 
+                                        end_offset_s: float = None,
+                                        start_time_s: float = None,
+                                        end_time_s: float = None,
+                                        duration_s: float = None):
     start_times_s = []
     end_times_s = []
-    for (streamer_index, streamer) in enumerate(self._streamers):
+    for streamer_index, (stream_type, stream) in enumerate(self._streams.items()):
       streamer_start_times_s = []
       streamer_end_times_s = []
-      for (device_name, streams_info) in streamer.get_all_stream_infos().items():
-        for (stream_name, stream_info) in streams_info.items():
-          streamer_start_time_s = streamer.get_start_time_s(device_name, stream_name)
-          streamer_end_time_s = streamer.get_end_time_s(device_name, stream_name)
+      for (device_name, device_info) in stream.get_all_stream_infos().items():
+        for (stream_name, stream_info) in device_info.items():
+          streamer_start_time_s = stream.get_start_time_s(device_name, stream_name)
+          streamer_end_time_s = stream.get_end_time_s(device_name, stream_name)
           if streamer_start_time_s is not None:
             streamer_start_times_s.append(streamer_start_time_s)
           if streamer_end_time_s is not None:
@@ -346,13 +434,18 @@ class DataVisualizer:
   #  If so, can wait for the time to arrive or return immediately by setting wait_for_next_update_time.
   # If an ending time is specified, will only fetch data up to that time.
   #  Otherwise, will fetch up to the end of the current log.
-  def update_visualizations(self, wait_for_next_update_time=True, verify_next_update_time=True, ending_time_s=None, hide_composite=False):
+  def _update_visualizations(self, 
+                             wait_for_next_update_time: bool = True, 
+                             verify_next_update_time: bool = True, 
+                             ending_time_s: float = None, 
+                             hide_composite: bool = False):
     # Check whether it is time to show new data, which is when:
     #  This is the first iteration,
     #  it has been at least self._update_period_s since the last visualization, or
     #  no polling period was specified.
     if verify_next_update_time and self._update_period_s is not None:
-      if self._print_debug_extra: self._log_debug('Visualization thread checking if the next update time is reached')
+      if self._print_debug_extra: pass
+        # self._log_debug('Visualization thread checking if the next update time is reached')
       next_update_time_s = (self._last_update_time_s or 0) + self._update_period_s
       if time.time() < next_update_time_s:
         # Return immediately or wait as appropriate.
@@ -365,22 +458,24 @@ class DataVisualizer:
       #   This would compound over time, leading to longer delays and more data to display each time.
       #   This becomes more severe as the visualization duration increases.
       self._last_update_time_s = time.time()
-    if self._print_debug_extra: self._log_debug('Visualization thread starting update')
+    if self._print_debug_extra: pass
+      # self._log_debug('Visualization thread starting update')
     # Visualize new data for each stream of each device of each streamer.
     start_update_time_s = time.time()
-    for (streamer_index, streamer) in enumerate(self._streamers):
-      for (device_name, streams_info) in streamer.get_all_stream_infos().items():
-        if self._print_debug_extra: self._log_debug('Visualizing streams for streamer %d device %s' % (streamer_index, device_name))
-        for (stream_name, stream_info) in streams_info.items():
+    for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
+      for (device_name, device_info) in stream.get_all_stream_infos().items():
+        if self._print_debug_extra: pass
+          # self._log_debug('Visualizing streams for streamer %d device %s' % (stream_index, device_name))
+        for (stream_name, stream_info) in device_info.items():
           # Check if a visualizer is created for this stream.
-          visualizer = self._visualizers[streamer_index][device_name][stream_name]
+          visualizer: Visualizer = self._visualizers[stream_index][device_name][stream_name]
           if visualizer is None:
             continue
           # Determine the start and end bounds for data to fetch.
           if ending_time_s is None:
             #  End at the most recent data (or back by a few timesteps
             #  if the streamer may still edit the most recent timesteps).
-            ending_index = -self._timesteps_before_solidified[streamer_index][device_name][stream_name]
+            ending_index = -self._timesteps_before_solidified[stream_index][device_name][stream_name]
             if ending_index == 0: # no time is needed to solidify, so fetch up to the most recent data
               ending_index = None
           else:
@@ -388,23 +483,26 @@ class DataVisualizer:
             ending_index = None
           # Start with the first timestep that hasn't been shown yet,
           #  or with just the last frame if getting video data.
-          starting_index = self._next_data_indexes[streamer_index][device_name][stream_name]
+          starting_index = self._next_data_indexes[stream_index][device_name][stream_name]
           if stream_info['is_video']:
             if ending_time_s is None:
               if ending_index is None:
-                starting_index = streamer.get_num_timesteps(device_name, stream_name) - 1
+                starting_index = stream.get_num_timesteps(device_name, stream_name) - 1
               else:
                 starting_index = ending_index - 1
             else:
-              ending_index_forTime = streamer.get_index_for_time_s(device_name, stream_name, ending_time_s, 'before')
+              ending_index_forTime = stream.get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
               if ending_index_forTime is not None:
                 ending_index_forTime += 1 # since will use as a list index and thus exclude the specified index
                 starting_index = ending_index_forTime - 1
           # Get the data!
           start_get_data_time_s = time.time()
-          new_data = streamer.get_data(device_name, stream_name, return_deepcopy=False,
-                                        starting_index=starting_index,
-                                        ending_index=ending_index, ending_time_s=ending_time_s)
+          new_data = stream.get_data(device_name, 
+                                     stream_name, 
+                                     return_deepcopy=False,
+                                     starting_index=starting_index,
+                                     ending_index=ending_index,
+                                     ending_time_s=ending_time_s)
           # self._log_status('Time to get data: \t%s \t \t%0.3f' % (type(streamer).__name__, time.time() - start_get_data_time_s))
           if new_data is not None:
             # Visualize any new data and save any updated sates.
@@ -415,14 +513,17 @@ class DataVisualizer:
             # Update starting indexes for the next write.
             num_new_entries = len(new_data['data'])
             next_starting_index = starting_index + num_new_entries
-            self._next_data_indexes[streamer_index][device_name][stream_name] = next_starting_index
-            if self._print_debug_extra: self._log_debug('Visualized %d new entries for stream %s.%s' % (num_new_entries, device_name, stream_name))
+            self._next_data_indexes[stream_index][device_name][stream_name] = next_starting_index
+            if self._print_debug_extra: pass
+              # self._log_debug('Visualized %d new entries for stream %s.%s' % (num_new_entries, device_name, stream_name))
           else:
             # check if data has been cleared from memory, thus invalidating our start index.
-            if streamer.get_num_timesteps(device_name, stream_name) < starting_index:
-              self._next_data_indexes[streamer_index][device_name][stream_name] = 0
-    if self._print_debug_extra: self._log_debug('Visualization thread finished update of each streamer')
-    if self._print_debug_extra: self._log_debug('Time to update visualizers: \t \t \t \t%0.3f' % (time.time() - start_update_time_s))
+            if stream.get_num_timesteps(device_name, stream_name) < starting_index:
+              self._next_data_indexes[stream_index][device_name][stream_name] = 0
+    if self._print_debug_extra: pass
+      # self._log_debug('Visualization thread finished update of each streamer')
+    if self._print_debug_extra: pass
+      # self._log_debug('Time to update visualizers: \t \t \t \t%0.3f' % (time.time() - start_update_time_s))
     # self._log_status('Time to update visualizers: \t \t \t \t%0.3f' % (time.time() - start_update_time_s))
     # If showing a composite video, update it now that the streamers have updated their frames.
     if self._use_composite_video:
@@ -431,44 +532,50 @@ class DataVisualizer:
         self._update_composite_video_opencv(hidden=hide_composite, time_s=ending_time_s or self._last_update_time_s)
       else:
         self._update_composite_video_pyqtgraph(hidden=hide_composite, time_s=ending_time_s or self._last_update_time_s)
-      if self._print_debug_extra: self._log_debug('Time to update composite visualization: \t \t \t \t%0.3f' % (time.time() - start_composite_update_time_s))
+      if self._print_debug_extra: pass
+        # self._log_debug('Time to update composite visualization: \t \t \t \t%0.3f' % (time.time() - start_composite_update_time_s))
     if (time.time() - self._last_debug_updateTime_print_s > 5) or self._print_debug_extra:
-      self._log_debug('Time to update visualizers and composite: %0.4f' % (time.time() - start_update_time_s))
+      # self._log_debug('Time to update visualizers and composite: %0.4f' % (time.time() - start_update_time_s))
       self._last_debug_updateTime_print_s = time.time()
 
   # Visualize all data currently in the streamers' memory.
   # This is meant to be called at the end of an experiment.
   # This may interfere with windows/figures created by update_visualizations()
   #  so it is recommended to close all existing visualizations first.
-  def visualize_all_data(self):
+  def _visualize_all_data(self):
     # Initialize visualizations.
-    self.init_visualizations()
+    self._init_visualizations()
 
     # Visualize all recorded data.
-    self._log_status('DataVisualizer visualizing all data')
-    for (streamer_index, streamer) in enumerate(self._streamers):
-      for (device_name, streams_info) in streamer.get_all_stream_infos().items():
-        if self._print_debug_extra: self._log_debug('Visualizing streams for streamer %d device %s' % (streamer_index, device_name))
-        for (stream_name, stream_info) in streams_info.items():
+    # self._log_status('DataVisualizer visualizing all data')
+    for (stream_index, stream) in enumerate(self._streams):
+      for (device_name, device_info) in stream.get_all_stream_infos().items():
+        if self._print_debug_extra: pass
+          # self._log_debug('Visualizing streams for streamer %d device %s' % (stream_index, device_name))
+        for (stream_name, stream_info) in device_info.items():
           # Fetch data starting with the first timestep,
           #  and ending at the most recent data (or back by a few timesteps
           #  if the streamer may still edit the most recent timesteps).
           starting_index = 0
-          ending_index = -self._timesteps_before_solidified[streamer_index][device_name][stream_name]
+          ending_index = -self._timesteps_before_solidified[stream_index][device_name][stream_name]
           if ending_index == 0: # no time is needed to solidify, so fetch up to the most recent data
             ending_index = None
-          new_data = streamer.get_data(device_name, stream_name, return_deepcopy=False,
+          new_data = stream.get_data(device_name, stream_name, return_deepcopy=False,
                                         starting_index=starting_index, ending_index=ending_index)
           if new_data is not None:
             # Visualize any new data and save any updates states.
-            visualizer = self._visualizers[streamer_index][device_name][stream_name]
+            visualizer: Visualizer = self._visualizers[stream_index][device_name][stream_name]
             if visualizer is not None:
               visualizer.update(new_data, visualizing_all_data=True)
-            if self._print_debug_extra: self._log_debug('Visualized %d new entries for stream %s.%s' % (len(new_data['data']), device_name, stream_name))
+            if self._print_debug_extra: pass
+              # self._log_debug('Visualized %d new entries for stream %s.%s' % (len(new_data['data']), device_name, stream_name))
 
   # Create a composite video from all streamers that are creating visualizations.
-  def _update_composite_video_opencv(self, hidden=False, time_s=None):
-    if self._print_debug_extra: self._log_debug('DataVisualizer updating the composite video using OpenCV')
+  def _update_composite_video_opencv(self, 
+                                     hidden: bool = False, 
+                                     time_s: float = None):
+    if self._print_debug_extra: pass
+      # self._log_debug('DataVisualizer updating the composite video using OpenCV')
     # Get the latest images from each streamer.
     imgs = []
     for (row_index, row_layout) in enumerate(self._composite_video_layout):
@@ -527,13 +634,23 @@ class DataVisualizer:
         pad_left = int(max(0, (target_width - img_width)/2))
         pad_right = (target_width - (img_width+pad_left))
         pad_color = [225, 225, 225]
-        img = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right,
-                                 cv2.BORDER_CONSTANT, value=pad_color)
+        img = cv2.copyMakeBorder(img, 
+                                 pad_top, 
+                                 pad_bottom, 
+                                 pad_left, 
+                                 pad_right,
+                                 cv2.BORDER_CONSTANT, 
+                                 value=pad_color)
         # Add a border around each tile
         border_color = self._composite_video_tileBorder_color
         border_width = self._composite_video_tileBorder_width
-        img = cv2.copyMakeBorder(img, border_width, border_width, border_width, border_width,
-                                 cv2.BORDER_CONSTANT, value=border_color)
+        img = cv2.copyMakeBorder(img, 
+                                 border_width, 
+                                 border_width, 
+                                 border_width, 
+                                 border_width,
+                                 cv2.BORDER_CONSTANT, 
+                                 value=border_color)
         imgs[row_index][column_index] = img
     # # Create the composite image.
     # composite_row_imgs = []
@@ -551,27 +668,36 @@ class DataVisualizer:
     composite_img = cv2.hconcat(composite_column_imgs)
     
     # Add a banner on the bottom.
-    if time_s is not None or self._experimentControl_streamer is not None:
-      composite_img = cv2.copyMakeBorder(composite_img, 0, self._composite_video_banner_height, 0, 0,
-                                         cv2.BORDER_CONSTANT, value=self._composite_video_banner_bg_color)
+    if time_s is not None or self._experimentControl_stream is not None:
+      composite_img = cv2.copyMakeBorder(composite_img, 
+                                         0, 
+                                         self._composite_video_banner_height, 
+                                         0, 
+                                         0,
+                                         cv2.BORDER_CONSTANT, 
+                                         value=self._composite_video_banner_bg_color)
     # Add a timestamp to the bottom banner.
     if time_s is not None:
       timestamp_str = get_time_str(time_s, format='%Y-%m-%d %H:%M:%S.%f')
       composite_img = cv2.putText(composite_img, timestamp_str,
                                   [int(composite_img.shape[1]/50),  # for centered text: int(composite_img.shape[1] - self._composite_video_timestamp_textSize[0]/2)
                                    int(composite_img.shape[0] - self._composite_video_banner_height/2 + self._composite_video_banner_timestamp_textSize[1]/3)],
-                                  fontFace=self._composite_video_banner_fontFace, fontScale=self._composite_video_banner_timestamp_fontScale,
-                                  color=self._composite_video_banner_text_color, thickness=self._composite_video_banner_fontThickness)
+                                  fontFace=self._composite_video_banner_fontFace, 
+                                  ontScale=self._composite_video_banner_timestamp_fontScale,
+                                  color=self._composite_video_banner_text_color, 
+                                  thickness=self._composite_video_banner_fontThickness)
     # Add active labels to the bottom banner.
-    if self._experimentControl_streamer is not None:
+    if self._experimentControl_stream is not None:
       device_name = 'experiment-activities'
       stream_name = 'activities'
-      index_forTime = self._experimentControl_streamer.get_index_for_time_s(device_name, stream_name, time_s, 'before')
+      index_forTime = self._experimentControl_stream.get_index_for_time_s(device_name, stream_name, time_s, target_before=True)
       if index_forTime is not None:
         # Get the most recent label entry.
-        label_data = self._experimentControl_streamer.get_data(device_name, stream_name, return_deepcopy=False,
-                                     starting_index=index_forTime,
-                                     ending_index=index_forTime+1)
+        label_data = self._experimentControl_stream.get_data(device_name, 
+                                                             stream_name, 
+                                                             return_deepcopy=False,
+                                                             starting_index=index_forTime,
+                                                             ending_index=index_forTime+1)
         # If it started an activity, then write its label in the banner.
         label_data = label_data['data'][-1]
         if not isinstance(label_data[0], str):
@@ -598,8 +724,10 @@ class DataVisualizer:
           composite_img = cv2.putText(composite_img, activity_label,
                                       [int(composite_img.shape[1] - composite_img.shape[1]/50 - textsize[0]),
                                        int(composite_img.shape[0] - self._composite_video_banner_height/2 + textsize[1]/3)],
-                                      fontFace=fontFace, fontScale=fontScale,
-                                      color=fontColor, thickness=fontThickness)
+                                      fontFace=fontFace, 
+                                      fontScale=fontScale,
+                                      color=fontColor, 
+                                      thickness=fontThickness)
     
     # Display the composite image if desired.
     if not hidden:
@@ -609,8 +737,11 @@ class DataVisualizer:
     if self._composite_video_writer is not None:
       self._composite_video_writer.write(composite_img)
       
-  def _update_composite_video_pyqtgraph(self, hidden=False, time_s=None):
-    if self._print_debug_extra: self._log_debug('DataVisualizer updating the composite video using pyqtgraph')
+  def _update_composite_video_pyqtgraph(self, 
+                                        hidden: bool = False, 
+                                        time_s: float = None):
+    if self._print_debug_extra: pass
+      # self._log_debug('DataVisualizer updating the composite video using pyqtgraph')
     # Display the composite image if desired.
     if not hidden:
       cv2.waitKey(1) # find a better way?
@@ -636,7 +767,7 @@ class DataVisualizer:
   # Keep line plot figures responsive if any are active.
   # Wait for user to press a key or close the windows if any videos are active.
   # Note that this will only work if called on the main thread.
-  def wait_while_windows_open(self):
+  def _wait_while_windows_open(self):
     # Get a list of waiting functions for the various visualizers.
     waiting_functions = []
     for visualizers_streamer in self._visualizers:
@@ -654,40 +785,3 @@ class DataVisualizer:
         cv2.waitKey(0)
       else:
         self._app.exec()
-
-  # Close line plot figures, video windows, and custom visualizers.
-  def close_visualizations(self):
-    for visualizers_streamer in self._visualizers:
-      for (device_name, visualizers_device) in visualizers_streamer.items():
-        for (stream_name, visualizer) in visualizers_device.items():
-          if visualizer is not None:
-            try:
-              visualizer.close()
-            except:
-              pass
-    if self._composite_video_writer is not None:
-      self._composite_video_writer.release()
-      time.sleep(2)
-    try:
-      cv2.destroyAllWindows()
-    except:
-      pass
-    try:
-      self._app.quit()
-    except:
-      pass
-
-  # A helper to visualize all data (intended for the end of an experiment rather than streaming).
-  def visualize_all_data(self):
-    if self._data_visualizer is not None:
-      self._data_visualizer.visualize_all_data()
-
-  # A helper to wait until the user closes all visualizations.
-  def wait_while_visualization_windows_open(self):
-    if self._data_visualizer is not None:
-      self._data_visualizer.wait_while_windows_open()
-
-# # Disable visualization if desired for this class.
-#         if 'classes_to_visualize' in self._data_visualizer_options:
-#           if class_name not in self._data_visualizer_options['classes_to_visualize']:
-#             class_args['visualization_options'] = {'disable_visualization':True}

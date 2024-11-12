@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import time
+from typing import Callable
 
 import cv2
 import msgpack
@@ -17,6 +18,7 @@ class PupilFacade:
                stream_video_worldGaze: bool,
                stream_video_eye: bool,
                is_binocular: bool) -> None:
+    
     self._stream_video_world = stream_video_world
     self._stream_video_worldGaze = stream_video_worldGaze
     self._stream_video_eye = stream_video_eye
@@ -28,7 +30,7 @@ class PupilFacade:
 
     # Connect to the Pupil Capture socket.
     self._zmq_context = zmq.Context.instance()
-    self._zmq_requester = self._zmq_context.socket(zmq.REQ)
+    self._zmq_requester: zmq.SyncSocket = self._zmq_context.socket(zmq.REQ)
     self._zmq_requester.RCVTIMEO = 2000 # receive timeout in milliseconds
     self._zmq_requester.connect('tcp://%s:%d' % (self._pupil_capture_ip, self._pupil_capture_port))
     # Get the port that will be used for data.
@@ -39,18 +41,17 @@ class PupilFacade:
     self._sync_pupil_time()
 
     # Subscribe to the desired topics.
-    topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')] # 'logging.' # Note that the logging.debug topic will generate a message whenever the pupil time is requested, leading to ~3kHz messages since we request the time whenever a message is received
+    topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')]
     if self._stream_video_world or self._stream_video_worldGaze:
       topics.append('frame.world')
     if self._stream_video_eye:
       topics.append('frame.eye.')
 
-    self._receiver = self._zmq_context.socket(zmq.SUB)
+    self._receiver: zmq.SyncSocket = self._zmq_context.socket(zmq.SUB)
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in topics: self._receiver.subscribe(t)
-
     # self._log_debug('Subscribed to eye tracking topics')
-  
+
   # Receive data and return a parsed dictionary.
   # The data dict will have keys 'gaze', 'pupil', 'video-world', 'video-worldGaze', and 'video-eye'
   #  where each will map to a dict or to None if it was not applicable.
@@ -139,8 +140,8 @@ class PupilFacade:
       # Synthesize a stream with the gaze superimposed on the world video.
       try:
         world_img = img
-        gaze_norm_pos = self._data['eye-tracking-gaze']['position']['data'][-1] # self._data is never assigned
-        gaze_timestamp = self._data['eye-tracking-gaze']['timestamp']['data'][-1]
+        gaze_norm_pos = self._get_latest_stream_data_fn(device_name='eye-tracking-gaze', stream_name='position', starting_index=-1)
+        gaze_timestamp = self._get_latest_stream_data_fn(device_name='eye-tracking-gaze', stream_name='timestamp', starting_index=-1)
         world_gaze_time_diff_s = frame_timestamp - gaze_timestamp
         gaze_radius = 10
         gaze_color_outer = (255, 255, 255) # BGR format
@@ -196,8 +197,11 @@ class PupilFacade:
 
     return time_s, data
 
-  def get_stream_info(self):
-    # Get some sample data to determine what gaze/pupil streams are present.
+  def set_stream_data_getter(self, fn: Callable) -> None:
+    self._get_latest_stream_data_fn = fn
+
+  # Get some sample data to determine what gaze/pupil streams are present.
+  def get_available_info(self) -> dict:
     # Will validate that all expected streams are present, and will also
     #  determine whether 2D or 3D processing is being used.
     # self._log_status('Waiting for initial eye tracking data to determine streams')
@@ -282,8 +286,13 @@ class PupilFacade:
 
     return data
 
+  # Close sockets used by the Facade, destroy the ZeroMQ context in the SensorStreamer
+  def close(self) -> None:
+    self._zmq_requester.close()
+    self._receiver.close()
+
   # A helper to clear the Pupil socket receive buffer.
-  def _flush_pupilCapture_input_buffer(self):
+  def _flush_pupilCapture_input_buffer(self) -> None:
     flush_completed = False
     while not flush_completed:
       try:
@@ -296,7 +305,7 @@ class PupilFacade:
   # Payload can be a dict or a simple string.
   # Strings will be sent as-is, while a dict will be sent after a topic message.
   # Returns the response message received.
-  def _send_to_pupilCapture(self, payload, topic=None):
+  def _send_to_pupilCapture(self, payload, topic=None) -> str:
     # Try to receive any outstanding messages, since sending
     #  will fail if there are any waiting.
     self._flush_pupilCapture_input_buffer()

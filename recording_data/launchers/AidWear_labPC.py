@@ -30,10 +30,9 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     False),  # One or more cameras
-    ('InsoleStreamer',     False),  # The Moticon pressure insoles 
-    ('TmsiStreamer',       False),  # Dummy data (no hardware required)
-    ('DummyStreamer',      False),  # Dummy data (no hardware required)
+    ('CameraStreamer',     True),  # One or more cameras
+    ('InsoleStreamer',     False),  # The Moticon pressure insoles
+    ('TmsiStreamer',       False),
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
@@ -55,6 +54,18 @@ if __name__ == '__main__':
      },
     # Stream from the Awinda body tracking and Manus gloves.
     {'class': 'AwindaStreamer',
+      "device_mapping": {
+        "pelvis"         : "11850724",
+        "upper_leg_right": "11850711",
+        "lower_leg_right": "11850722",
+        "foot_right"     : "11850717",
+        "upper_leg_left" : "11850727",
+        "lower_leg_left" : "11850708",
+        "foot_left"      : "11850712",
+      },
+     'num_joints'        : 7,
+     'sampling_rate_hz'  : 100,
+     "radio_channel"     : 15,
      'print_debug': print_debug, 'print_status': print_status
      },
      # TMSi SAGA stream
@@ -63,6 +74,13 @@ if __name__ == '__main__':
      },
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
+     "device_mapping": {
+        "knee_right"  : "0",
+        "foot_right"  : "1",
+        "pelvis"      : "2",
+        "knee_left"   : "3",
+        "foot_left"   : "4",
+      },
      'num_joints'      : 5,
      'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
@@ -77,6 +95,12 @@ if __name__ == '__main__':
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
      'stream_video_eye'      : False, # video of the eye
      'is_binocular'          : True, # uses both eyes for gaze data and for video
+     'shape_video_world'     : (1080,720,3),
+     'shape_video_eye0'      : (192,192,3),
+     'shape_video_eye1'      : (192,192,3),
+     'fps_video_world'       : 30.0,
+     'fps_video_eye0'        : 120.0,
+     'fps_video_eye1'        : 120.0,
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from one or more cameras.
@@ -87,7 +111,7 @@ if __name__ == '__main__':
        'basler_south' : "40549975",
        'basler_west'  : "40549976",
      },
-     'fps': 30.0,
+     'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
      'print_debug': print_debug, 'print_status': print_status
      },
      # Insole pressure sensor.
@@ -119,7 +143,9 @@ if __name__ == '__main__':
   (log_time_str, log_time_s) = get_time_str(return_time_s=True)
   log_dir_root: str = os.path.join(script_dir, '..', '..', 'data',
                               trial_type,
-                              '{0}_S{1}_{2}'.format(get_time_str(format='%Y-%m-%d'), str(subject_id).zfill(3), str(trial_id).zfill(2)))
+                              '{0}_S{1}_{2}'.format(get_time_str(format='%Y-%m-%d'), 
+                                                    str(subject_id).zfill(3), 
+                                                    str(trial_id).zfill(2)))
   log_subdir: str = '%s_%s' % (log_time_str, log_tag)
   log_dir: str = os.path.join(log_dir_root, log_subdir)
   # Initialize a file for writing the log history of all printouts/messages.
@@ -158,10 +184,9 @@ if __name__ == '__main__':
   camera_names: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].keys())
 
   # Configure visualization.
-  composite_frame_size = (1800, 3000)
-  composite_col_width_quater = int(composite_frame_size[1]/4)
-  composite_col_width_third = int(composite_frame_size[1]/3)
-  composite_row_height = int(composite_frame_size[0]/6)
+  composite_frame_size = (1920, 1080) # screen resolution
+  composite_col_width_quarter = int(composite_frame_size[0]/4)
+  composite_row_height = int(composite_frame_size[1]/5)
   visualization_options = {
     'visualize_streaming_data'       : True,
     'visualize_all_data_when_stopped': True,
@@ -173,19 +198,34 @@ if __name__ == '__main__':
                              'CameraStreamer'],
     'use_composite_video': True,
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
-    'composite_video_layout': [
+    'composite_video_layout': [ # first 3 rows of IMU data, next 2 of video data with Pupil Core spanning 2x2 cell and 4 PoE cameras around it
       [ # row  0
-        {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  1
-        {'device_name':'dots-imu', 'stream_name':'gyroscope-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'gyroscope-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'gyroscope-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_third, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
-      [ # row  2 a column for each 4 cameras
-        {'device_name':camera_name, 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quater, 'height':composite_row_height} for camera_name in camera_names
+      [ # row  2
+        {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+      ],
+      [ # row  3 
+        {'device_name':camera_names[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'eye-tracking-video-worldGaze', 'stream_name':'frame', 'rowspan':2, 'colspan':2, 'width':2*composite_col_width_quarter, 'height':2*composite_row_height},
+        {'device_name':camera_names[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+      ],
+      [ # row  4
+        {'device_name':camera_names[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
+        {'device_name':camera_names[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
     ]
   }
@@ -220,15 +260,14 @@ if __name__ == '__main__':
   ###### PROCESS LAUNCH ######
   ############################
   # Create the broker and manage all the components of the experiment.
-  stream_broker = StreamBroker(ip=ip_labPC,
-                               streamer_specs=streamer_specs,
-                               worker_specs=worker_specs,
-                               log_history_filepath=log_history_filepath,
-                               print_status=print_status, print_debug=print_debug)
-
+  stream_broker: StreamBroker = StreamBroker(ip=ip_labPC,
+                                             streamer_specs=streamer_specs,
+                                             worker_specs=worker_specs,
+                                             print_status=print_status, 
+                                             print_debug=print_debug)
   # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
   stream_broker.connect_to_remote_pub(addr=ip_wearablePC)
-
-  # Run broker's main until user exits in GUI or Ctrl+C in terminal.
+  # Start all subprocesses
   stream_broker.start()
+  # Run broker's main until user exits in GUI or Ctrl+C in terminal.
   stream_broker.run(duration_s=None)

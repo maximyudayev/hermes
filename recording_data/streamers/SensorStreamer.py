@@ -28,8 +28,7 @@ class SensorStreamer(ABC):
                port_pub: str = "42069",
                port_sync: str = "42071",
                port_killsig: str = "42066",
-               stream_info: dict = {},
-               log_history_filepath: str | None = None,
+               stream_info: dict = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     self._port_pub = port_pub
@@ -37,14 +36,14 @@ class SensorStreamer(ABC):
     self._port_killsig = port_killsig
     self._print_status = print_status
     self._print_debug = print_debug
-    self._log_history_filepath = log_history_filepath
     self._running = False
+    self._poller: zmq.Poller = zmq.Poller()
 
     # Data structure for keeping track of data
-    self._data: Stream = self.create_stream(stream_info)
+    self._stream: Stream = self.create_stream(stream_info)
 
   # A SensorStreamer instance is a callable to launch as a Process
-  def __call__(self, *args: any, **kwds: any):
+  def __call__(self, *args, **kwds):
     # Connect local publisher to the Proxy's XSUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
 
@@ -53,11 +52,14 @@ class SensorStreamer(ABC):
     self._pub.connect("tcp://localhost:%s" % self._port_pub)
 
     # Socket to receive kill signal
-    # TODO: complete the logic with acknowledgement of streamer and notification of last packet sent-recieved before exiting
     self._killsig: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
     self._killsig.connect("tcp://localhost:%s" % self._port_killsig)
     topics = ["kill"]
     for topic in topics: self._killsig.subscribe(topic)
+
+    # Socket to indicate to broker that the publisher is ready
+    self._sync: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
+    self._sync.connect("tcp://localhost:%s" % self._port_sync)
 
     # Start running!
     self._running = True
@@ -77,18 +79,21 @@ class SensorStreamer(ABC):
 
   # Connect to the sensor device(s).
   @abstractmethod
-  def connect(self):
+  def connect(self) -> None:
     pass
 
   # Launch data streaming form the device.
   @abstractmethod
-  def run(self):
-    pass
+  def run(self) -> None:
+    # TODO: boiler plate for awaiting the SYNC signal from the broker
+    self._poller.register(self._killsig, zmq.POLLIN)
 
   # Clean up and quit.
   @abstractmethod
-  def quit(self):
-    pass
+  def quit(self) -> None:
+    self._pub.close()
+    self._killsig.close()
+    self._sync.close()
 
   #############################
   ###### GETTERS/SETTERS ######

@@ -52,12 +52,20 @@ import numpy as np
 ################################################
 class XsensSkeletonVisualizer(Visualizer):
 
-  def __init__(self, visualizer_options=None, hidden=False,
-                     parent_layout=None, parent_layout_size=None,
-                     print_debug=False, print_status=False):
-    Visualizer.__init__(self, visualizer_options=visualizer_options, hidden=hidden,
-                              parent_layout=parent_layout, parent_layout_size=parent_layout_size,
-                              print_debug=print_debug, print_status=print_status)
+  def __init__(self, 
+               visualizer_options = None, 
+               hidden: bool = False,
+               parent_layout = None, 
+               parent_layout_size = None,
+               print_debug: bool = False, 
+               print_status: bool = False):
+    Visualizer.__init__(self, 
+                        visualizer_options=visualizer_options, 
+                        hidden=hidden,
+                        parent_layout=parent_layout, 
+                        parent_layout_size=parent_layout_size,
+                        print_debug=print_debug, 
+                        print_status=print_status)
   
     if use_matplotlib:
       self._fig = None
@@ -155,15 +163,15 @@ class XsensSkeletonVisualizer(Visualizer):
       plt.ioff()
   
       # Create a figure and subplots.
-      fig, axs = plt.subplots(nrows=1, ncols=1,
-                               squeeze=False, # if False, always return 2D array of axes
-                               sharex=True, sharey=True,
-                               subplot_kw={
-                                'frame_on': True,
-                                'projection': '3d',
-                                },
-                               figsize=figure_size
-                               )
+      fig, axs = plt.subplots(nrows=1, 
+                              ncols=1,
+                              squeeze=False, # if False, always return 2D array of axes
+                              sharex=True, 
+                              sharey=True,
+                              subplot_kw={
+                               'frame_on': True,
+                               'projection': '3d'},
+                              figsize=figure_size)
       ax = axs[0][0]
 
       # Set some formatting options.
@@ -246,15 +254,13 @@ class XsensSkeletonVisualizer(Visualizer):
       
     # Create dummy data, and use it to initialize the plot.
     segment_positions_cm = np.zeros([len(self._segment_labels), 3])
-    self.update({'data':[segment_positions_cm.tolist()]},
-                 visualizing_all_data=True)
+    self.update({'data':[segment_positions_cm.tolist()]}, visualizing_all_data=True)
 
   # Update the skeleton visualization with new segment position data.
   # Only the most recent timestep will be visualized.
   # @param new_data is a dict with 'data' (all other entries will be ignored).
   #   It should contain all segment positions as a matrix (each row is xyz).
   def update(self, new_data, visualizing_all_data):
-
     # Extract the latest segment positions.
     segment_positions_cm = np.array(new_data['data'][-1])
     
@@ -307,13 +313,15 @@ class XsensSkeletonVisualizer(Visualizer):
         plot_xyz_cm_all = np.concatenate((plot_xyz_cm_all, plot_xyz_cm), axis=0)
         # Create a fresh plot or update existing data.
         if self._chain_lines[chain_index] is None or visualizing_all_data:
-          self._chain_lines[chain_index] = gl.GLLinePlotItem(
-                  pos=plot_xyz_cm, color=(1,0,0,1),
-                  width=3, antialias=True)
+          self._chain_lines[chain_index] = gl.GLLinePlotItem(pos=plot_xyz_cm, 
+                                                             color=(1,0,0,1),
+                                                             width=3, 
+                                                             antialias=True)
           self._glWidget.addItem(self._chain_lines[chain_index])
-          self._chain_scatters[chain_index] = gl.GLScatterPlotItem(
-                  pos=plot_xyz_cm, color=(1,0,0,1),
-                  size=5, pxMode=False)
+          self._chain_scatters[chain_index] = gl.GLScatterPlotItem(pos=plot_xyz_cm, 
+                                                                   color=(1,0,0,1),
+                                                                   size=5, 
+                                                                   pxMode=False)
           self._chain_scatters[chain_index].setGLOptions('translucent')
           self._glWidget.addItem(self._chain_scatters[chain_index])
           cv2.waitKey(1) # wait for it to actually draw

@@ -3,9 +3,7 @@ from streamers import SensorStreamer
 import tkinter
 from tkinter import ttk
 
-import sys
 import time
-import textwrap
 from collections import OrderedDict
 import traceback
 import ctypes
@@ -19,7 +17,10 @@ from utils.print_utils import *
 ################################################
 ################################################
 class ExperimentControlStreamer(SensorStreamer):
-  
+  @property
+  def _log_source_tag(self):
+    return 'control'
+
   ########################
   ###### INITIALIZE ######
   ########################
@@ -35,7 +36,6 @@ class ExperimentControlStreamer(SensorStreamer):
                             log_history_filepath=log_history_filepath)
     self._wait_after_stopping = False
     self._always_run_in_main_process = True
-    self._log_source_tag = 'control'
     
     self._tkinter_root = None
     
@@ -195,7 +195,7 @@ class ExperimentControlStreamer(SensorStreamer):
     self._metadata[self._activities_device_name]['Activities'] = self._activities
     self._metadata[self._activities_device_name]['Target Locations [cm]'] = self._target_positions_cm
 
-  def _connect(self, timeout_s=10):
+  def _connect(self):
     # Without this, the window can be really tiny if matplotlib is used before the GUI generation.
     # Make sure this is called before any matplotlib.
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -774,7 +774,7 @@ class ExperimentControlStreamer(SensorStreamer):
       self._log_debug('ExperimentControlStreamer quitting')
       self._log_debug('ExperimentControlStreamer data:')
       self._log_debug(self._data)
-    SensorStreamer.quit(self)
+    super(ExperimentControlStreamer, self).quit()
     
 
 #####################

@@ -14,8 +14,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
     #   to capture errors inside the grabbing as this can't be properly 
     #   reported from the background thread to the foreground python code.
     try:
-      # In our grab strategy, `res` can be multiple images
-      # TODO: 
+      # TODO: In our grab strategy, `res` can be multiple images 
       if res.GrabSucceeded():
         frame: np.ndarray = res.Array
         camera_id: int = res.GetCameraContext()

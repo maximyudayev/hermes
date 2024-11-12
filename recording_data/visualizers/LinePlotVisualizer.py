@@ -29,7 +29,7 @@
 use_matplotlib = False
 
 from visualizers.Visualizer import Visualizer
-from streamers.SensorStreamer import SensorStreamer
+from streams.Stream import Stream
 
 if use_matplotlib:
   import matplotlib
@@ -51,13 +51,20 @@ from utils.numpy_utils import *
 # May put all elements of N-D data on a single graph or in subplots.
 ################################################
 class LinePlotVisualizer(Visualizer):
-
-  def __init__(self, visualizer_options=None, hidden=False,
-                     parent_layout=None, parent_layout_size=None,
-                     print_debug=False, print_status=False):
-    Visualizer.__init__(self, visualizer_options=visualizer_options, hidden=hidden,
-                        parent_layout=parent_layout, parent_layout_size=parent_layout_size,
-                        print_debug=print_debug, print_status=print_status)
+  def __init__(self, 
+               visualizer_options = None, 
+               hidden: bool = False,
+               parent_layout = None, 
+               parent_layout_size = None,
+               print_debug: bool = False, 
+               print_status: bool = False):
+    Visualizer.__init__(self, 
+                        visualizer_options=visualizer_options, 
+                        hidden=hidden,
+                        parent_layout=parent_layout, 
+                        parent_layout_size=parent_layout_size,
+                        print_debug=print_debug, 
+                        print_status=print_status)
     
     self._plot_length = None
     self._time_s = None
@@ -157,8 +164,8 @@ class LinePlotVisualizer(Visualizer):
         extract_data_for_axis_fn = f
     # Determine line titles for each line that will be plotted.
     # These will become subplot titles or legend entries as appropriate.
-    if isinstance(stream_info['data_notes'], dict) and SensorStreamer.metadata_data_headings_key in stream_info['data_notes']:
-      line_titles = stream_info['data_notes'][SensorStreamer.metadata_data_headings_key]
+    if isinstance(stream_info['data_notes'], dict) and Stream.metadata_data_headings_key in stream_info['data_notes']:
+      line_titles = stream_info['data_notes'][Stream.metadata_data_headings_key]
     else:
       # Create a line title for each element in each data sample.
       # Each sample may be a matrix that will be unwrapped into separate lines,
@@ -187,12 +194,13 @@ class LinePlotVisualizer(Visualizer):
       plt.ioff()
   
       # Create a figure and subplots.
-      fig, axs = plt.subplots(nrows=num_rows, ncols=num_columns,
-                               squeeze=False, # if False, always return 2D array of axes
-                               sharex=True, sharey=True,
-                               subplot_kw={'frame_on': True},
-                               figsize=figure_size
-                               )
+      fig, axs = plt.subplots(nrows=num_rows, 
+                              ncols=num_columns,
+                              squeeze=False, # if False, always return 2D array of axes
+                              sharex=True, 
+                              sharey=True,
+                              subplot_kw={'frame_on': True},
+                              figsize=figure_size)
     else:
       pyqtgraph.setConfigOption('background', 'w')
       pyqtgraph.setConfigOption('foreground', 'k')
@@ -329,7 +337,6 @@ class LinePlotVisualizer(Visualizer):
   #   If periodically, new data should be added to the visualization if applicable.
   #   Otherwise the new data should replace the visualization if applicable.
   def update(self, new_data, visualizing_all_data):
-    
     # Subtract the starting time, so graph x axes start at 0.
     new_time_s = np.atleast_1d(np.array(new_data['time_s']))
     if self._plotting_start_time_s is None:
@@ -420,14 +427,6 @@ class LinePlotVisualizer(Visualizer):
       # if self._print_debug: print('Time to export line plot for %s.%s: %0.3fs', (device_name, stream_name, time.time() - start_export_time_s))
       return img
 
-  # Convert a QImage to a numpy ndarray in BGR format.
-  def _convertQImageToMat(self, qimg):
-    img = qimg.convertToFormat(QtGui.QImage.Format.Format_RGB32)
-    ptr = img.bits()
-    ptr.setsize(img.sizeInBytes())
-    arr = np.array(ptr).reshape(img.height(), img.width(), 4)  #  Copies the data
-    return arr
-  
   # Close the figure.
   def close(self):
     if use_matplotlib:
@@ -445,3 +444,11 @@ class LinePlotVisualizer(Visualizer):
       else:
         if not self._is_sub_layout:
           self._app.exec()
+
+  # Convert a QImage to a numpy ndarray in BGR format.
+  def _convertQImageToMat(self, qimg):
+    img = qimg.convertToFormat(QtGui.QImage.Format.Format_RGB32)
+    ptr = img.bits()
+    ptr.setsize(img.sizeInBytes())
+    arr = np.array(ptr).reshape(img.height(), img.width(), 4)  #  Copies the data
+    return arr
