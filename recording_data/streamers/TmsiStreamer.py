@@ -1,6 +1,40 @@
-from streamers import SensorStreamer
+############
+#
+# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# See https://action-net.csail.mit.edu for more usage information.
+# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
+#
+############
+
+import queue
+from streams.TmsiStream import TmsiStream
+from streamers.SensorStreamer import SensorStreamer
+from utils.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
+from utils.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
 from visualizers import LinePlotVisualizer
 from visualizers.HeatmapVisualizer import HeatmapVisualizer
+from utils.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as Reshape
+from utils.TMSiSDK.tmsi_sdk import TMSiSDK
+from utils.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
+from utils.TMSiSDK.device.tmsi_channel import ChannelType
 
 import numpy as np
 import time
@@ -14,7 +48,7 @@ from utils.print_utils import *
 # A template class for implementing a new sensor.
 ################################################
 ################################################
-class TMSiStreamer(SensorStreamer):
+class TmsiStreamer(SensorStreamer):
   
   ########################
   ###### INITIALIZE ######
@@ -41,93 +75,149 @@ class TMSiStreamer(SensorStreamer):
   # @param print_debug Whether or not to print messages with level 'debug'
   # @param log_history_filepath A filepath to save log messages if desired.
   def __init__(self,
-               log_player_options=None, visualization_options=None,
-               print_status=True, print_debug=False, log_history_filepath=None):
-    SensorStreamer.__init__(self, streams_info=None,
-                            visualization_options=visualization_options,
-                            log_player_options=log_player_options,
-                            print_status=print_status, print_debug=print_debug,
+               port_pub: str = "42069",
+               port_sync: str = "42071",
+               port_killsig: str = "42066",
+               stream_info: dict = {},
+               log_history_filepath: str | None = None,
+               print_status: bool = True,
+               print_debug: bool = False,)-> None:
+    
+    SensorStreamer.__init__(self, 
+                            port_pub=port_pub,
+                            port_sync = port_sync,
+                            port_killsig = port_killsig,
+                            stream_info = stream_info,
+                            print_status=print_status, 
+                            print_debug=print_debug,
                             log_history_filepath=log_history_filepath)
     
-    ## TODO: Add a tag here for your sensor that can be used in log messages.
-    #        Try to keep it under 10 characters long.
-    #        For example, 'myo' or 'scale'.
-    self._log_source_tag = 'template'
-    
-    ## TODO: Initialize any state that your sensor needs.
-    
-    ## TODO: Add devices and streams to organize data from your sensor.
-    #        Data is organized as devices and then streams.
-    #        For example, a Myo device may have streams for EMG and Acceleration.
-    #        If desired, this could also be done in the connect() method instead.
-    self._device_name = 'template-sensor-device'
-    self.add_stream(device_name=self._device_name,
-                    stream_name='stream_1',
+    self._log_source_tag = 'SAGA'
+    self._device_name = 'TMSi_SAGA'
+    self._data = self.create_stream(stream_info)
+    """self.add_stream(device_name=self._device_name,
+                    stream_name='breath',
                     data_type='float32',
-                    sample_size=[2],     # the size of data saved for each timestep; here, we expect a 2-element vector per timestep
-                    sampling_rate_hz=65, # the expected sampling rate for the stream
-                    extra_data_info={}, # can add extra information beyond the data and the timestamp if needed (probably not needed, but see MyoStreamer for an example if desired)
-                    # Notes can add metadata about the stream,
-                    #  such as an overall description, data units, how to interpret the data, etc.
-                    # The SensorStreamer.metadata_data_headings_key is special, and is used to
-                    #  describe the headings for each entry in a timestep's data.
-                    #  For example - if the data was saved in a spreadsheet with a row per timestep, what should the column headings be.
-                    data_notes=OrderedDict([
-                      ('Description', 'A template class to show how to add new sensors '
-                                      'by implementing the SensorStreamer class.'
-                                      ),
-                      ('Units', 'm/s'),
-                      (SensorStreamer.metadata_data_headings_key, ['first_column', 'second_column']),
-                    ]))
-    # Add as many devices/streams as you need!
-    self.add_stream(device_name=self._device_name,
-                    stream_name='stream_2',
-                    data_type='int',
-                    sample_size=[6, 5],
-                    sampling_rate_hz=45,
+                    sample_size=[1],
+                    sampling_rate_hz=20,
                     extra_data_info={},
-                    data_notes=OrderedDict([
-                      ('Description', 'More data!'),
-                      ('Units', 'm/s/s'),
-                      (SensorStreamer.metadata_data_headings_key,
-                       ['entry_%02d-%02d' % (matrix_row, matrix_col)
-                        for matrix_row in range(6) for matrix_col in range(5)]),
-                    ]))
+                    data_notes="")
+    
+    self.add_stream(device_name=self._device_name,
+                    stream_name='GSR',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=20,
+                    extra_data_info={},
+                    data_notes="")
+    
+    self.add_stream(device_name=self._device_name,
+                    stream_name='SPO2',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=20,
+                    extra_data_info={},
+                    data_notes="")
+    
+    self.add_stream(device_name=self._device_name,
+                    stream_name='BIP-01',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=20,
+                    extra_data_info={},
+                    data_notes="")
+    
+    self.add_stream(device_name=self._device_name,
+                    stream_name='BIP-02',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=20,
+                    extra_data_info={},
+                    data_notes="")"""
+    
 
   #######################################
+  def create_stream(self, stream_info: dict = {}) -> TmsiStream:  
+    return TmsiStream(**stream_info)
+  
+  def _log_source_tag(self):
+    pass
+
   # Connect to the sensor.
   # @param timeout_s How long to wait for the sensor to respond.
-  def _connect(self, timeout_s=10):
-    
-    ## TODO: Add code for connecting to your sensor.
-    #        Then return True or False to indicate whether connection was successful.
+  def connect(self, timeout_s=10):
+    #from utils.tmsi_aux.TMSiSDK.tmsi_sdk import TMSiSDK
+    #from utils.tmsi_aux.TMSiSDK.device.devices.saga import saga_API
+    try:
+      TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.docked, ds_interface = DeviceInterfaceType.usb)
+      discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
+      if (len(discoveryList) > 0):
+        # Get the handle to the first discovered device and open the connection.
+        for i,_ in enumerate(discoveryList):
+          self.dev = discoveryList[i]
+          if self.dev.get_dr_interface() == DeviceInterfaceType.docked:
+                  # Open the connection to SAGA
+            self.dev.open()
+            break
 
-    self._log_status('Successfully connected to the template streamer.')
-    return True
-  
-  #######################################
-  ###### INTERFACE WITH THE SENSOR ######
-  #######################################
-  
-  ## TODO: Add functions to control your sensor and acquire data.
-  #        [Optional but probably useful]
-  
-  # A function to read a timestep of data for the first stream.
-  def _read_data_stream1(self):
-    # For example, may want to return the data for the timestep
-    #  and the time at which it was received.
-    my_data = np.random.rand(2)
-    time_s = time.time()
-    return (time_s, my_data)
-  
-  # A function to read a timestep of data for the second stream.
-  def _read_data_stream2(self):
-    # For example, may want to return the data for the timestep
-    #  and the time at which it was received.
-    my_data = np.random.rand(6, 5)
-    time_s = time.time()
-    return (time_s, my_data)
-  
+        # Check the current bandwidth that's in use
+        current_bandwidth = self.dev.get_device_bandwidth()
+        print('The current bandwidth in use is {:} bit/s'.format(current_bandwidth['in use']))
+        print('Maximum bandwidth for wifi measurements is {:} bit/s'.format(current_bandwidth['wifi']))
+
+        # Maximal allowable sample rate with all enabled channels is 1000 Hz
+        self.dev.set_device_sampling_config(base_sample_rate = SagaBaseSampleRate.Decimal,  channel_type = ChannelType.all_types, channel_divider = 4)
+
+        # channels
+        # oxy goes to digi
+        # breath to aux 1
+        # gsr aux 2
+        # double bip to bipolar
+        # 65 66 double bipolar
+        # 69 breath
+        # 72 gsr
+        # 78 blood oxy
+        # 79, 80, 81, 82, 83, 84, 85, 86 -> sensors
+        enable_channels = [65, 66, 69, 72, 78, 79, 80, 81, 82, 83, 84, 85, 86]
+        disable_channels = [i for i in range(90) if i not in enable_channels]
+        self.dev.set_device_active_channels(enable_channels, True)
+        self.dev.set_device_active_channels(disable_channels, False)  
+
+        # Check the current bandwidth that's in use
+        current_bandwidth = self.dev.get_device_bandwidth()
+        print('The current bandwidth in use is {:} bit/s'.format(current_bandwidth['in use']))
+
+        # Choose the desired DR-DS interface type 
+        self.dev.set_device_interface(DeviceInterfaceType.wifi)
+        
+        # Close the connection to the device (with the original interface type)
+        self.dev.close()
+        
+      print("Remove saga from the dock")
+      time.sleep(3)
+      # connection over wifi
+      TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.wifi, ds_interface = DeviceInterfaceType.usb, num_retries = 10)
+      discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
+
+      if (len(discoveryList) > 0):
+        # Get the handle to the first discovered device and open the connection.
+        for i,_ in enumerate(discoveryList):
+          self.dev = discoveryList[i]
+          if self.dev.get_dr_interface() == DeviceInterfaceType.wifi:
+            # Open the connection to SAGA
+            self.dev.open()
+            break
+
+        self.data_sampling_server = SampleDataServer()
+        self.data_queue = queue.Queue(maxsize=0)
+        self.data_sampling_server.register_consumer(self.dev.get_id(), self.data_queue)
+
+        print(log_status("SAGA",'Successfully connected to the TMSi streamer.'))
+        return True
+    except Exception as e:
+      print(e)
+    print(log_status("SAGA",'Unsuccessful connection to the TMSi streamer.'))
+    return False
   
   #####################
   ###### RUNNING ######
@@ -137,26 +227,21 @@ class TMSiStreamer(SensorStreamer):
   # Loop until self._running is False.
   # Acquire data from your sensor as desired, and for each timestep
   #  call self.append_data(device_name, stream_name, time_s, data).
-  def _run(self):
+  def run(self):
     try:
+      self.dev.start_measurement(MeasurementType.SAGA_SIGNAL)
       while self._running:
-        # Read and store data for stream 1.
-        (time_s, data) = self._read_data_stream1()
-        self.append_data(self._device_name, 'stream_1', time_s, data)
-        
-        # Read and store data for stream 2.
-        # Use a random number to simulate data not being ready yet (a slower sampling rate for this stream).
-        if np.random.rand() < 0.7:
-          (time_s, data) = self._read_data_stream2()
-          self.append_data(self._device_name, 'stream_2', time_s, data)
-        
-        # Wait to slow down the template sampling rate for demo purposes.
-        time.sleep(0.01)
+        if len(self.data_queue.queue) != 0:
+            sample_data = self.data_queue.get(0)
+            reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
+            time_s = time.time()
+            for column in reshaped.T:
+              self._data.append_data(time_s, column)
         
     except KeyboardInterrupt: # The program was likely terminated
       pass
     except:
-      self._log_error('\n\n***ERROR RUNNING TemplateStreamer:\n%s\n' % traceback.format_exc())
+      print(log_error("SAGA",'\n\n***ERROR RUNNING TemplateStreamer:\n%s\n' % traceback.format_exc()))
     finally:
       ## TODO: Disconnect from the sensor if desired.
       pass
@@ -164,7 +249,10 @@ class TMSiStreamer(SensorStreamer):
   # Clean up and quit
   def quit(self):
     ## TODO: Add any desired clean-up code.
-    self._log_debug('TemplateStreamer quitting')
+    self._log_debug(f'{self._device_name}-streamer quitting')
+    # Set the DR-DS interface type back to docked
+    self.dev.set_device_interface(DeviceInterfaceType.docked)
+    self.dev.close()
     SensorStreamer.quit(self)
 
   ###########################
@@ -222,7 +310,7 @@ if __name__ == '__main__':
   duration_s = 30
   
   # Connect to the device(s).
-  template_streamer = TemplateStreamer(print_status=True, print_debug=False)
+  template_streamer = TmsiStreamer(print_status=True, print_debug=False)
   template_streamer.connect()
   
   # Run for the specified duration and periodically print the sample rate.
@@ -250,3 +338,4 @@ if __name__ == '__main__':
   print('='*75)
   print('Done!')
   print('\n'*2)
+

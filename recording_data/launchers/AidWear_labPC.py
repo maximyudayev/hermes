@@ -1,6 +1,6 @@
 import os
 from utils.time_utils import *
-from handlers import StreamBroker
+from handlers.StreamBroker import StreamBroker
 
 # Note that multiprocessing requires the __main__ check.
 if __name__ == '__main__':
@@ -24,14 +24,15 @@ if __name__ == '__main__':
   # Define locally connected streamers.
   sensor_streamers = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
-    ('ExperimentControlStreamer', True),  # A GUI to label activities/calibrations and enter notes
+    ('ExperimentControlStreamer', False),  # A GUI to label activities/calibrations and enter notes
     # Sensors!
     ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
-    ('DotsStreamer',       False),   # The Dots lower limb tracking system
+    ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     True),  # One or more cameras
+    ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles 
+    ('TmsiStreamer',       False),  # Dummy data (no hardware required)
     ('DummyStreamer',      False),  # Dummy data (no hardware required)
   ])
   # Configure settings for each streamer.
@@ -54,6 +55,10 @@ if __name__ == '__main__':
      },
     # Stream from the Awinda body tracking and Manus gloves.
     {'class': 'AwindaStreamer',
+     'print_debug': print_debug, 'print_status': print_status
+     },
+     # TMSi SAGA stream
+    {'class': 'TmsiStreamer',
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Dots lower limb tracking.
@@ -225,4 +230,5 @@ if __name__ == '__main__':
   stream_broker.connect_to_remote_pub(addr=ip_wearablePC)
 
   # Run broker's main until user exits in GUI or Ctrl+C in terminal.
-  StreamBroker.run(duration_s=None)
+  stream_broker.start()
+  stream_broker.run(duration_s=None)

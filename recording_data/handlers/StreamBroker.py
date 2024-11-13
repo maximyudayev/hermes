@@ -137,7 +137,7 @@ class StreamBroker:
       class_args['port_sync'] = self._port_sync
       class_args['port_killsig'] = self._port_killsig
       # Create the class object.
-      class_type = self._sensor_streamer_classes[class_name]
+      class_type = self._worker_classes[class_name]
       class_object = class_type(**class_args)
       # Store the consumer object.
       self._workers.append(class_object)

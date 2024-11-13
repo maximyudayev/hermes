@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-import copy
 import zmq
 
 from streams.Stream import Stream
@@ -29,7 +28,7 @@ class SensorStreamer(ABC):
                port_pub: str = "42069",
                port_sync: str = "42071",
                port_killsig: str = "42066",
-               stream_info: dict | None = None,
+               stream_info: dict = {},
                log_history_filepath: str | None = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
@@ -45,7 +44,7 @@ class SensorStreamer(ABC):
     self._data: Stream = self.create_stream(stream_info)
 
   # A SensorStreamer instance is a callable to launch as a Process
-  def __call__(self, *args: copy.Any, **kwds: copy.Any):
+  def __call__(self, *args: any, **kwds: any):
     # Connect local publisher to the Proxy's XSUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
 
