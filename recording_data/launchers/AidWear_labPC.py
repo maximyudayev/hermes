@@ -54,18 +54,18 @@ if __name__ == '__main__':
      },
     # Stream from the Awinda body tracking and Manus gloves.
     {'class': 'AwindaStreamer',
-      "device_mapping": {
-        "pelvis"         : "11850724",
-        "upper_leg_right": "11850711",
-        "lower_leg_right": "11850722",
-        "foot_right"     : "11850717",
-        "upper_leg_left" : "11850727",
-        "lower_leg_left" : "11850708",
-        "foot_left"      : "11850712",
+      'device_mapping': {
+        'pelvis'         : '00B4D3E4',
+        'upper_leg_right': '00B4D3D7',
+        'lower_leg_right': '00B4D3E2',
+        'foot_right'     : '00B4D3DD',
+        'upper_leg_left' : '00B4D3E7',
+        'lower_leg_left' : '00B4D3D4',
+        'foot_left'      : '00B4D3D8',
       },
      'num_joints'        : 7,
      'sampling_rate_hz'  : 100,
-     "radio_channel"     : 15,
+     'radio_channel'     : 15,
      'print_debug': print_debug, 'print_status': print_status
      },
      # TMSi SAGA stream
@@ -74,12 +74,12 @@ if __name__ == '__main__':
      },
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
-     "device_mapping": {
-        "knee_right"  : "0",
-        "foot_right"  : "1",
-        "pelvis"      : "2",
-        "knee_left"   : "3",
-        "foot_left"   : "4",
+     'device_mapping': {
+        'knee_right'  : '0',
+        'foot_right'  : '1',
+        'pelvis'      : '2',
+        'knee_left'   : '3',
+        'foot_left'   : '4',
       },
      'num_joints'      : 5,
      'sampling_rate_hz': 20,
@@ -106,10 +106,10 @@ if __name__ == '__main__':
     # Stream from one or more cameras.
     {'class': 'CameraStreamer',
      'cameras_to_stream': { # map camera names (usable as device names in the HDF5 file) to capture device indexes
-       'basler_north' : "40478064",
-       'basler_east'  : "40549960",
-       'basler_south' : "40549975",
-       'basler_west'  : "40549976",
+       'basler_north' : '40478064',
+       'basler_east'  : '40549960',
+       'basler_south' : '40549975',
+       'basler_west'  : '40549976',
      },
      'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
      'print_debug': print_debug, 'print_status': print_status
@@ -132,7 +132,7 @@ if __name__ == '__main__':
   # Define local workers/consumers of data.
   workers = dict([
     ('DataLogger',        True),
-    ('DataVisualizer',    True),
+    ('DataVisualizer',    False),
   ])
   # Configure where and how to save sensor data.
   #   Adjust log_tag, and log_dir_root as desired.
@@ -153,11 +153,13 @@ if __name__ == '__main__':
   os.makedirs(log_dir, exist_ok=True)
 
   datalogging_options = {
-    'classes_to_log': ['ExperimentControlStreamer', 
-                       'DotsStreamer', 
-                       'AwindaStreamer', 
-                       'EyeStreamer', 
-                       'CameraStreamer'],
+    'classes_to_log': [
+      'ExperimentControlStreamer', 
+      'DotsStreamer', 
+      'AwindaStreamer', 
+      'EyeStreamer', 
+      'CameraStreamer'
+      ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,
     'videos_in_hdf5': False,
@@ -166,13 +168,13 @@ if __name__ == '__main__':
     'stream_hdf5' : True, # recommended over CSV since it creates a single file
     'stream_csv'  : False, # will create a CSV per stream
     'stream_video': True,
-    'stream_audio': True,
+    'stream_audio': False,
     'stream_period_s': 10, # how often to save streamed data to disk
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
     # Choose whether to write all data at the end.
     'dump_csv'  : False,
     'dump_hdf5' : True,
-    'dump_video': True,
+    'dump_video': False,
     'dump_audio': False,
     # Additional configuration.
     'videos_format': 'avi', # mp4 occasionally gets openCV errors about a tag not being supported?
@@ -188,14 +190,16 @@ if __name__ == '__main__':
   composite_col_width_quarter = int(composite_frame_size[0]/4)
   composite_row_height = int(composite_frame_size[1]/5)
   visualization_options = {
-    'visualize_streaming_data'       : True,
-    'visualize_all_data_when_stopped': True,
-    'wait_while_visualization_windows_open': False,
+    'is_visualize_streaming'       : True,
+    'is_visualize_all_when_stopped': True,
+    'is_wait_while_windows_open': False,
     'update_period_s': 0.2,
-    'classes_to_visualize': ['DotsStreamer', 
-                             'AwindaStreamer', 
-                             'EyeStreamer', 
-                             'CameraStreamer'],
+    'classes_to_visualize': [
+      'DotsStreamer', 
+      'AwindaStreamer', 
+      'EyeStreamer', 
+      'CameraStreamer'
+      ],
     'use_composite_video': True,
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
     'composite_video_layout': [ # first 3 rows of IMU data, next 2 of video data with Pupil Core spanning 2x2 cell and 4 PoE cameras around it

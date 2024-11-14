@@ -38,9 +38,9 @@ class SensorStreamer(ABC):
     self._print_debug = print_debug
     self._running = False
     self._poller: zmq.Poller = zmq.Poller()
-
     # Data structure for keeping track of data
     self._stream: Stream = self.create_stream(stream_info)
+
 
   # A SensorStreamer instance is a callable to launch as a Process
   def __call__(self, *args, **kwds):

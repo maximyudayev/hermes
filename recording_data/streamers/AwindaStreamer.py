@@ -2,15 +2,17 @@ from collections import OrderedDict
 import queue
 
 import numpy as np
+
 from streamers.SensorStreamer import SensorStreamer
 from streams.AwindaStream import AwindaStream
 
 from utils.msgpack_utils import serialize
 from utils.print_utils import *
 
-from handlers.AwindaCallback import AwindaCallback
+from handlers.AwindaCallback import AwindaConnectivityCallback, AwindaDataCallback
 import xsensdeviceapi as xda
 
+import zmq
 
 ################################################
 ################################################
@@ -19,9 +21,7 @@ import xsensdeviceapi as xda
 ################################################
 class AwindaStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  @property
-  def _log_source_tag(self):
-    return 'awinda'
+  _log_source_tag = "awinda"
 
   ########################
   ###### INITIALIZE ######
@@ -45,7 +45,7 @@ class AwindaStreamer(SensorStreamer):
     self._queue_size = queue_size
     self._device_mapping = device_mapping
 
-    joint_names, device_ids = tuple(zip(*(device_mapping.items())))
+    joint_names, device_ids = tuple(zip(*(self._device_mapping.items())))
     self._packet = OrderedDict(zip(device_ids, [{}]*len(joint_names)))
 
     stream_info = {
@@ -78,23 +78,12 @@ class AwindaStreamer(SensorStreamer):
     
     # Get the device object
     self._master_device = self._control.device(master_port_info.deviceId())
-    if (self._master_device) is not None:
+    if not self._master_device:
       raise RuntimeError(f"Failed to construct XsDevice instance: {master_port_info}")
 
     # Configure the devices
     if not self._master_device.gotoConfig():
       raise RuntimeError(f"Failed to go to config mode: {self._master_device}")
-    
-    config_array = xda.XsOutputConfigurationArray()
-    # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_UtcTime, 0))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleFineTime, 0))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_EulerAngles, self._sampling_rate_hz))
-    
-    if not self._master_device.setOutputConfiguration(config_array):
-      raise RuntimeError("Could not configure the device. Aborting.")
 
     # NOTE: if sending data over the socket throttles the callback thread,
     #   only put packets into shared queue object and have the parent thread do this instead
@@ -107,17 +96,17 @@ class AwindaStreamer(SensorStreamer):
 
       # Pick which timestamp information to use (also for DOTs)
       timestamp: xda.XsTimeInfo = packet.utcTime()
-      finetime: np.uint32 = packet.sampleFineTime()
+      finetime: np.uint32 = packet.sampleTimeFine()
       timestamp_estimate: xda.XsTimeStamp = packet.estimatedTimeOfSampling()
       timestamp_arrival: xda.XsTimeStamp = packet.timeOfArrival()
 
       # Store the captured data into the data structure.
-      device_id: str = dev.deviceId().toString()
+      device_id: str = str(dev.deviceId())
       self._stream.append_data(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
       # Get serialized object to send over ZeroMQ.
       msg = serialize(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
       # Send the data packet on the PUB socket.
-      self._pub.send_multipart([b"%s.%s" % (self._log_source_tag, device_id), msg])
+      self._pub.send_multipart(["%s.%s" % (self._log_source_tag, device_id), msg])
 
     def process_all_packets(time_s: float, devices: list[xda.XsDevice], packets: list[xda.XsPacket]) -> None:
       for dev, packet in zip(devices, packets):
@@ -127,46 +116,42 @@ class AwindaStreamer(SensorStreamer):
         # Pick which timestamp information to use (also for DOTs)
         counter: np.uint16 = packet.packetCounter()
         timestamp: xda.XsTimeInfo = packet.utcTime()
-        finetime: np.uint32 = packet.sampleFineTime()
+        finetime: np.uint32 = packet.sampleTimeFine()
         timestamp_estimate: xda.XsTimeStamp = packet.estimatedTimeOfSampling()
         timestamp_arrival: xda.XsTimeStamp = packet.timeOfArrival()
 
-        self._packet[dev.deviceId().toString()] = {
+        self._packet[str(dev.deviceId())] = {
           "acceleration": (acc[0], acc[1], acc[2]),
           "orientation": (euler.x(), euler.y(), euler.z()),
           "counter": counter,
           "timestamp": finetime
         }
 
-      acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
-      orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
-      counter = np.array([v['counter'] for (_,v) in self._packet.items()])
-      timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
+      acceleration = np.array([v['acceleration'] for v in self._packet.values()])
+      orientation = np.array([v['orientation'] for v in self._packet.values()])
+      counter = np.array([v['counter'] for v in self._packet.values()])
+      timestamp = np.array([v['timestamp'] for v in self._packet.values()])
 
       # Store the captured data into the data structure.
       self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Get serialized object to send over ZeroMQ.
       msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Send the data packet on the PUB socket.
-      self._pub.send_multipart([b"%s.data" % self._log_source_tag, msg])
+      self._pub.send_multipart(["%s.data" % self._log_source_tag, msg])
 
     # Queue used to synchronize current main thread and callback handler thread listening 
     #   to device connections when all expected devices connected before continuing
     connection_sync_queue = queue.Queue(maxsize=1)
-    device_connection_status = dict.fromkeys(self._device_mapping.values(), False)
+    device_connection_status = dict.fromkeys(list(self._device_mapping.values()), False)
     def mark_device_connected(dev: xda.XsDevice) -> None:
-      id: str = dev.deviceId().toString()
+      id: str = str(dev.deviceId())
       device_connection_status[id] = True
-      if all(device_connection_status.values()): connection_sync_queue.put(True)
+      if all(list(device_connection_status.values())): connection_sync_queue.put(True)
 
     # Register event handler on the main device
-    handler = AwindaCallback(on_packet_received=process_all_packets, on_wireless_device_connected=mark_device_connected)
-    self._master_device.addCallbackHandler(handler, chain=True)
-
-    # Set sample rate
-    if not self._master_device.setUpdateRate(self._sampling_rate_hz):
-      raise RuntimeError("Could not configure the device. Aborting.")
-
+    self._conn_handler = AwindaConnectivityCallback(on_wireless_device_connected=mark_device_connected)
+    self._master_device.addCallbackHandler(self._conn_handler)
+    
     # Enable radio to accept connections from the sensors
     if self._master_device.isRadioEnabled():
       if not self._master_device.disableRadio():
@@ -176,6 +161,13 @@ class AwindaStreamer(SensorStreamer):
 
     # Will block the current thread until the Awinda onConnectivityChanged has changed to XCS_Wireless for all expected devices
     connection_sync_queue.get()
+
+    # Set sample rate
+    if not self._master_device.setUpdateRate(self._sampling_rate_hz):
+      raise RuntimeError("Could not configure the device. Aborting.")
+        
+    self._data_handler = AwindaDataCallback(on_all_packets_received=process_all_packets)
+    self._master_device.addCallbackHandler(self._data_handler)
 
     # Put all devices connected to the Awinda station into measurement
     # NOTE: Will begin trigerring the callback and saving data, while awaiting the SYNC signal from the Broker
@@ -187,8 +179,13 @@ class AwindaStreamer(SensorStreamer):
     # While background process reads-out new data, can do something useful
     #   like poll for commands from the Broker to terminate, and block on the Queue 
     while self._running:
-      # TODO:
-      pass
+      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+      if not poll_res: continue
+      if self._killsig in poll_res[0]:
+        print("quitting publisher", flush=True)
+        self._killsig.recv_multipart()
+        self._poller.unregister(self._killsig)
+        self._running = False
 
   
   # Clean up and quit
@@ -203,5 +200,3 @@ class AwindaStreamer(SensorStreamer):
 #####################
 ###### TESTING ######
 #####################
-# if __name__ == '__main__':
-# 
