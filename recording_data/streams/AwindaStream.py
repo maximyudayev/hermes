@@ -20,8 +20,8 @@ class AwindaStream(Stream):
     self._sampling_rate_hz = sampling_rate_hz
     
     # Invert device mapping to map device_id -> joint_name
-    (joint_names, device_ids) = tuple(zip(*(device_mapping.items())))
-    self._device_mapping: dict[str, str] = dict(zip(device_ids, joint_names))
+    joint_names, device_ids = tuple(zip(*(device_mapping.items())))
+    self._device_mapping: OrderedDict[str, str] = OrderedDict(zip(device_ids, joint_names))
 
     self._define_data_notes()
 

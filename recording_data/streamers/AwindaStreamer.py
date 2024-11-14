@@ -21,7 +21,7 @@ import zmq
 ################################################
 class AwindaStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  _log_source_tag = "awinda"
+  _log_source_tag = 'awinda'
 
   ########################
   ###### INITIALIZE ######
@@ -80,10 +80,6 @@ class AwindaStreamer(SensorStreamer):
     self._master_device = self._control.device(master_port_info.deviceId())
     if not self._master_device:
       raise RuntimeError(f"Failed to construct XsDevice instance: {master_port_info}")
-
-    # Configure the devices
-    if not self._master_device.gotoConfig():
-      raise RuntimeError(f"Failed to go to config mode: {self._master_device}")
 
     # NOTE: if sending data over the socket throttles the callback thread,
     #   only put packets into shared queue object and have the parent thread do this instead
@@ -151,24 +147,33 @@ class AwindaStreamer(SensorStreamer):
     # Register event handler on the main device
     self._conn_handler = AwindaConnectivityCallback(on_wireless_device_connected=mark_device_connected)
     self._master_device.addCallbackHandler(self._conn_handler)
-    
     # Enable radio to accept connections from the sensors
     if self._master_device.isRadioEnabled():
       if not self._master_device.disableRadio():
         raise RuntimeError(f"Failed to disable radio channel: {self._master_device}")
     if not self._master_device.enableRadio(self._radio_channel):
       raise RuntimeError(f"Failed to set radio channel: {self._master_device}")
+    
+    # Set sample rate
+    if not self._master_device.setUpdateRate(self._sampling_rate_hz):
+      raise RuntimeError("Could not configure the device. Aborting.")
+    
+    # config_array = xda.XsOutputConfigurationArray()
+    # # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
+    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
+    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_UtcTime, 0))
+    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
+    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
+    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_EulerAngles, self._sampling_rate_hz))
+    
+    # if not self._master_device.setOutputConfiguration(config_array):
+    #   raise RuntimeError("Could not configure the device. Aborting.")
 
     # Will block the current thread until the Awinda onConnectivityChanged has changed to XCS_Wireless for all expected devices
     connection_sync_queue.get()
 
-    # Set sample rate
-    if not self._master_device.setUpdateRate(self._sampling_rate_hz):
-      raise RuntimeError("Could not configure the device. Aborting.")
-        
-    self._data_handler = AwindaDataCallback(on_all_packets_received=process_all_packets)
+    self._data_handler = AwindaDataCallback(on_packet_received=process_all_packets)
     self._master_device.addCallbackHandler(self._data_handler)
-
     # Put all devices connected to the Awinda station into measurement
     # NOTE: Will begin trigerring the callback and saving data, while awaiting the SYNC signal from the Broker
     self._master_device.gotoMeasurement()

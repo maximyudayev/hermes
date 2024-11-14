@@ -180,7 +180,6 @@ class StreamBroker:
 
   # The main run method.
   #   Runs continuously until the user ends the experiment or after the specified duration.
-  # TODO (1): synchronize all streamers to account for network delays
   # TODO (1): measure network delay to each locally connected sensor on a periodic basis and publish information for the datalogger to record as well
   # TODO (3): check connection between Proxies has been established before starting subscribers?
   # TODO (3): verify subscribers subscribed to desired topics and publishers are ready to send non-dummy data?

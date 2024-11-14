@@ -1,4 +1,5 @@
-from numpy import ndarray
+from collections import OrderedDict
+import numpy as np
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
@@ -9,54 +10,53 @@ from visualizers import VideoVisualizer
 ################################################
 class CameraStream(Stream):
   def __init__(self, 
-               cameras_to_stream: dict,
-               fps: float) -> None:
+               camera_mapping: dict,
+               fps: float,
+               resolution: tuple[int]) -> None:
     super(CameraStream, self).__init__()
 
-    self._data_notes_stream = {
-      "frame": "Frames are in BGR format",
-      "sequence_id": "Frame index",
-      "frame_timestamp": None
-    }
+    camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
+    self._camera_mapping = OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
 
-    # Add devices and streams to organize data from your sensor.
-    #   Data is organized as devices and then streams.
-    #   For example, a DOTs device may have streams for Gyro and Acceleration.
-    for (camera_name, device_index) in cameras_to_stream.items():
+    self._define_data_notes()
+
+    # Add a streams for each camera.
+    for (camera_id, camera_name) in self._camera_mapping.items():
       self.add_stream(device_name=camera_name,
                       stream_name='frame',
                       is_video=True,
                       data_type='uint8',
-                      sample_size=frame.shape, # the size of data saved for each timestep; here, we expect a 2-element vector per timestep
-                      sampling_rate_hz=fps,    # the expected sampling rate for the stream
-                      extra_data_info=None,    # can add extra information beyond the data and the timestamp if needed (probably not needed, but see MyoStreamer for an example if desired)
-                      # Notes can add metadata about the stream,
-                      #  such as an overall description, data units, how to interpret the data, etc.
-                      # The SensorStreamer.metadata_data_headings_key is special, and is used to
-                      #  describe the headings for each entry in a timestep's data.
-                      #  For example - if the data was saved in a spreadsheet with a row per timestep, what should the column headings be.
-                      data_notes=self._data_notes_stream["frame"])
-      # Add a stream for the frames.
+                      sample_size=resolution,
+                      sampling_rate_hz=fps,
+                      extra_data_info=None,
+                      data_notes=self._data_notes[camera_name]["frame"])
       self.add_stream(device_name=camera_name,
-                      stream_name='frame_timestamp',
+                      stream_name='timestamp',
                       is_video=False,
                       data_type='float64',
-                      sample_size=[1],         # the size of data saved for each timestep; here, we expect a 2-element vector per timestep
-                      sampling_rate_hz=fps,    # the expected sampling rate for the stream
-                      extra_data_info=None,    # can add extra information beyond the data and the timestamp if needed (probably not needed, but see MyoStreamer for an example if desired)
-                      # Notes can add metadata about the stream,
-                      #  such as an overall description, data units, how to interpret the data, etc.
-                      # The SensorStreamer.metadata_data_headings_key is special, and is used to
-                      #  describe the headings for each entry in a timestep's data.
-                      #  For example - if the data was saved in a spreadsheet with a row per timestep, what should the column headings be.
-                      data_notes=self._data_notes_stream["frame_timestamp"])
+                      sample_size=(1),
+                      sampling_rate_hz=fps,
+                      extra_data_info=None,
+                      data_notes=self._data_notes[camera_name]["timestamp"])
+      # Add a stream for the frames.
+      self.add_stream(device_name=camera_name,
+                      stream_name='frame_sequence',
+                      is_video=False,
+                      data_type='float64',
+                      sample_size=(1),
+                      sampling_rate_hz=fps,
+                      extra_data_info=None,
+                      data_notes=self._data_notes[camera_name]["frame_sequence"])
 
   def append_data(self,
+                  device_id: str,
                   time_s: float, 
-                  frame: ndarray, 
-                  timestamp: ndarray):
-    self._append_data(camera_name, 'frame', time_s, frame)
-    self._append_data(camera_name, 'frame_timestamp', time_s, timestamp)
+                  frame: np.ndarray, 
+                  timestamp: np.uint64,
+                  sequence_id: np.int64):
+    self._append_data(self._camera_mapping[device_id], 'frame', time_s, frame)
+    self._append_data(self._camera_mapping[device_id], 'timestamp', time_s, timestamp)
+    self._append_data(self._camera_mapping[device_id], 'frame_sequence', time_s, sequence_id)
 
 
   ###########################
@@ -64,30 +64,33 @@ class CameraStream(Stream):
   ###########################
 
   # Specify how the streams should be visualized.
-  # Return a dict of the form options[device_name][stream_name] = stream_options
-  #  Where stream_options is a dict with the following keys:
-  #   'class': A subclass of Visualizer that should be used for the specified stream.
-  #   Any other options that can be passed to the chosen class.
-  def get_default_visualization_options(self, visualization_options=None):
+  def get_default_visualization_options(self):
     # Start by not visualizing any streams.
-    processed_options = {}
+    visualization_options = {}
     for (device_name, device_info) in self._streams_info.items():
-      processed_options.setdefault(device_name, {})
+      visualization_options.setdefault(device_name, {})
       for (stream_name, stream_info) in device_info.items():
-        processed_options[device_name].setdefault(stream_name, {'class': None})
+        visualization_options[device_name].setdefault(stream_name, {'class': None})
     
     # Show frames from each camera as a video.
-    for camera_name in self._cameras_to_stream:
-      processed_options[camera_name]['frame'] = {'class': VideoVisualizer}
+    for camera_id in self._camera_mapping.values():
+      visualization_options[camera_id]['frame'] = {'class': VideoVisualizer}
     
-    # Override the above defaults with any provided options.
-    if isinstance(visualization_options, dict):
-      for (device_name, device_info) in self._streams_info.items():
-        if device_name in visualization_options:
-          device_options = visualization_options[device_name]
-          # Apply the provided options for this device to all of its streams.
-          for (stream_name, stream_info) in device_info.items():
-            for (k, v) in device_options.items():
-              processed_options[device_name][stream_name][k] = v
+    return visualization_options
+
+
+  def _define_data_notes(self):
+    self._data_notes = {}
     
-    return processed_options
+    for (camera_id, camera_name) in self._camera_mapping.items():
+      self._data_notes.setdefault(camera_name, {})
+      self._data_notes[camera_name]["frame"] = OrderedDict([
+        ('Serial Number', camera_id),
+        (Stream.metadata_data_headings_key, camera_name),
+      ])
+      self._data_notes[camera_name]["timestamp"] = OrderedDict([
+        ('Notes', 'Time of sampling of the frame w.r.t the camera onboard PTP clock')
+      ])
+      self._data_notes[camera_name]["frame_sequence"] = OrderedDict([
+        ('Notes', ('Monotonically increasing index of the frame to track lost frames'))
+      ])

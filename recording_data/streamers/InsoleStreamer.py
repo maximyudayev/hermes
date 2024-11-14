@@ -15,9 +15,7 @@ import socket
 ################################################
 class InsoleStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  @property
-  def _log_source_tag(self):
-    return 'insole'
+  _log_source_tag = 'insole'
 
   ########################
   ###### INITIALIZE ######
@@ -25,13 +23,19 @@ class InsoleStreamer(SensorStreamer):
 
   # Initialize the sensor streamer.
   def __init__(self,
+               sampling_rate_hz: int = 100,
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
                print_status: bool = True, 
                print_debug: bool = False):
+    
+    stream_info = {
+      "sampling_rate_hz": sampling_rate_hz
+    }
+
     SensorStreamer.__init__(self, 
-                            streams_info=None,
+                            stream_info=stream_info,
                             port_pub=port_pub,
                             port_sync=port_sync,
                             port_killsig=port_killsig,
@@ -69,7 +73,7 @@ class InsoleStreamer(SensorStreamer):
       msg = serialize(time_s=time_s, data=data)
 
       # Send the data packet on the PUB socket.
-      self._pub.send_multipart([b"%s.data"%self._log_source_tag, msg])
+      self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
   # Clean up and quit
   def quit(self):

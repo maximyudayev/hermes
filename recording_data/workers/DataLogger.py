@@ -46,9 +46,7 @@ from workers.Worker import Worker
 ################################################
 ################################################
 class DataLogger(Worker):
-  @property
-  def _log_source_tag(self):
-    return 'logger'
+  _log_source_tag = 'logger'
 
   # Will store the class name of each sensor in HDF5 metadata,
   #   to facilitate recreating classes when replaying the logs later.

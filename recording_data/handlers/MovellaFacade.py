@@ -34,12 +34,6 @@ import time
 
 waitForConnections = True
 
-
-def on_press(key):
-  global waitForConnections
-  waitForConnections = False
-
-
 class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
   def __init__(self, max_buffer_size=5):
     movelladot_pc_sdk.XsDotCallback.__init__(self)

@@ -95,7 +95,7 @@ if __name__ == '__main__':
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
      'stream_video_eye'      : False, # video of the eye
      'is_binocular'          : True, # uses both eyes for gaze data and for video
-     'shape_video_world'     : (1080,720,3),
+     'shape_video_world'     : (1280,720,3),
      'shape_video_eye0'      : (192,192,3),
      'shape_video_eye1'      : (192,192,3),
      'fps_video_world'       : 30.0,
@@ -111,11 +111,14 @@ if __name__ == '__main__':
        'basler_south' : '40549975',
        'basler_west'  : '40549976',
      },
+     'fps': 20,
+     'resolution': (2592,1944,3),
      'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
      'print_debug': print_debug, 'print_status': print_status
      },
      # Insole pressure sensor.
     {'class': 'InsoleStreamer',
+     'sampling_rate_hz': 100,
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from one or more microphones.
@@ -183,7 +186,7 @@ if __name__ == '__main__':
 
   # Find the camera names for future use.
   camera_streamer_index: int = ['CameraStreamer' in spec['class'] for spec in sensor_streamer_specs].index(True)
-  camera_names: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].keys())
+  camera_ids: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].values())
 
   # Configure visualization.
   composite_frame_size = (1920, 1080) # screen resolution
@@ -222,14 +225,14 @@ if __name__ == '__main__':
         {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  3 
-        {'device_name':camera_names[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'eye-tracking-video-worldGaze', 'stream_name':'frame', 'rowspan':2, 'colspan':2, 'width':2*composite_col_width_quarter, 'height':2*composite_row_height},
-        {'device_name':camera_names[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  4
-        {'device_name':camera_names[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
-        {'device_name':camera_names[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
     ]
   }

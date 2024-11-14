@@ -1,4 +1,4 @@
-from streamers import SensorStreamer
+from streamers.SensorStreamer import SensorStreamer
 
 import tkinter
 from tkinter import ttk
@@ -8,6 +8,7 @@ from collections import OrderedDict
 import traceback
 import ctypes
 
+from streams.ExperimentControlStream import ExperimentControlStream
 from utils.print_utils import *
 
 ################################################
@@ -17,189 +18,68 @@ from utils.print_utils import *
 ################################################
 ################################################
 class ExperimentControlStreamer(SensorStreamer):
-  @property
-  def _log_source_tag(self):
-    return 'control'
+  _log_source_tag = 'control'
 
   ########################
   ###### INITIALIZE ######
   ########################
   
-  def __init__(self, streams_info=None,
-               log_player_options=None, visualization_options=None,
-               activities=None,
-               print_status=True, print_debug=False, log_history_filepath=None):
-    SensorStreamer.__init__(self, streams_info,
-                            log_player_options=log_player_options,
-                            visualization_options=visualization_options,
-                            print_status=print_status, print_debug=print_debug,
-                            log_history_filepath=log_history_filepath)
-    self._wait_after_stopping = False
-    self._always_run_in_main_process = True
+  def __init__(self,
+               activities: list[str] = ['Balance beam',
+                                        'Stairs',
+                                        'Step over',
+                                        'Slopes',
+                                        'Bench and table',
+                                        'Wobbly steps',
+                                        'High step',
+                                        'Ladder',
+                                        'Cross country',
+                                        'Hurdles'],
+               port_pub: str = None,
+               port_sync: str = None,
+               port_killsig: str = None,
+               print_status: bool = True, 
+               print_debug: bool = False):
     
-    self._tkinter_root = None
-    
-    # Define state for the current status.
-    self._experiment_is_running = False
-    self._calibrating = False
-    self._performing_activity = False
-    
-    # Define lists of environment targets, poses, activities, etc.
-    self._target_positions_cm = OrderedDict([
-      ('Right heel at origin, facing +x', (0, 0)),
-      ('Right heel at target, facing -x', (100, 150)),
-      ('Gaze Calibration Stance', ((154.6 + 183.2)/2, -((28.5-5) + (57.0-5))/2)),
-      ('Gaze Calibration Screen', (243, -107)),
-      ])
-    self._target_names = list(self._target_positions_cm.keys())
-    self._arm_poses = [
-      'Upper arm down, forearm straight out, palm facing in',
-      'Straight down, palms inward (N pose)',
-      'Straight out, palms downward (T pose)',
-      'Straight up, palms inward',
-      ]
-    self._thirdparty_calibrations = [
-      'Xsens: N-Pose with Walking',
-      'Xsens: T-Pose with Walking',
-      'Xsens: N-Pose without Walking',
-      'Xsens: T-Pose without Walking',
-      'PupilLabs: Target Grid',
-      'PupilLabs: Single Target',
-      ]
-    if activities is None:
-      self._activities = [
-        'Balance beam',
-        'Stairs',
-        'Step over',
-        'Slopes',
-        'Bench and table',
-        'Wobbly steps',
-        'High step',
-        'Ladder',
-        'Cross country',
-        'Hurdles',
-      ]
-    else:
-      self._activities = activities
-    
-    # Define the calibration data streams and their corresponding GUI inputs.
-    # The input names will be updated later once they are added to the GUI.
-    max_notes_length = 75
-    self._calibration_device_name = 'experiment-calibration'
-    self._calibration_streams = OrderedDict([
-      ('body', {
-               'description': 'Periods when the person assumed a known '
-                              'body pose, location, and orientation.  '
-                              'Useful for calibrating IMU-based orientations such as the Xsens.',
-               'data_type': 'S%d' % ((int(max([len(x) for x in self._target_names] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Body',
-               'inputs': [
-                  {'label': 'Location', 'type': 'combo', 'values': self._target_names,        'name': None},
-                  {'label': 'Facing',   'type': 'combo', 'values': self._target_names,        'name': None},
-                  {'label': 'Pose',     'type': 'combo', 'values': ['T-Pose', 'N-Pose'], 'name': None},
-                ]
-               }),
-      ('arms', {
-               'description': 'Periods when the person assumed a known '
-                              'arm pose and pointing direction orientation.  '
-                              'Useful for calibrating IMU-based orientations such as the Myos.',
-               'data_type': 'S%d' % ((int(max([len(x) for x in self._target_names+self._arm_poses] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Arms',
-               'inputs': [
-                  {'label': 'Body location',             'type': 'combo', 'values': self._target_names,   'name': None},
-                  {'label': 'Left arm pose',             'type': 'combo', 'values': self._arm_poses, 'name': None},
-                  {'label': 'Left forearm pointing at',  'type': 'combo', 'values': self._target_names,   'name': None},
-                  {'label': 'Right arm pose',            'type': 'combo', 'values': self._arm_poses, 'name': None},
-                  {'label': 'Right forearm pointing at', 'type': 'combo', 'values': self._target_names,   'name': None},
-                ]
-               }),
-      ('gaze', {
-               'description': 'Periods when the person assumed a known '
-                              'body position and gazed at a known target.  '
-                              'Useful for calibrating the eye tracking.',
-               'data_type': 'S%d' % ((int(max([len(x) for x in self._target_names] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Gaze',
-               'inputs': [
-                  {'label': 'Body location', 'type': 'combo', 'values': self._target_names, 'name': None},
-                  {'label': 'Gazing at',     'type': 'combo', 'values': self._target_names, 'name': None},
-                ]
-               }),
-      ('third_party', {
-               'description': 'Periods when calibration routines from '
-                              'third-party software was running, such as '
-                              'Xsens or PupilLabs.',
-               'data_type': 'S%d' % ((int(max([len(x) for x in self._thirdparty_calibrations+self._target_names] + [max_notes_length])/10)+1)*10),
-               'tab_label': 'Third-Party',
-               'inputs': [
-                  {'label': 'Calibration Type',       'type': 'combo', 'values': self._thirdparty_calibrations, 'name': None},
-                  {'label': 'Body starting location', 'type': 'combo', 'values': self._target_names,   'name': None},
-                  {'label': 'Body ending location',   'type': 'combo', 'values': self._target_names,   'name': None},
-                  {'label': 'Screen location with gaze targets', 'type': 'combo', 'values': self._target_names, 'name': None},
-                ]
-               }),
-    ])
-    self._last_calibration_times_s = OrderedDict([(calibration_type, None) for calibration_type in self._calibration_streams])
-    
-    # Create the streams unless an existing log is being replayed
-    #  (in which case SensorStreamer will create the streams automatically).
-    if not self._replaying_data_logs:
-      for (stream_name, info) in self._calibration_streams.items():
-        self.add_stream(device_name=self._calibration_device_name, stream_name=stream_name,
-                        data_type=info['data_type'], sample_size=[3+len(info['inputs'])], sampling_rate_hz=None,
-                        timesteps_before_solidified=2, # will update the start and stop entries with valid status and notes
-                        data_notes=OrderedDict([
-                          ('Description', info['description']),
-                          (SensorStreamer.metadata_data_headings_key,
-                            ['Start/Stop', 'Valid', 'Notes']
-                            + [input['label'] for input in info['inputs']])
-                          ]),
-                        )
+    stream_info = {
 
-    # Define the activity stream.
-    # Data in each entry will be: activity, start/stop, good/maybe/bad, notes
-    self._activities_device_name = 'experiment-activities'
-    self._activities_stream_name = 'activities'
-    if not self._replaying_data_logs:
-      self.add_stream(device_name=self._activities_device_name, stream_name=self._activities_stream_name,
-                      data_type='S500', sample_size=[4], sampling_rate_hz=None,
-                      timesteps_before_solidified=2, # will update the start and stop entries with valid status and notes
-                      data_notes=OrderedDict([
-                        ('Description', 'The activity being performed.'),
-                        (SensorStreamer.metadata_data_headings_key,
-                         ['Activity', 'Start/Stop', 'Valid', 'Notes']),
-                      ]),
-                      )
-    self._activities_counts = OrderedDict([
-      (activity, {'Good':0, 'Maybe':0, 'Bad':0}) for activity in self._activities
-    ])
-    
-    # Define the notes stream.
-    self._notes_device_name = 'experiment-notes'
-    self._notes_stream_name = 'notes'
-    if not self._replaying_data_logs:
-      self.add_stream(device_name=self._notes_device_name, stream_name=self._notes_stream_name,
-                      data_type='S500', sample_size=[1], sampling_rate_hz=None,
-                      data_notes=OrderedDict([
-                        ('Description', 'Notes that the experimenter entered '
-                                        'during the trial, timestamped to '
-                                        'align with collected data'),
-                      ]),
-                      )
+    }
 
-    # Add to the metadata.
-    self._metadata.setdefault(self._calibration_device_name, {})
-    self._metadata.setdefault(self._activities_device_name, {})
-    self._metadata[self._calibration_device_name]['Target Locations [cm]'] = self._target_positions_cm
-    self._metadata[self._calibration_device_name]['Arm Poses'] = self._arm_poses
-    self._metadata[self._calibration_device_name]['Third-Party Calibrations'] = self._thirdparty_calibrations
-    self._metadata[self._activities_device_name]['Activities'] = self._activities
-    self._metadata[self._activities_device_name]['Target Locations [cm]'] = self._target_positions_cm
 
-  def _connect(self):
+    SensorStreamer.__init__(self,  
+                            port_pub=port_pub,
+                            port_sync=port_sync,
+                            port_killsig=port_killsig,
+                            stream_info=stream_info,
+                            print_status=print_status, 
+                            print_debug=print_debug)
+
+  # Instantiate Stream datastructure object specific to this Streamer.
+  #   Should also be a class method to create Stream objects on consumers. 
+  def create_stream(cls, stream_info: dict) -> ExperimentControlStream:
+    return ExperimentControlStream(**stream_info)
+
+  # Connect to the sensor device(s).
+  def connect(self):
     # Without this, the window can be really tiny if matplotlib is used before the GUI generation.
     # Make sure this is called before any matplotlib.
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
     return True
+  
+  # Launch data streaming form the device.
+  def run(self) -> None:
+    pass
+
+  # Clean up and quit.
+  def quit(self) -> None:
+    pass
+
+
+
+
+
+
+
   
   def _on_quit(self):
     self._experiment_is_running = False
@@ -374,7 +254,8 @@ class ExperimentControlStreamer(SensorStreamer):
     data.append('Start' if self._performing_activity else 'Stop')
     data.append('') # placeholder for good/bad indicator (will be added later)
     data.append('') # placeholder for notes (will be added later)
-    self.append_data(self._activities_device_name, self._activities_stream_name,
+    self.append_data(self._activities_device_name, 
+                     self._activities_stream_name,
                      time.time(), data)
 
     # Disable editing the activity configuration if calibration started.
@@ -471,36 +352,36 @@ class ExperimentControlStreamer(SensorStreamer):
     self._tkinter_root['pady'] = 5
 
     grid_positions = {
-      'calibration_frame': {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
-      'activities_frame':  {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
-      'notes_frame':       {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
-      'logViewer_frame':   {'row':1, 'column':2, 'rowspan':3, 'columnspan':1},
-      'quit_button':       {'row':4, 'column':3, 'rowspan':1, 'columnspan':1},
+      'calibration_frame':              {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
+      'activities_frame':               {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
+      'notes_frame':                    {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
+      'logViewer_frame':                {'row':1, 'column':2, 'rowspan':3, 'columnspan':1},
+      'quit_button':                    {'row':4, 'column':3, 'rowspan':1, 'columnspan':1},
   
-      'calibration_label':            {'row':1, 'column':1, 'rowspan':1, 'columnspan':4},
-      'calibration_notebook':         {'row':2, 'column':1, 'rowspan':1, 'columnspan':4},
-      'calibration_button_startStop': {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
-      'calibration_button_markGood':  {'row':3, 'column':2, 'rowspan':1, 'columnspan':1},
-      'calibration_button_markMaybe': {'row':3, 'column':3, 'rowspan':1, 'columnspan':1},
-      'calibration_button_markBad':   {'row':3, 'column':4, 'rowspan':1, 'columnspan':1},
-      'calibration_notes':            {'row':4, 'column':1, 'rowspan':1, 'columnspan':4},
-      'calibration_times':            {'row':1, 'column':5, 'rowspan':4, 'columnspan':1},
+      'calibration_label':              {'row':1, 'column':1, 'rowspan':1, 'columnspan':4},
+      'calibration_notebook':           {'row':2, 'column':1, 'rowspan':1, 'columnspan':4},
+      'calibration_button_startStop':   {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
+      'calibration_button_markGood':    {'row':3, 'column':2, 'rowspan':1, 'columnspan':1},
+      'calibration_button_markMaybe':   {'row':3, 'column':3, 'rowspan':1, 'columnspan':1},
+      'calibration_button_markBad':     {'row':3, 'column':4, 'rowspan':1, 'columnspan':1},
+      'calibration_notes':              {'row':4, 'column':1, 'rowspan':1, 'columnspan':4},
+      'calibration_times':              {'row':1, 'column':5, 'rowspan':4, 'columnspan':1},
   
-      'activities_label':            {'row':1, 'column':1, 'rowspan':1, 'columnspan':4},
-      'activities_combo':            {'row':2, 'column':1, 'rowspan':1, 'columnspan':4},
-      'activities_button_startStop': {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
-      'activities_button_markGood':  {'row':3, 'column':2, 'rowspan':1, 'columnspan':1},
-      'activities_button_markMaybe': {'row':3, 'column':3, 'rowspan':1, 'columnspan':1},
-      'activities_button_markBad':   {'row':3, 'column':4, 'rowspan':1, 'columnspan':1},
-      'activities_notes':            {'row':4, 'column':1, 'rowspan':1, 'columnspan':4},
-      'activities_counts':           {'row':1, 'column':5, 'rowspan':4, 'columnspan':1},
+      'activities_label':               {'row':1, 'column':1, 'rowspan':1, 'columnspan':4},
+      'activities_combo':               {'row':2, 'column':1, 'rowspan':1, 'columnspan':4},
+      'activities_button_startStop':    {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
+      'activities_button_markGood':     {'row':3, 'column':2, 'rowspan':1, 'columnspan':1},
+      'activities_button_markMaybe':    {'row':3, 'column':3, 'rowspan':1, 'columnspan':1},
+      'activities_button_markBad':      {'row':3, 'column':4, 'rowspan':1, 'columnspan':1},
+      'activities_notes':               {'row':4, 'column':1, 'rowspan':1, 'columnspan':4},
+      'activities_counts':              {'row':1, 'column':5, 'rowspan':4, 'columnspan':1},
   
-      'notes_label':         {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
-      'notes_button_submit': {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
-      'notes_notes':         {'row':1, 'column':2, 'rowspan':1, 'columnspan':3},
+      'notes_label':                    {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
+      'notes_button_submit':            {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
+      'notes_notes':                    {'row':1, 'column':2, 'rowspan':1, 'columnspan':3},
   
-      'logViewer_label': {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
-      'logViewer_log':   {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
+      'logViewer_label':                {'row':1, 'column':1, 'rowspan':1, 'columnspan':1},
+      'logViewer_log':                  {'row':2, 'column':1, 'rowspan':1, 'columnspan':1},
       'logViewer_scrollbar_vertical':   {'row':2, 'column':2, 'rowspan':1, 'columnspan':1},
       'logViewer_scrollbar_horizontal': {'row':3, 'column':1, 'rowspan':1, 'columnspan':1},
     }
@@ -508,8 +389,7 @@ class ExperimentControlStreamer(SensorStreamer):
     
     # Calibration!
     calibration_frame = ttk.Frame(self._tkinter_root, name='calibration_frame', style='CalibrationFrame.TFrame')
-    calibration_frame.grid(sticky=tkinter.W, padx=5, pady=15,
-                           **grid_positions['calibration_frame'])
+    calibration_frame.grid(sticky=tkinter.W, padx=5, pady=15, **grid_positions['calibration_frame'])
 
     # Create a notebook that will have tabs for various calibrations.
     ttk.Label(calibration_frame, text='Calibration')\
@@ -533,11 +413,11 @@ class ExperimentControlStreamer(SensorStreamer):
         ttk.Label(tab, text=label_text).grid(row=row, column=1, sticky=tkinter.W)
         if input_info['type'] == 'combo':
           input_name = 'combo_%s_%s' % (calibration_type, keyword)
-          input_element = ttk.Combobox(tab, state='readonly', # no custom values
+          input_element = ttk.Combobox(tab, 
+                                       state='readonly', # no custom values
                                        name=input_name,
                                        values=['']+input_info['values'],
-                                       width=max(20, max([len(x) for x in input_info['values']])),
-                                       )
+                                       width=max(20, max([len(x) for x in input_info['values']])))
         elif input_info['type'] == 'text':
           input_name = 'text_%s_%s' % (calibration_type, keyword)
           if input_info['validation'] == 'float':
@@ -548,8 +428,11 @@ class ExperimentControlStreamer(SensorStreamer):
             validate_command = None
           else:
             raise AssertionError('Unknown validation type: %s' % input_info['validation'])
-          input_element = ttk.Entry(tab, width=6, name=input_name,
-                                    validate='key', validatecommand=validate_command)
+          input_element = ttk.Entry(tab, 
+                                    width=6, 
+                                    name=input_name,
+                                    validate='key', 
+                                    validatecommand=validate_command)
         else:
           raise AssertionError('Unknown input type: %s' % input_info['type'])
         input_element.grid(row=row, column=2, sticky=tkinter.W)
@@ -564,37 +447,52 @@ class ExperimentControlStreamer(SensorStreamer):
                                            name='button_calibration_startStop',
                                            command=self._button_callback_startStop_calibration,
                                            )
-    self._button_calibration_startStop.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['calibration_button_startStop'])
+    self._button_calibration_startStop.grid(padx=5, 
+                                            pady=5, 
+                                            sticky=tkinter.W, 
+                                            **grid_positions['calibration_button_startStop'])
     # Add a field to enter notes about the trial.
     self._text_calibration_notes = tkinter.Text(calibration_frame,
-                                                width=25, height=1, name='calibration_notes')
-    self._text_calibration_notes.grid(sticky=tkinter.W, padx=5, pady=5, **grid_positions['calibration_notes'])
+                                                width=25, 
+                                                height=1, 
+                                                name='calibration_notes')
+    self._text_calibration_notes.grid(padx=5, 
+                                      pady=5, 
+                                      sticky=tkinter.W, 
+                                      **grid_positions['calibration_notes'])
     self._text_calibration_notes['state'] = 'disabled'
     # Add buttons to mark the calibration as good/maybe/bad.
     self._button_calibration_markGood = ttk.Button(calibration_frame,
-                                           text='Mark Good',
-                                           name='button_calibration_good',
-                                           command=self._button_callback_mark_calibration_good,
-                                           )
+                                                   text='Mark Good',
+                                                   name='button_calibration_good',
+                                                   command=self._button_callback_mark_calibration_good)
     self._button_calibration_markGood['state'] = 'disabled'
-    self._button_calibration_markGood.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['calibration_button_markGood'])
+    self._button_calibration_markGood.grid(padx=5, 
+                                           pady=5, 
+                                           sticky=tkinter.W, 
+                                           **grid_positions['calibration_button_markGood'])
     self._button_calibration_markMaybe = ttk.Button(calibration_frame,
-                                           text='Mark Maybe',
-                                           name='button_calibration_mabybe',
-                                           command=self._button_callback_mark_calibration_maybe,
-                                           )
+                                                    text='Mark Maybe',
+                                                    name='button_calibration_mabybe',
+                                                    command=self._button_callback_mark_calibration_maybe)
     self._button_calibration_markMaybe['state'] = 'disabled'
-    self._button_calibration_markMaybe.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['calibration_button_markMaybe'])
+    self._button_calibration_markMaybe.grid(padx=5, 
+                                            pady=5, 
+                                            sticky=tkinter.W, 
+                                            **grid_positions['calibration_button_markMaybe'])
     self._button_calibration_markBad = ttk.Button(calibration_frame,
-                                           text='Mark Bad',
-                                           name='button_calibration_bad',
-                                           command=self._button_callback_mark_calibration_bad,
-                                           )
+                                                  text='Mark Bad',
+                                                  name='button_calibration_bad',
+                                                  command=self._button_callback_mark_calibration_bad)
     self._button_calibration_markBad['state'] = 'disabled'
-    self._button_calibration_markBad.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['calibration_button_markBad'])
+    self._button_calibration_markBad.grid(padx=5, 
+                                          pady=5, 
+                                          sticky=tkinter.W, 
+                                          **grid_positions['calibration_button_markBad'])
     # Add time since each calibration type.
     calibration_times_element = ttk.Label(calibration_frame, text='')
-    calibration_times_element.grid(padx=5, pady=5, sticky=tkinter.W + tkinter.N,
+    calibration_times_element.grid(padx=5, pady=5, 
+                                   sticky=tkinter.W + tkinter.N,
                                    **grid_positions['calibration_times'])
     def update_calibration_time_text():
       txt = 'Time since last calibrations:'
@@ -770,33 +668,10 @@ class ExperimentControlStreamer(SensorStreamer):
   # Clean up and quit
   def quit(self):
     self._on_quit()
-    if self._print_debug:
-      self._log_debug('ExperimentControlStreamer quitting')
-      self._log_debug('ExperimentControlStreamer data:')
-      self._log_debug(self._data)
     super(ExperimentControlStreamer, self).quit()
     
 
 #####################
 ###### TESTING ######
 #####################
-if __name__ == '__main__':
-  
-  duration_s = 30
-  print_status = True
-  print_debug = True
-  
-  # Create a streamer.
-  streamer = ExperimentControlStreamer(print_status=print_status, print_debug=print_debug)
-  
-  # Run
-  streamer.run()
-  time_start_s = time.time()
-  while streamer.experiment_is_running() and time.time() - time_start_s < 1200:
-    time.sleep(0.2)
-  streamer.stop()
-  time_stop_s = time.time()
-  duration_s = time_stop_s - time_start_s
-  # Print some sample rates.
-  print('Stream duration [s]: ', duration_s)
-  print_var(streamer._data, 'streamer data')
+

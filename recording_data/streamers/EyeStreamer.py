@@ -18,9 +18,7 @@ from utils.msgpack_utils import serialize
 ################################################
 class EyeStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  @property
-  def _log_source_tag(self):
-    return 'eye'
+  _log_source_tag = 'eye'
 
   ########################
   ###### INITIALIZE ######

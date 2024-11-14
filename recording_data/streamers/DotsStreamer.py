@@ -15,9 +15,7 @@ from handlers.MovellaFacade import MovellaFacade
 ################################################
 class DotsStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  @property
-  def _log_source_tag(self):
-    return 'dots'
+  _log_source_tag = 'dots'
 
   ########################
   ###### INITIALIZE ######
@@ -195,7 +193,7 @@ class DotsStreamer(SensorStreamer):
         msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp)
 
         # Send the data packet on the PUB socket.
-        self._pub.send_multipart([b"%s.data"%self._log_source_tag, msg])
+        self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
   # Clean up and quit
   def quit(self):

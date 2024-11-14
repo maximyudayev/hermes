@@ -1,10 +1,11 @@
+from typing import Callable
 from pypylon import pylon
 import numpy as np
 
 from utils.print_utils import *
 
 class ImageEventHandler(pylon.ImageEventHandler):
-  def __init__(self, callback_fn: callable):
+  def __init__(self, callback_fn: Callable):
     super().__init__()
     self._callback_fn = callback_fn
       
@@ -17,10 +18,10 @@ class ImageEventHandler(pylon.ImageEventHandler):
       # TODO: In our grab strategy, `res` can be multiple images 
       if res.GrabSucceeded():
         frame: np.ndarray = res.Array
-        camera_id: int = res.GetCameraContext()
+        camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
-        self._callback_fn(frame=frame, camera_id=camera_id, timestamp=timestamp, sequence_id=sequence_id)
+        self._callback_fn(camera_id=camera_id, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:

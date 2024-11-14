@@ -39,9 +39,7 @@ from utils.numpy_utils import *
 ################################################
 ################################################
 class DataVisualizer(Worker):
-  @property
-  def _log_source_tag(self):
-    return 'visualizer'
+  _log_source_tag = 'visualizer'
 
   ########################
   ###### INITIALIZE ######
