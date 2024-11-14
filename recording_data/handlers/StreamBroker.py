@@ -11,6 +11,14 @@ from streamers import STREAMERS
 from workers import WORKERS
 from workers.Worker import Worker
 
+from streamers import STREAMERS
+from workers import WORKERS
+from workers.Worker import Worker
+
+from streamers import STREAMERS
+from workers import WORKERS
+from workers.Worker import Worker
+
 ################################################
 ################################################
 # PUB-SUB Broker to manage a collection of SensorStreamer objects.
@@ -92,8 +100,8 @@ class StreamBroker:
 
     # Instantiate each desired local streamer.
     # Use ZeroMQ sockets to transfer collected data to other processes.
+    self._streamers: list[SensorStreamer] = []
     if streamer_specs is not None:
-      self._streamers: list[SensorStreamer] = []
       for streamer_spec in streamer_specs:
         class_name: str = streamer_spec['class']
         class_args = streamer_spec.copy()
@@ -108,8 +116,8 @@ class StreamBroker:
         self._streamers.append(class_object)
 
     # Create all desired consumers and connect them to the PUB broker socket.
+    self._workers: list[Worker] = []
     if worker_specs is not None:
-      self._workers: list[Worker] = []
       for worker_spec in worker_specs:
         class_name: str = worker_spec['class']
         class_args = worker_spec.copy()
@@ -167,7 +175,8 @@ class StreamBroker:
     # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
     nodes = [*self._streamers, *self._workers]
     self._processes: list[Process] = [Process(target=node) for node in nodes]
-    for p in self._processes: p.start()
+    for p in self._processes: 
+      p.start()
 
   # The main run method.
   #   Runs continuously until the user ends the experiment or after the specified duration.
@@ -182,22 +191,22 @@ class StreamBroker:
 
     try:
       # Synchronize all the components of the system, start external recording in DataLogger through common interface
-      num_expected_connections: int = len(self._streamers) + len(self._workers) + (len(self._backends)-1)
-      count = 0
-      addresses = []
-      while count < num_expected_connections:
-        address, _, msg = self._sync.recv_multipart()
-        addresses.append(address)
-        print("%s connected to broker" % msg, flush=True)
-        count += 1
-      for address in addresses:
-        self._sync.send_multipart([address, b'', b'GO'])
+      # num_expected_connections: int = len(self._streamers) + len(self._workers) + (len(self._backends)-1)
+      # count = 0
+      # addresses = []
+      # while count < num_expected_connections:
+      #   address, _, msg = self._sync.recv_multipart()
+      #   addresses.append(address)
+      #   print("%s connected to broker" % msg, flush=True)
+      #   count += 1
+      # for address in addresses:
+      #   self._sync.send_multipart([address, b'', b'GO'])
 
       # Run until main loop condition reaches the end.
       # TODO (2): wrap into an FSM for cleanliness and readability.
       self.register_pubsub_for_poll()
       while condition_fn():
-        poll_res: tuple[list[zmq.SyncSocket], list[int]] = zip(*self._poller.poll())
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
         for socket in poll_res[0]:
           ############################
           ###### PUB-SUB Broker ######
@@ -257,6 +266,106 @@ class StreamBroker:
     self._ctx.term()
 
 
+class publisher():
+  def __init__(self,
+               ip,
+               port_backend,
+               port_killsig,
+               port_sync):
+    self.ip = ip
+    self.port_backend = port_backend
+    self.port_killsig = port_killsig
+    self.port_sync = port_sync
+
+  def __call__(self):
+    self.ctx = zmq.Context.instance()
+    self.pub: zmq.SyncSocket = self.ctx.socket(zmq.PUB)
+    self.pub.connect("tcp://%s:%s" % (self.ip, self.port_backend))
+
+    self.killsig: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
+    self.killsig.connect("tcp://%s:%s" % (self.ip, self.port_killsig))
+    self.killsig.subscribe("kill")
+
+    self.poller: zmq.Poller = zmq.Poller()
+    self.poller.register(self.killsig, zmq.POLLIN)
+    self.poller.register(self.pub, zmq.POLLOUT)
+
+    self.sync: zmq.SyncSocket = self.ctx.socket(zmq.REQ)
+    self.sync.connect("tcp://%s:%s" % (self.ip, self.port_sync))
+
+    # time.sleep(5.0)
+
+    # self.sync.send_multipart([b'',b'PUB'])
+    # self.sync.recv()
+
+    msg_id: int = 0
+    _running = True
+    while _running:
+      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self.poller.poll())))
+      if self.pub in poll_res[0]:
+        self.pub.send_multipart([b'PUB', bytes(str(msg_id), 'utf-8')])
+        print("Sent #%d"%msg_id, flush=True)
+        msg_id += 1
+      if self.killsig in poll_res[0]:
+        self.killsig.recv_multipart()
+        self.poller.unregister(self.killsig)
+        _running = False
+        print("quitting publisher", flush=True)
+
+    self.sync.close()
+    self.pub.close()
+    self.ctx.term()
+
+# Emulation of subscriber
+class subscriber():
+  def __init__(self,
+               ip,
+               port_frontend,
+               port_killsig,
+               port_sync):
+    self.ip = ip
+    self.port_frontend = port_frontend
+    self.port_killsig = port_killsig
+    self.port_sync = port_sync
+
+  def __call__(self):
+    self.ctx = zmq.Context.instance()
+    self.sub: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
+    self.sub.connect("tcp://%s:%s" % (ip, port_frontend))
+    self.sub.subscribe("PUB")
+
+    self.killsig: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
+    self.killsig.connect("tcp://%s:%s" % (self.ip, self.port_killsig))
+    self.killsig.subscribe("kill")
+
+    self.poller: zmq.Poller = zmq.Poller()
+    self.poller.register(self.sub, zmq.POLLIN)
+    self.poller.register(self.killsig, zmq.POLLIN)
+
+    self.sync: zmq.SyncSocket = self.ctx.socket(zmq.REQ)
+    self.sync.connect("tcp://%s:%s" % (self.ip, self.port_sync))
+
+    # time.sleep(8.0)
+
+    # self.sync.send_multipart([b'',b'SUB'])
+    # self.sync.recv()
+
+    _running = True
+    while _running:
+      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self.poller.poll())))
+      if self.sub in poll_res[0]:
+        msg: tuple[str, bytes] = self.sub.recv_multipart()
+        print("Received #%d"% int(msg[1].decode('utf-8')), flush=True)
+      if self.killsig in poll_res[0]:
+        self.killsig.recv_multipart()
+        self.poller.unregister(self.killsig)
+        _running = False
+        print("quitting publisher", flush=True)
+
+    self.sync.close()
+    self.sub.close()
+    self.ctx.term()
+
 #####################
 ###### TESTING ######
 #####################
@@ -267,91 +376,16 @@ if __name__ == "__main__":
   port_sync = "42071"
   port_killsig = "42066"
 
-  # Emulation of publisher
-  def publisher():
-    ctx = zmq.Context.instance()
-    pub: zmq.SyncSocket = ctx.socket(zmq.PUB)
-    pub.connect("tcp://%s:%s" % (ip, port_backend))
-
-    killsig: zmq.SyncSocket = ctx.socket(zmq.SUB)
-    killsig.connect("tcp://%s:%s" % (ip, port_killsig))
-    killsig.subscribe("kill")
-
-    poller: zmq.Poller = zmq.Poller()
-    poller.register(killsig, zmq.POLLIN)
-    poller.register(pub, zmq.POLLOUT)
-
-    sync: zmq.SyncSocket = ctx.socket(zmq.REQ)
-    sync.connect("tcp://%s:%s" % (ip, port_sync))
-
-    time.sleep(5.0)
-
-    sync.send_multipart([b'',b'PUB'])
-    sync.recv()
-
-    msg_id: int = 0
-    _running = True
-    while _running:
-      poll_res: tuple[list[zmq.SyncSocket], list[int]] = zip(*poller.poll())
-      if pub in poll_res[0]:
-        pub.send_multipart([b'PUB', msg_id.to_bytes()])
-        print("Sent #%d"%msg_id, flush=True)
-        msg_id += 1
-      if killsig in poll_res[0]:
-        killsig.recv_multipart()
-        poller.unregister(killsig)
-        _running = False
-        print("quitting publisher", flush=True)
-
-    sync.close()
-    pub.close()
-    ctx.term()
-
-  # Emulation of subscriber
-  def subscriber():
-    ctx = zmq.Context.instance()
-    sub: zmq.SyncSocket = ctx.socket(zmq.SUB)
-    sub.connect("tcp://%s:%s" % (ip, port_frontend))
-    sub.subscribe("PUB")
-
-    killsig: zmq.SyncSocket = ctx.socket(zmq.SUB)
-    killsig.connect("tcp://%s:%s" % (ip, port_killsig))
-    killsig.subscribe("kill")
-
-    poller: zmq.Poller = zmq.Poller()
-    poller.register(sub, zmq.POLLIN)
-    poller.register(killsig, zmq.POLLIN)
-
-    sync: zmq.SyncSocket = ctx.socket(zmq.REQ)
-    sync.connect("tcp://%s:%s" % (ip, port_sync))
-
-    time.sleep(8.0)
-
-    sync.send_multipart([b'',b'SUB'])
-    sync.recv()
-
-    _running = True
-    while _running:
-      poll_res: tuple[list[zmq.SyncSocket], list[int]] = zip(*poller.poll())
-      if sub in poll_res[0]:
-        msg: tuple[str, bytes] = sub.recv_multipart()
-        print("Received #%d"% int.from_bytes(msg[1]), flush=True)
-      if killsig in poll_res[0]:
-        killsig.recv_multipart()
-        poller.unregister(killsig)
-        _running = False
-        print("quitting publisher", flush=True)
-
-    sync.close()
-    sub.close()
-    ctx.term()
-
   # Test launcher
   stream_broker: StreamBroker = StreamBroker(ip=ip)
-
+  
+  # set_start_method('spawn')
   # Hacking an emulation of workers and sensors
-  stream_broker._streamers = [publisher] 
-  stream_broker._workers = [subscriber]
+  processes: list[Process] = [Process(target=node) for node in [publisher(ip, port_backend, port_killsig, port_sync), subscriber(ip, port_frontend, port_killsig, port_sync)]]
+  for p in processes: 
+    p.start()
 
   stream_broker.start()
   stream_broker.run(duration_s=None)
+
+  for p in processes: p.join()
