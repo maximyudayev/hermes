@@ -10,13 +10,16 @@ import os
 import time
 from collections import OrderedDict
 
+import zmq
+
 from streams.Stream import Stream
 from streamers import STREAMERS
 
+from utils.msgpack_utils import deserialize
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
-from workers import Worker
+from workers.Worker import Worker
 
 
 ################################################
@@ -65,8 +68,8 @@ class DataLogger(Worker):
                port_sync: str = "42071",
                port_killsig: str = "42066",
                classes_to_log: list[str] = [],
-               streamer_specs: list[dict] | None = None,
-               log_tag: str | None = None,
+               streamer_specs: list[dict] = None,
+               log_tag: str = None,
                use_external_recording_sources: bool = False,
                stream_csv: bool = False,
                stream_hdf5: bool = False,
@@ -86,7 +89,7 @@ class DataLogger(Worker):
                clear_logged_data_from_memory: bool = False,
                print_status: bool = True,
                print_debug: bool = False,
-               log_history_filepath: str | None = None):
+               log_history_filepath: str = None):
 
     super(DataLogger, self).__init__(classes=classes_to_log,
                                      port_sub=port_sub,
@@ -116,9 +119,9 @@ class DataLogger(Worker):
     self._print_status = print_status
     self._print_debug = print_debug
     self._log_history_filepath = log_history_filepath
-
+    
     # Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
-    self._streams: list[Stream] = []
+    self._streams: OrderedDict[str, Stream] = OrderedDict()
     for streamer_spec in streamer_specs:
       class_name: str = streamer_spec['class']
       class_args = streamer_spec.copy()
@@ -127,7 +130,7 @@ class DataLogger(Worker):
       class_type: type[Stream] = STREAMERS[class_name]
       class_object: Stream = class_type.create_stream(**class_args)
       # Store the streamer object.
-      self._streams.append(class_object)
+      self._streams.setdefault(class_type._log_source_tag, class_object)
 
     # Initialize a record of what indices have been logged,
     #  and how many timesteps to stay behind of the most recent step (if needed).
@@ -188,12 +191,16 @@ class DataLogger(Worker):
       #################
       ###### SUB ######
       #################
-      sockets, events = zip(*self._poller.poll())
-      if self._sub in sockets:
-        # TODO: put data into the corresponding Stream object
-        pass
+      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+      if self._sub in poll_res[0]:
+        topic, payload = self._sub.recv_multipart()
+        msg = deserialize(payload)
+        topic_tree: list[str] = topic.split('.')
+        self._streams[topic_tree[0]].append_data(**msg)
+        # TODO: video can have multiple subtopics
+        print("Received from %s"% topic_tree[0], flush=True)
       
-      if self._killsig in sockets:
+      if self._killsig in poll_res[0]:
         # TODO: wait until every stream receives the "last" message to save everything 
         #   and then respond to StreamBroker that we are finished and exit
         pass
@@ -238,7 +245,7 @@ class DataLogger(Worker):
   # Will record the next data indices that should be fetched for each stream,
   #  and the number of timesteps that each streamer needs before data is solidified.
   def _init_log_indexes(self):
-    for (stream_index, stream) in enumerate(self._streams):
+    for (stream_index, stream) in enumerate(self._streams.values()):
       for (device_name, device_info) in stream.get_all_stream_infos().items():
         self._next_data_indexes[stream_index][device_name] = OrderedDict()
         self._timesteps_before_solidified[stream_index][device_name] = OrderedDict()
@@ -256,8 +263,8 @@ class DataLogger(Worker):
                                             for_streaming=for_streaming)
 
     # Open a writer for each CSV data file.
-    csv_writers = [OrderedDict() for i in range(len(self._streams))]
-    for (stream_index, streamer) in enumerate(self._streams):
+    csv_writers = [OrderedDict() for i in range(len(self._streams.values()))]
+    for (stream_index, streamer) in enumerate(self._streams.values()):
       for (device_name, device_info) in streamer.get_all_stream_infos().items():
         csv_writers[stream_index][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
@@ -281,7 +288,7 @@ class DataLogger(Worker):
             'Timestamp',
             'Timestamp [s]',
             ]
-    for (stream_index, streamer) in enumerate(self._streams):
+    for (stream_index, streamer) in enumerate(self._streams.values()):
       for (device_name, stream_writers) in csv_writers[stream_index].items():
         for (stream_name, stream_writer) in stream_writers.items():
           stream_writer.write(','.join(csv_headers))
@@ -347,7 +354,7 @@ class DataLogger(Worker):
       num_to_append = num_to_append+1
     hdf5_file = h5py.File(filepath_hdf5, 'w')
     # Create a dataset for each data key of each stream of each device.
-    for (stream_index, stream) in enumerate(self._streams):
+    for (stream_index, stream) in enumerate(self._streams.values()):
       for (device_name, device_info) in stream.get_all_stream_infos().items():
         device_group = hdf5_file.create_group(device_name)
         self._next_data_indexes_hdf5[stream_index][device_name] = OrderedDict()
@@ -396,8 +403,8 @@ class DataLogger(Worker):
                                             for_streaming=for_streaming)
 
     # Create a video writer for each video stream of each device.
-    self._video_writers = [OrderedDict() for i in range(len(self._streams))]
-    for (stream_index, streamer) in enumerate(self._streams):
+    self._video_writers = [OrderedDict() for i in range(len(self._streams.values()))]
+    for (stream_index, streamer) in enumerate(self._streams.values()):
       for (device_name, device_info) in streamer.get_all_stream_infos().items():
         for (stream_name, stream_info) in device_info.items():
           # Skip non-video streams.
@@ -433,8 +440,8 @@ class DataLogger(Worker):
                                             for_streaming=for_streaming)
 
     # Create an audio writer for each audio stream of each device.
-    self._audio_writers = [OrderedDict() for i in range(len(self._streams))]
-    for (stream_index, stream) in enumerate(self._streams):
+    self._audio_writers = [OrderedDict() for i in range(len(self._streams.values()))]
+    for (stream_index, stream) in enumerate(self._streams.values()):
       for (device_name, streams_info) in stream.get_all_stream_infos().items():
         for (stream_name, stream_info) in streams_info.items():
           # Skip non-audio streams.
@@ -469,7 +476,7 @@ class DataLogger(Worker):
                       device_name: str, 
                       stream_name: str, 
                       new_data: dict):
-    stream: Stream = self._streams[stream_index]
+    stream: Stream = self._streams.values()[stream_index]
     num_new_entries = len(new_data['data'])
     try:
       stream_writer: TextIOWrapper = self._csv_writers[stream_index][device_name][stream_name]
@@ -545,7 +552,7 @@ class DataLogger(Worker):
                         device_name: str, 
                         stream_name: str, 
                         new_data: dict):
-    stream = self._streams[stream_index]
+    stream = self._streams.values()[stream_index]
     num_new_entries = len(new_data['data'])
     try:
       video_writer: cv2.VideoWriter = self._video_writers[stream_index][device_name][stream_name]
@@ -566,7 +573,7 @@ class DataLogger(Worker):
                         device_name: str, 
                         stream_name: str, 
                         new_data: dict):
-    stream = self._streams[stream_index]
+    stream = self._streams.values()[stream_index]
     try:
       audio_writer: wave.Wave_write = self._audio_writers[stream_index][device_name][stream_name]
     except KeyError: # a writer was not created for this stream
@@ -578,7 +585,7 @@ class DataLogger(Worker):
   # Write metadata from each streamer to CSV and/or HDF5 files.
   # Will include device-level metadata and any lower-level data notes.
   def _log_metadata(self):
-    for (stream_index, stream) in enumerate(self._streams):
+    for (stream_index, stream) in enumerate(self._streams.values()):
       for (device_name, device_info) in stream.get_all_stream_infos().items():
         # Get metadata for this device.
         # To make it HDF5 compatible,
@@ -626,7 +633,7 @@ class DataLogger(Worker):
   def _close_files(self):
     # Flush/close all of the CSV writers
     if self._csv_writers is not None:
-      for (stream_index, stream) in enumerate(self._streams):
+      for (stream_index, stream) in enumerate(self._streams.values()):
         for (device_name, stream_writers) in self._csv_writers[stream_index].items():
           for (stream_name, stream_writer) in stream_writers.items():
             stream_writer.close()
@@ -636,7 +643,7 @@ class DataLogger(Worker):
     # Flush/close the HDF5 file.
     # Also resize datasets to remove extra empty rows.
     if self._hdf5_file is not None:
-      for (stream_index, stream) in enumerate(self._streams):
+      for (stream_index, stream) in enumerate(self._streams.values()):
         for (device_name, device_info) in stream.get_all_stream_infos().items():
           for (stream_name, stream_info) in device_info.items():
             try:
@@ -653,7 +660,7 @@ class DataLogger(Worker):
 
     # Flush/close all of the video writers.
     if self._video_writers is not None:
-      for (stream_index, stream) in enumerate(self._streams):
+      for (stream_index, stream) in enumerate(self._streams.values()):
         for (device_name, video_writers) in self._video_writers[stream_index].items():
           for (stream_name, video_writer) in video_writers.items():
             video_writer.release()
@@ -661,7 +668,7 @@ class DataLogger(Worker):
 
     # Flush/close all of the audio writers.
     if self._audio_writers is not None:
-      for (stream_index, stream) in enumerate(self._streams):
+      for (stream_index, stream) in enumerate(self._streams.values()):
         for (device_name, audio_writers) in self._audio_writers[stream_index].items():
           for (stream_name, audio_writer) in audio_writers.items():
             audio_writer.close()
@@ -782,7 +789,7 @@ class DataLogger(Worker):
       if self._flush_log:
         flushing_log = True
       # Write new data for each stream of each device of each streamer.
-      for (stream_index, stream) in enumerate(self._streams):
+      for (stream_index, stream) in enumerate(self._streams.values()):
         for (device_name, device_info) in stream.get_all_stream_infos().items():
           # self._log_debug('Logging streams for streamer %d device %s' % (streamer_index, device_name))
           for (stream_name, stream_info) in device_info.items():
