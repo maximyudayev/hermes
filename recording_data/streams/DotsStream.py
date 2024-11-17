@@ -4,17 +4,18 @@ from streams import Stream
 from visualizers import LinePlotVisualizer
 from streams.Stream import Stream
 
-################################################
-################################################
-# A structure to store DOTs stream's data.
-################################################
-################################################
+#########################################
+#########################################
+# A structure to store DOTs stream's data
+#########################################
+#########################################
 class DotsStream(Stream):
   def __init__(self, 
                num_joints: int = 5,
                sampling_rate_hz: int = 20,
-               device_mapping: dict = None) -> None:
-    super(DotsStream, self).__init__()
+               device_mapping: dict = None,
+               **_) -> None:
+    super().__init__()
     self._device_name = 'dots-imu'
     self._num_joints = num_joints
     self._sampling_rate_hz = sampling_rate_hz
@@ -25,28 +26,25 @@ class DotsStream(Stream):
 
     self._define_data_notes()
 
-    # Add devices and streams to organize data from your sensor.
-    #   Data is organized as devices and then streams.
-    #   For example, a DOTs device may have streams for Gyro and Acceleration.
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-x',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-x'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-y',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-y'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-z',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-z'])
     self.add_stream(device_name=self._device_name,
@@ -72,17 +70,26 @@ class DotsStream(Stream):
                     data_notes=self._data_notes['dots-imu']['orientation-z'])
     self.add_stream(device_name=self._device_name,
                     stream_name='timestamp',
-                    data_type='int64',
+                    data_type='uint32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['dots-time']['timestamp'])
+    self.add_stream(device_name=self._device_name,
+                    stream_name='counter',
+                    data_type='uint16',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    extra_data_info=None,
+                    data_notes=self._data_notes['dots-time']['counter'])
+
 
   def append_data(self,
                   time_s: float, 
                   acceleration: ndarray, 
                   orientation: ndarray, 
-                  timestamp: ndarray):
+                  timestamp: ndarray,
+                  counter: ndarray) -> None:
     self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
     self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
     self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
@@ -90,22 +97,13 @@ class DotsStream(Stream):
     self._append_data(self._device_name, 'orientation-y', time_s, orientation[:,1])
     self._append_data(self._device_name, 'orientation-z', time_s, orientation[:,2])
     self._append_data(self._device_name, 'timestamp', time_s, timestamp)
+    self._append_data(self._device_name, 'counter', time_s, counter)
 
 
-  ###########################
-  ###### VISUALIZATION ######
-  ###########################
+  def get_default_visualization_options(self) -> dict:
+    visualization_options = super().get_default_visualization_options()
 
-  # Specify how the streams should be visualized.
-  # Return a dict of the form options[device_name][stream_name] = stream_options
-  #  Where stream_options is a dict with the following keys:
-  #   'class': A subclass of Visualizer that should be used for the specified stream.
-  #   Any other options that can be passed to the chosen class.
-  def get_default_visualization_options(self):
-    visualization_options = {}
-    visualization_options[self._device_name] = {}
-
-    # Use a line plot to visualize the acceleration.
+    # Use a line plot to visualize the acceleration and orientation.
     visualization_options[self._device_name]['acceleration-x'] = \
       {'class': LinePlotVisualizer,
        'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
@@ -114,44 +112,39 @@ class DotsStream(Stream):
       }
     visualization_options[self._device_name]['acceleration-y'] = \
       {'class': LinePlotVisualizer,
-       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+       'single_graph': True,
+       'plot_duration_s': 15,
+       'downsample_factor': 1,
       }
     visualization_options[self._device_name]['acceleration-z'] = \
       {'class': LinePlotVisualizer,
-       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+       'single_graph': True,
+       'plot_duration_s': 15,
+       'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-x'] = \
       {'class': LinePlotVisualizer,
-       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+       'single_graph': True,
+       'plot_duration_s': 15,
+       'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-y'] = \
       {'class': LinePlotVisualizer,
-       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+       'single_graph': True,
+       'plot_duration_s': 15,
+       'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-z'] = \
       {'class': LinePlotVisualizer,
-       'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-       'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-       'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+       'single_graph': True,
+       'plot_duration_s': 15,
+       'downsample_factor': 1,
       }
-    
-    # Don't visualize the other devices/streams.
-    for (device_name, device_info) in self._streams_info.items():
-      visualization_options.setdefault(device_name, {})
-      for (stream_name, stream_info) in device_info.items():
-        visualization_options[device_name].setdefault(stream_name, {'class': None})
 
     return visualization_options
-  
-  def _define_data_notes(self):
+
+
+  def _define_data_notes(self) -> None:
     self._data_notes = {}
     self._data_notes.setdefault('dots-imu', {})
     self._data_notes.setdefault('dots-time', {})
@@ -188,5 +181,9 @@ class DotsStream(Stream):
     ])
     self._data_notes['dots-time']['timestamp'] = OrderedDict([
       ('Description', 'Time of sampling of the packet at the device'),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+    ])
+    self._data_notes['dots-time']['counter'] = OrderedDict([
+      ('Description', 'Packet sequence ID incrementing from 0 and wrapping at 65536, clearing on startup'),
       (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])

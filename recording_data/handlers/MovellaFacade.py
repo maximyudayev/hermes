@@ -25,18 +25,15 @@
 #  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import movelladot_pc_sdk
+import movelladot_pc_sdk as mdda
 from collections import OrderedDict, defaultdict
 from threading import Lock
-from pynput import keyboard
 from utils.user_settings import *
 import time
 
-waitForConnections = True
-
-class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
+class MovellaFacade(mdda.XsDotCallback):
   def __init__(self, max_buffer_size=5):
-    movelladot_pc_sdk.XsDotCallback.__init__(self)
+    super().__init__(self)
 
     self.__manager = 0
 
@@ -52,8 +49,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
 
     self.__detectedDots = list()
     self.__connectedDots = dict()
-    self.__connectedUsbDots = list()
-    self.__masterDot = 0
+    self.__masterDotId = 0
     self.__maxNumberOfPacketsInBuffer = max_buffer_size
     self.__packetBuffer = defaultdict(list)
     self.__progress = dict()
@@ -71,12 +67,12 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
     """
 
     # Print SDK version
-    version = movelladot_pc_sdk.XsVersion()
-    movelladot_pc_sdk.xsdotsdkDllVersion(version)
+    version = mdda.XsVersion()
+    mdda.xsdotsdkDllVersion(version)
     # self._log_debug(f"Using Movella DOT SDK version: {version.toXsString()}")
 
     # Create connection manager
-    self.__manager = movelladot_pc_sdk.XsDotConnectionManager()
+    self.__manager = mdda.XsDotConnectionManager()
     if self.__manager is None:
       # self._log_error("Movella backend manager could not be constructed, exiting.")
       return False
@@ -95,7 +91,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
 
     # self._log_status("Successful exit Movella backend.")
 
-  def scanForDots(self, timeout_s=20):
+  def scanForDots(self, timeout_s=20) -> int:
     """
     Scan if any Movella DOT devices can be detected via Bluetooth
 
@@ -110,19 +106,19 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
 
     connectedDOTCount = 0
     self.__detectedDots = list()
-    startTime = movelladot_pc_sdk.XsTimeStamp_nowMs()
-    while waitForConnections and not self.errorReceived() and movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= timeout_s*1000:
+    startTime = mdda.XsTimeStamp_nowMs()
+    while not self.errorReceived() and mdda.XsTimeStamp_nowMs() - startTime <= timeout_s*1000:
       time.sleep(0.1)
 
       nextCount = len(self.detectedDots())
       if nextCount != connectedDOTCount:
-          # self._log_debug(f"Number of connected DOTs: {nextCount}. Press any key to start.")
-          connectedDOTCount = nextCount
+        connectedDOTCount = nextCount
 
     self.__manager.disableDeviceDetection()
     # self._log_status("Stopped scanning for devices.")
+    return connectedDOTCount
 
-  def connectDots(self, onDotConnected=lambda d, v: dict(list(d).append((str(len(d)), v))), onConnected=lambda x: None, connectAttempts=2):
+  def connectDots(self, device_mapping: dict[str, str], master_device: str, connectAttempts=2) -> bool:
     """
     Connects to Movella DOTs found via either USB or Bluetooth connection
 
@@ -133,9 +129,8 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
 
     USB and Bluetooth devices should not be mixed in the same session!
     """
-    self.__masterDot = 0
-    self.__connectedDots = dict()
-    self.__connectedUsbDots = list()
+    self.setMasterDot(device_mapping[master_device])
+    self.__connectedDots = OrderedDict([(v, None) for v in device_mapping.values()])
     for portInfo in self.detectedDots():
       if portInfo.isBluetooth():
         address = portInfo.bluetoothAddress()
@@ -149,84 +144,52 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
 
         if not connected:
           # self._log_error(f"Could not connect to {address}.")
-          continue
+          return False
 
         device = self.__manager.device(portInfo.deviceId())
         if device is None:
-          continue
+          return False
 
         # self._log_debug(f"Found a device with Tag: {device.deviceTagName()} @ address: {address}")
-        self.__connectedDots = onDotConnected(self.__connectedDots, device)
-      else: # not used in the AidWear project
-        # self._log_debug(f"Opening DOT with ID: {portInfo.deviceId().toXsString()} @ port: {portInfo.portName()}, baudrate: {portInfo.baudrate()}")
-        if not self.__manager.openPort(portInfo):
-          # self._log_error(f"Could not open DOT. Reason: {self.__manager.lastResultText()}")
-          continue
-
-        device = self.__manager.usbDevice(portInfo.deviceId())
-        if device is None:
-          continue
-
-        self.__connectedUsbDots.append(device)
-        # self._log_debug(f"Device: {device.productCode()}, with ID: {device.deviceId().toXsString()} opened.")
-    self.__connectedDots = OrderedDict(sorted(list(self.connectedDots().items()), key=lambda x: int(x[0])))
-    onConnected(self.__connectedDots)
+        self.__connectedDots[portInfo.deviceId()] = device
+    # Return success if all devices were instantiated by the SDK
+    return all(self.__connectedDots.values())
 
   def setMasterDot(self, dotId):
-    self.__masterDot = dotId
+    self.__masterDotId = dotId
 
-  def sync(self):
+  def sync(self, syncAttempts=1) -> bool:
     if len(self.connectedDots()) == 1:
       # self._log_debug("Only 1 DOT device connected, sync not needed...")
-      pass
+      return True
     else:
-      # self._log_debug(f"Starting sync for connected devices {' | '.join([str(device.bluetoothAddress()) for joint, device in self.connectedDots().items()])} Root node: {self.connectedDots()[self.masterDot()].bluetoothAddress()}")
-      # self._log_debug("This takes at least 14 seconds.")
-      if not self.__manager.startSync(self.__connectedDots[self.__masterDot].bluetoothAddress()):
-        # self._log_error(f"Could not start DOTs sync. Reason: {self.__manager.lastResultText()}.")
-        # if self.__manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
-        #     print("Sync could not be started. Aborting.")
-        #     self.cleanup()
-        #     return False
+      attempts = 0
+      while attempts < syncAttempts:
+        if self.__manager.startSync(self.__connectedDots[self.__masterDotId].bluetoothAddress()):
+          return True
+        else:
+          attempts += 1
+          self.__manager.stopSync()
+      return False
 
-        # If (some) devices are already in sync mode, disable sync on all devices first.
-        self.__manager.stopSync()
-        # self._log_debug(f"Retrying start sync after stopping sync.")
-        # if not self.__manager.startSync(self.__connectedDots[self.__masterDot].bluetoothAddress()):
-        #     self._log_error(f"Could not start DOTs sync. Reason: {self.__manager.lastResultText()}. Aborting syncing.")
-        #     self.cleanup()
-        #     return False
-    return True
-
-  def stream(self):
+  def stream(self) -> bool:
     # Start live data output. Make sure root node is last to go to measurement.
     # self._log_status("Putting devices into measurement mode.")
-    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDot], (self.__masterDot, self.__connectedDots[self.__masterDot])]:
-      if not device.startMeasurement(movelladot_pc_sdk.XsPayloadMode_ExtendedEuler):
+    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
+      if not device.startMeasurement(mdda.XsPayloadMode_ExtendedEuler):
         # self._log_error(f"Could not put {device.bluetoothAddress()} into measurement mode. Reason: {device.lastResultText()}")
         return False
       time.sleep(1)
     # self._log_debug("Successfully put all devices into measurement mode.")
     # self._log_debug("Resetting device headings, don't move the sensors.")
     time.sleep(5)
-    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDot], (self.__masterDot, self.__connectedDots[self.__masterDot])]:
+    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
       # self._log_debug(f"Resetting heading for device {device.bluetoothAddress()}: ")
-      if device.resetOrientation(movelladot_pc_sdk.XRM_Heading):
-        # self._log_debug("OK")
-        pass
-      else:
-        # self._log_error(f"NOK: {device.lastResultText()}")
-        pass
+      if not device.resetOrientation(mdda.XRM_Heading):
+        return False
       time.sleep(1)
     
     return True
-
-  def detectUsbDevices(self):
-    """
-    Scans for USB connected Movella DOT devices for data export
-    """
-    print("Scanning for devices...")
-    self.__detectedDots = self.__manager.detectUsbDevices()
 
   def manager(self):
     """
@@ -250,14 +213,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
     return self.__connectedDots
   
   def masterDot(self):
-    return self.__masterDot
-
-  def connectedUsbDots(self):
-    """
-    Returns:
-          A list containing an XsDotUsbDevice pointer for each Movella DOT device connected via USB */
-    """
-    return self.__connectedUsbDots
+    return self.__masterDotId
 
   def errorReceived(self):
     """
@@ -337,7 +293,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
     if len(self.__packetBuffer[bluetoothAddress]) == 0:
       return None
     self.__lock.acquire()
-    oldest_packet = movelladot_pc_sdk.XsDataPacket(self.__packetBuffer[bluetoothAddress].pop(0))
+    oldest_packet = mdda.XsDataPacket(self.__packetBuffer[bluetoothAddress].pop(0))
     self.__lock.release()
     return oldest_packet
 
@@ -373,6 +329,9 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
     else:
       print(line, end='', flush=True)
 
+  ##############################
+  ##### Callback Overrides #####
+  ##############################
   def onAdvertisementFound(self, port_info):
     """
     Called when an Movella DOT device advertisement was received. Updates m_detectedDots.
@@ -403,7 +362,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
         result: The XsResultValue related to this error
         errorString: The error string with information on the problem that occurred
     """
-    # print(f"{movelladot_pc_sdk.XsResultValueToString(result)}")
+    # print(f"{mdda.XsResultValueToString(result)}")
     # print(f"Error received: {errorString}")
     self.__errorReceived = True
 
@@ -420,7 +379,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
     self.__lock.acquire()
     while len(self.__packetBuffer[device.portInfo().bluetoothAddress()]) >= self.__maxNumberOfPacketsInBuffer:
       self.__packetBuffer[device.portInfo().bluetoothAddress()].pop()
-    self.__packetBuffer[device.portInfo().bluetoothAddress()].append(movelladot_pc_sdk.XsDataPacket(packet))
+    self.__packetBuffer[device.portInfo().bluetoothAddress()].append(mdda.XsDataPacket(packet))
     self.__lock.release()
 
   def onProgressUpdated(self, device, current, total, identifier):
@@ -434,7 +393,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
         total: The total work to be done. When current equals total, the task is completed.
         identifier: An identifier for the task. This may for example be a filename for file read operations.
     """
-    if isinstance(device, movelladot_pc_sdk.XsDotUsbDevice):
+    if isinstance(device, mdda.XsDotUsbDevice):
       self.__progressCurrent = current
       self.__progressTotal = total
       self._outputDeviceProgress()
@@ -456,7 +415,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
         portInfo: The XsPortInfo of the updated device
         result: The XsDotFirmwareUpdateResult of the firmware update
     """
-    # print(f"\n{portInfo.bluetoothAddress()}  Firmware Update done. Result: {movelladot_pc_sdk.XsDotFirmwareUpdateResultToString(result)}")
+    # print(f"\n{portInfo.bluetoothAddress()}  Firmware Update done. Result: {mdda.XsDotFirmwareUpdateResultToString(result)}")
     self.__updateDone = True
 
   def onRecordingStopped(self, device):
@@ -477,7 +436,7 @@ class MovellaFacade(movelladot_pc_sdk.XsDotCallback):
         newState: The new device state.
         oldState: The old device state.
     """
-    if newState == movelladot_pc_sdk.XDS_Destructing and not self.__closing:
+    if newState == mdda.XDS_Destructing and not self.__closing:
       # print(f"\n{updatedDevice.deviceTagName()} Device powered down")
       for joint, device in self.__connectedDots:
         if device.bluetoothAddress() == updatedDevice.bluetoothAddress():

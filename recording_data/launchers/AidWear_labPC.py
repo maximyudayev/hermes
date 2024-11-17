@@ -70,17 +70,19 @@ if __name__ == '__main__':
      },
      # TMSi SAGA stream
     {'class': 'TmsiStreamer',
+     'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
      'device_mapping': {
-        'knee_right'  : '0',
-        'foot_right'  : '1',
-        'pelvis'      : '2',
-        'knee_left'   : '3',
-        'foot_left'   : '4',
+        'knee_right'  : '0', # TODO: replace with device S/N
+        'foot_right'  : '1', # TODO: replace with device S/N
+        'pelvis'      : '2', # TODO: replace with device S/N
+        'knee_left'   : '3', # TODO: replace with device S/N
+        'foot_left'   : '4', # TODO: replace with device S/N
       },
+     'master_device'   : 'pelvis', # wireless dot relaying messages, must match a key in the `device_mapping`
      'num_joints'      : 5,
      'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
