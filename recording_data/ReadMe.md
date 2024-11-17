@@ -118,16 +118,16 @@ Once tunneled through VPN into the private LAN, NX into any desired device for g
 
 # Running
 
-Run relevant launcher script in `launchers\*`, adjust parameters for experiment and active sensors as desired.
+Run relevant launcher script in the `launchers/` directory, adjust parameters for the experiment and the sensors as desired.
 
 # System Architecture
 
 ## Streaming Data
 The code is based around the abstract **SensorStreamer** class, which provides methods for streaming data.  Each streamer can have one or more *devices*, and each device can have one or more data *streams*.  Data streams can have arbitrary sampling rates, data types, and dimensions.  Each subclass specifies the expected streams and their data types.
 
-For example, the MyoStreamer class may have a left-arm device and a right-arm device connected.  Each one has streams for EMG, acceleration, angular velocity, gesture predictions, etc.  EMG data uses 200Hz, IMU uses 50Hz, and prediction data is asynchronous.
+For example, the CameraStreamer class may have several camera devices connected.  Each one has a stream for video data and timestamp. An AwindaStreamer has only one device, the suit, but multiple streams of data for acceleration, orientation, packet sequence number, etc.  EMG data uses 100 Hz, IMUs use 20-100 Hz, cameras use 20 FPS, prosthesis data is asynchronous and event-based.
 
-Each stream has a few channels that are created automatically: the data itself, a timestamp as seconds since epoch, and the timestamp formatted as a string.  Subclasses can also add extra channels if desired.  Timestamps are always created by using `time.time()` when data arrives.  Some devices such as the Xsens also have their own timestamps; these are treated as simply another data stream, and can be used in post-processing if desired.
+Each stream has a few channels that are created automatically: the data itself, a timestamp as seconds since epoch, and the timestamp formatted as a string.  Subclasses can also add extra channels as desired.  Timestamps indicate the system clock of the moment of arrival of the sample to the host system (i.e. using `time.time()`).  Some devices such as the Pupil Core smartglasses, Basler cameras, and DOTs or Awinda, have their own timestamps: these are treated and saved as another data stream to enable data alignment in post-processing or down the consumer line in realtime applications, where the responsibility to implement an alignment strategy falls on the data subscriber.
 
 ## Implemented Streamers
 
@@ -143,61 +143,29 @@ The EyeStreamer streams gaze and video data from the Pupil Labs eye tracker.  Pu
   - Frames in `BGR` format
 
 ### AwindaStreamer
-The AwindaStreamer streams data from the Awinda body tracking suit as well as two Manus gloves if they are available.
-
-The Xsens MVN software should be running, calibrated, and configured for network streaming before starting the Python scripts.  Network streaming can be configured in `Options > Network Streamer` with the following options:
-- IP address `127.0.0.1`
-- Port `9763`
-- Protocol `UDP`
-- Stream rate as desired
-- Currently supported Datagram selections include:
-  - `Position + Orientation (Quaternion)`: segment positions and orientations, which will include finger data if enabled
-  - `Position + Orientation (Euler)`: segment positions and orientations, which will include finger data if enabled
-  - `Time Code`: the device timestamp of each frame
-  - `Send Finger Tracking Data` (if Manus gloves are connected - see below for more details)
-  - `Center of Mass`: position, velocity, and acceleration of the center of mass
-  - `Joint Angles`: angle of each joint, but only for the main body (finger joint angles do not seem to be supported by Xsens)
-
-Note that it seems like the selected stream rate is not generally achieved in practice.  During some testing with a simple loop that only read raw data from the stream when only the `Time Code` was being streamed, the message rate was approximately half the selected rate up to a selection of 60Hz.  After that, the true rate remained constant at about 30-35Hz.
-
-A few optional Xsens configuration settings in `Options > Preferences` that might be useful are noted below:
-- Check `Enable simple calibration routines` to allow calibration without movement.  This is not recommended for 'real' experiments, but can make debugging/iterating faster.
-- Uncheck `Maximum number of frames kept in memory` if long experiments are anticipated and memory is not a large concern.
+The AwindaStreamer streams data from the Awinda body tracking suit.
 
 ### CameraStreamer
 
 ### InsoleStreamer
 
+### CometaStreamer
+
+### MoxyStreamer
+
 ### ExperimentControlStreamer
-The NotesStreamer allows the user to enter notes at any time to describe experiment updates.  Each note will be timestamped in the same way as any other data, allowing notes to be syncronized with sensor data.
 
 ### NotesStreamer
-The NotesStreamer allows the user to enter notes at any time to describe experiment updates.  Each note will be timestamped in the same way as any other data, allowing notes to be syncronized with sensor data.
 
 ## Saving Data
 The **DataLogger** class provides functionality to save data that is streamed from SensorStreamer objects.  It can write data to HDF5 and/or CSV files.  Video data will be excluded from these files, and instead written to video files.  Data can be saved incrementally throughout the recording process, and/or at the end of an experiment.  Data can optionally be cleared from memory after it is incrementally saved, thus reducing RAM usage.
 
-Data from all streamers given to a DataLogger object will be organized into a single hierarchical HDF5 file that also contains metadata.  If you would prefer data from different streamers be saved in separate HDF5 files, multiple DataLogger objects can simply be created.  Note that when using CSVs, a separate file will always be created for each data stream.
+Data from all streamers given to a DataLogger object will be organized into a single hierarchical HDF5 file that also contains metadata.  Note that when using CSVs, a separate file will always be created for each data stream.
 
 N-dimensional data will be written to HDF5 files directly, and will be unwrapped into individual columns for CSV files.
 
-## Sensor Manager
-The **SensorManager** class is a helpful wrapper for coordinating multiple streamers and data loggers.  It connects and launches all streamers, and creates and configures all desired data loggers.  It does so using multiprocessing, so that multiple cores can be leveraged; see below for more details on this.
-
-## Multiprocessing and threading
-
-Note that in Python, using `Threads` is useful for allowing operations to happen concurrently and for using `Locks` to coordinate access, but it does not leverage multiple cores due to Python's Global Interpreter Lock.  Using `Multiprocessing` creates separate system processes and can thus leverage multiple cores, but data cannot be shared between such processes as easily as threads.
-
-The current framework uses both threads and processes.
-
-SensorStreamer and DataLogger launch their run() methods in new threads, and use locks to coordinate data access.  You can thus use these classes directly, and have non-blocking operations but only use a single core.
-
-SensorManager spawns multiple processes so multiple cores can be used.
-- It starts each sensor streamer in its own process, unless the streamer specifies that it must be in the main process (currently only NotesStreamer, since user input does not work from child processes).
-- Data logging happens on the main process.
-- To allow data to be passed from the child processes to the main process for logging, each streamer class is registered with Python's `BaseManager` to create a `Proxy` class that pickles data for communication.
-
-So hopefully, incrementally writing to files will not unduly impact streaming performance.  This will facilitate saving data in the event of a crash, and reducing RAM usage during experiments.
+## Stream Broker
+The **StreamBroker** class is a an endpoint for proxying data between subscribers and publishers, and a manager for coordinating the lifetime of locally attached sensors wrapped into individual **SensorStreamer** subprocesses, and consumers wrapped into individual **Worker** subprocesses (e.g. AI prediction agents, data visualization, data logging, etc.).  It connects and launches streamers for all locally connected sensors, and creates and configures all desired local consumers of data produced both, locally and remotely by other brokers.  It does so using multiprocessing and [ZeroMQ](https://zeromq.org/) sockets, so that multiple cores can be leveraged to parallelize the work and permit the throughput of sensor data streaming.
 
 ```bash
 conda info --envs
