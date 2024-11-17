@@ -3,17 +3,18 @@ import numpy as np
 from streams.Stream import Stream
 from visualizers import LinePlotVisualizer
 
-################################################
-################################################
-# A structure to store Awinda MTws' stream's data.
-################################################
-################################################
+#################################################
+#################################################
+# A structure to store Awinda MTws' stream's data
+#################################################
+#################################################
 class AwindaStream(Stream):
   def __init__(self, 
                device_mapping: dict[str, str],
                num_joints: int = 7,
-               sampling_rate_hz: int = 100) -> None:
-    super(AwindaStream, self).__init__()
+               sampling_rate_hz: int = 100,
+               **_) -> None:
+    super().__init__()
     
     self._device_name = 'awinda-imu'
     self._num_joints = num_joints
@@ -32,22 +33,22 @@ class AwindaStream(Stream):
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-x',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['awinda-imu']['acceleration-x'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-y',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['awinda-imu']['acceleration-y'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-z',
                     data_type='float32',
-                    sample_size=(self._num_joints),     # the size of data saved for each timestep
-                    sampling_rate_hz=self._sampling_rate_hz, # the expected sampling rate for the stream
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
                     extra_data_info=None,
                     data_notes=self._data_notes['awinda-imu']['acceleration-z'])
     self.add_stream(device_name=self._device_name,
@@ -86,12 +87,13 @@ class AwindaStream(Stream):
                     extra_data_info=None,
                     data_notes=self._data_notes['awinda-counter']['counter'])
 
+
   def append_data(self,
                   time_s: float,
                   acceleration: np.ndarray,
                   orientation: np.ndarray,
                   timestamp: np.ndarray,
-                  counter: np.ndarray):
+                  counter: np.ndarray) -> None:
     self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
     self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
     self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
@@ -102,19 +104,8 @@ class AwindaStream(Stream):
     self._append_data(self._device_name, 'counter', time_s, counter)
 
 
-  ###########################
-  ###### VISUALIZATION ######
-  ###########################
-
-  # Specify how the streams should be visualized.
-  # Return a dict of the form options[device_name][stream_name] = stream_options
-  #  Where stream_options is a dict with the following keys:
-  #   'class': A subclass of Visualizer that should be used for the specified stream.
-  #   Any other options that can be passed to the chosen class.
-  def get_default_visualization_options(self):
-    visualization_options = {}
-
-    visualization_options[self._device_name] = {}
+  def get_default_visualization_options(self) -> dict:
+    visualization_options = super().get_default_visualization_options()
 
     # Use a line plot to visualize the acceleration.
     visualization_options[self._device_name]['acceleration-x'] = \
@@ -125,44 +116,39 @@ class AwindaStream(Stream):
       }
     visualization_options[self._device_name]['acceleration-y'] = \
       {'class': LinePlotVisualizer,
-      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
       }
     visualization_options[self._device_name]['acceleration-z'] = \
       {'class': LinePlotVisualizer,
-      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-x'] = \
       {'class': LinePlotVisualizer,
-      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-y'] = \
       {'class': LinePlotVisualizer,
-      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
       }
     visualization_options[self._device_name]['orientation-z'] = \
       {'class': LinePlotVisualizer,
-      'single_graph': True,   # Whether to show each dimension on a subplot or all on the same plot.
-      'plot_duration_s': 15,  # The timespan of the x axis (will scroll as more data is acquired).
-      'downsample_factor': 1, # Can optionally downsample data before visualizing to improve performance.
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
       }
-    
-    # Don't visualize the other devices/streams.
-    for (device_name, device_info) in self._streams_info.items():
-      visualization_options.setdefault(device_name, {})
-      for (stream_name, stream_info) in device_info.items():
-        visualization_options[device_name].setdefault(stream_name, {'class': None})
 
     return visualization_options
-  
-  def _define_data_notes(self):
+
+
+  def _define_data_notes(self) -> None:
     self._data_notes = {}
     self._data_notes.setdefault('awinda-imu', {})
     self._data_notes.setdefault('awinda-counter', {})

@@ -1,9 +1,3 @@
-from collections import OrderedDict
-import time
-
-import cv2
-import msgpack
-import numpy as np
 from handlers.PupilFacade import PupilFacade
 from streamers.SensorStreamer import SensorStreamer
 from streams.EyeStream import EyeStream
@@ -68,20 +62,22 @@ class EyeStreamer(SensorStreamer):
       "fps_video_eye1": fps_video_eye1
     }
 
-    super(EyeStreamer, self).__init__(self,
-                                      port_pub=port_pub,
-                                      port_sync=port_sync,
-                                      port_killsig=port_killsig,
-                                      stream_info=stream_info,
-                                      print_status=print_status,
-                                      print_debug=print_debug)
+    super().__init__(self,
+                     port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     stream_info=stream_info,
+                     print_status=print_status,
+                     print_debug=print_debug)
+
 
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
   def create_stream(cls, stream_info: dict) -> EyeStream:
     return EyeStream(**stream_info)
 
+
   # Connect to the data streams, detect video frame rates, and detect available data type (e.g. 2D vs 3D).
-  def connect(self):
+  def connect(self) -> bool:
     self._handler: PupilFacade = PupilFacade(stream_video_world=self._stream_video_world,
                                              stream_video_worldGaze=self._stream_video_worldGaze,
                                              stream_video_eye=self._stream_video_eye,
@@ -93,8 +89,9 @@ class EyeStreamer(SensorStreamer):
     self._handler.set_stream_data_getter(fn=self._stream.get_data)
     return True
 
+
   # Loop until self._running is False
-  def run(self):
+  def run(self) -> None:
     while self._running:
       time_s, data = self._handler.process_pupil_data()
       
@@ -105,9 +102,10 @@ class EyeStreamer(SensorStreamer):
       msg = serialize(time_s=time_s, data=data)
 
       # Send the data packet on the PUB socket.
-      self._pub.send_multipart([b"%s.data"%(self._log_source_tag), msg])
+      self._pub.send_multipart(["%s.data"%(self._log_source_tag), msg])
+
 
   # Clean up and quit
   def quit(self):
     self._handler.close()
-    super(EyeStreamer, self).quit()
+    super().quit()

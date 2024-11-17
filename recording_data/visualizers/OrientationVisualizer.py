@@ -34,13 +34,13 @@ class OrientationVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    Visualizer.__init__(self, 
-                        visualizer_options=visualizer_options, 
-                        hidden=hidden,
-                        parent_layout=parent_layout, 
-                        parent_layout_size=parent_layout_size,
-                        print_debug=print_debug, 
-                        print_status=print_status)
+    super().__init__(self, 
+                     visualizer_options=visualizer_options, 
+                     hidden=hidden,
+                     parent_layout=parent_layout, 
+                     parent_layout_size=parent_layout_size,
+                     print_debug=print_debug, 
+                     print_status=print_status)
     
     if use_matplotlib:
       self._fig = None

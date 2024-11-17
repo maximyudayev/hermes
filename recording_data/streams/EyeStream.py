@@ -1,14 +1,13 @@
 from collections import OrderedDict
 
-import numpy as np
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
-################################################
-################################################
-# A structure to store DOTs stream's data.
-################################################
-################################################
+###############################################
+###############################################
+# A structure to store Pupil Core stream's data
+###############################################
+###############################################
 class EyeStream(Stream):
   def __init__(self,
                stream_video_world: bool,
@@ -21,8 +20,9 @@ class EyeStream(Stream):
                shape_video_eye1: tuple,
                fps_video_world: float,
                fps_video_eye0: float,
-               fps_video_eye1: float) -> None:
-    super(EyeStream, self).__init__()
+               fps_video_eye1: float,
+               **_) -> None:
+    super().__init__()
 
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
     
@@ -288,33 +288,27 @@ class EyeStream(Stream):
                         data_notes=self._data_notes['eye-tracking-video-eye1']['frame'],
                         is_video=True)
 
-  # Append processed data to the sensor streams.
-  def append_data(self, time_s: float, processed_data: dict):
+
+  def append_data(self, time_s: float, processed_data: dict) -> None:
     for (device_name_key, streams_data) in processed_data.items():
       device_name = 'eye-tracking-%s' % device_name_key
       if streams_data is not None:
         for (stream_name, data) in streams_data.items():
           self._append_data(device_name, stream_name, time_s, data)
 
-  # Specify how the streams should be visualized.
-  def get_default_visualization_options(self):
-    # Specify default options.
-    visualization_options = {
-      'eye-tracking-video-worldGaze': {'frame': {'class': VideoVisualizer}},
-      'eye-tracking-video-world':     {'frame': {'class': None}},
-      'eye-tracking-video-eye0':      {'frame': {'class': None}},
-      'eye-tracking-video-eye1':      {'frame': {'class': None}},
-    }
 
-    # Add default options for all other devices/streams.
-    for (device_name, device_info) in self._streams_info.items():
-      visualization_options.setdefault(device_name, {})
-      for (stream_name, stream_info) in device_info.items():
-        visualization_options[device_name].setdefault(stream_name, {'class': None})
+  def get_default_visualization_options(self) -> dict:
+    visualization_options = super().get_default_visualization_options()
+
+    visualization_options['eye-tracking-video-worldGaze']['frame'] = {'class': VideoVisualizer},
+    visualization_options['eye-tracking-video-world']['frame'] = {'class': None},
+    visualization_options['eye-tracking-video-eye0']['frame'] = {'class': None},
+    visualization_options['eye-tracking-video-eye1']['frame'] = {'class': None},
 
     return visualization_options
 
-  def _define_data_notes(self):
+
+  def _define_data_notes(self) -> None:
     self._data_notes = {}
     self._data_notes.setdefault('eye-tracking-gaze', {})
     self._data_notes.setdefault('eye-tracking-pupil', {})

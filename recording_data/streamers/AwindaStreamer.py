@@ -54,19 +54,19 @@ class AwindaStreamer(SensorStreamer):
       "device_mapping": self._device_mapping
     }
 
-    super(AwindaStreamer, self).__init__(self, 
-                                         port_pub=port_pub,
-                                         port_sync=port_sync,
-                                         port_killsig=port_killsig,
-                                         stream_info=stream_info,
-                                         print_status=print_status, 
-                                         print_debug=print_debug)
+    super().__init__(self, 
+                     port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     stream_info=stream_info,
+                     print_status=print_status, 
+                     print_debug=print_debug)
 
   def create_stream(self, stream_info: dict) -> AwindaStream:  
     return AwindaStream(**stream_info)
 
 
-  def connect(self) -> None:
+  def connect(self) -> bool:
     self._control = xda.XsControl.construct()
     port_info_array = xda.XsScanner.scanPorts()
 
@@ -177,6 +177,7 @@ class AwindaStreamer(SensorStreamer):
     # Put all devices connected to the Awinda station into measurement
     # NOTE: Will begin trigerring the callback and saving data, while awaiting the SYNC signal from the Broker
     self._master_device.gotoMeasurement()
+    return True
 
 
   # Acquire data from the sensors until signalled externally to quit
@@ -191,6 +192,7 @@ class AwindaStreamer(SensorStreamer):
         self._killsig.recv_multipart()
         self._poller.unregister(self._killsig)
         self._running = False
+    self.quit()
 
   
   # Clean up and quit
@@ -198,8 +200,7 @@ class AwindaStreamer(SensorStreamer):
     # Clean up the SDK
     self._control.close()
     self._control.destruct()
-    
-    super(AwindaStreamer, self).quit(self)
+    super().quit(self)
 
 
 #####################

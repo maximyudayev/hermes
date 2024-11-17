@@ -62,10 +62,10 @@ class DataVisualizer(Worker):
                print_debug: bool = False, 
                log_history_filepath: str = None):
 
-    super(DataVisualizer, self).__init__(classes=classes_to_visualize,
-                                         port_sub=port_sub,
-                                         port_sync=port_sync,
-                                         port_killsig=port_killsig)
+    super().__init__(classes=classes_to_visualize,
+                     port_sub=port_sub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
 
     # Record the configuration options.
     self._update_period_s = update_period_s
@@ -99,7 +99,7 @@ class DataVisualizer(Worker):
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
   def run(self):
-    super(DataVisualizer, self).run()
+    super().run()
 
     self._start_stream_visualization()
 
@@ -129,7 +129,7 @@ class DataVisualizer(Worker):
   def quit(self):
     self._stop_stream_visualization()
     self._close_visualizations()
-    super(DataVisualizer, self).quit()
+    super().quit()
 
 
   ##############################

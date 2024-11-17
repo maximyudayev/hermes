@@ -5,7 +5,7 @@ import xsensdeviceapi as xda
 class AwindaDataCallback(xda.XsCallback):
   def __init__(self,
                on_all_packets_received: Callable[[float, list[xda.XsDevice], list[xda.XsDataPacket]], None]):
-    super(AwindaDataCallback, self).__init__()
+    super().__init__()
     self._on_all_packets_received = on_all_packets_received
 
   # How are interpolated packets for previous time steps provided?
@@ -17,7 +17,7 @@ class AwindaDataCallback(xda.XsCallback):
 class AwindaConnectivityCallback(xda.XsCallback):
   def __init__(self,
                on_wireless_device_connected: Callable[[xda.XsDevice], None]):
-    super(AwindaConnectivityCallback, self).__init__()
+    super().__init__()
     self._on_wireless_device_connected = on_wireless_device_connected
   
   def onConnectivityChanged(self, dev: xda.XsDevice, newState):

@@ -79,7 +79,7 @@ class SensorStreamer(ABC):
 
   # Connect to the sensor device(s).
   @abstractmethod
-  def connect(self) -> None:
+  def connect(self) -> bool:
     pass
 
   # Launch data streaming form the device.

@@ -3,17 +3,18 @@ import numpy as np
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
-################################################
-################################################
-# A structure to store DOTs stream's data.
-################################################
-################################################
+#########################################
+#########################################
+# A structure to store DOTs stream's data
+#########################################
+#########################################
 class CameraStream(Stream):
   def __init__(self, 
                camera_mapping: dict,
                fps: float,
-               resolution: tuple[int]) -> None:
-    super(CameraStream, self).__init__()
+               resolution: tuple[int],
+               **_) -> None:
+    super().__init__()
 
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping = OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
@@ -38,7 +39,6 @@ class CameraStream(Stream):
                       sampling_rate_hz=fps,
                       extra_data_info=None,
                       data_notes=self._data_notes[camera_name]["timestamp"])
-      # Add a stream for the frames.
       self.add_stream(device_name=camera_name,
                       stream_name='frame_sequence',
                       is_video=False,
@@ -47,6 +47,7 @@ class CameraStream(Stream):
                       sampling_rate_hz=fps,
                       extra_data_info=None,
                       data_notes=self._data_notes[camera_name]["frame_sequence"])
+
 
   def append_data(self,
                   device_id: str,
@@ -59,18 +60,8 @@ class CameraStream(Stream):
     self._append_data(self._camera_mapping[device_id], 'frame_sequence', time_s, sequence_id)
 
 
-  ###########################
-  ###### VISUALIZATION ######
-  ###########################
-
-  # Specify how the streams should be visualized.
   def get_default_visualization_options(self):
-    # Start by not visualizing any streams.
-    visualization_options = {}
-    for (device_name, device_info) in self._streams_info.items():
-      visualization_options.setdefault(device_name, {})
-      for (stream_name, stream_info) in device_info.items():
-        visualization_options[device_name].setdefault(stream_name, {'class': None})
+    visualization_options = super().get_default_visualization_options()
     
     # Show frames from each camera as a video.
     for camera_id in self._camera_mapping.values():

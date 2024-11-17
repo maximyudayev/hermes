@@ -19,6 +19,7 @@ from utils.print_utils import *
 #       for data: 'data', 'time_s', 'time_str', and others if desired
 #       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz', 'timesteps_before_solidified', 'extra_data_info'
 # TODO: set a flag to periodically clear old data (if needed)
+# TODO: report effective sample rate periodically
 ################################################
 ################################################
 class Stream(ABC):
@@ -41,7 +42,7 @@ class Stream(ABC):
   ############################
   # Business logic of concrete Stream implementation, must specify `time_s` parameter and any custom data thereafter
   @abstractmethod
-  def append_data(self, time_s: float):
+  def append_data(self, time_s: float) -> None:
     pass
 
   # Get how each stream should be visualized.
@@ -49,8 +50,14 @@ class Stream(ABC):
   # Returns a dictionary mapping [device_name][stream_name] to a dict of visualizer options.
   # See DataVisualizer for options of default visualizers, such as line plots and videos.
   @abstractmethod
-  def get_default_visualization_options(self):
-    pass
+  def get_default_visualization_options(self) -> dict:
+    # By default no streams are visualized
+    visualization_options = {}
+    for (device_name, device_info) in self._streams_info.items():
+      visualization_options.setdefault(device_name, {})
+      for (stream_name, stream_info) in device_info.items():
+        visualization_options[device_name].setdefault(stream_name, {'class': None})
+    return visualization_options
 
   #############################
   ###### GETTERS/SETTERS ######

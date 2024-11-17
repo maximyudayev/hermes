@@ -89,10 +89,10 @@ class DataLogger(Worker):
                print_debug: bool = False,
                log_history_filepath: str = None):
 
-    super(DataLogger, self).__init__(classes=classes_to_log,
-                                     port_sub=port_sub,
-                                     port_sync=port_sync,
-                                     port_killsig=port_killsig)
+    super().__init__(classes=classes_to_log,
+                     port_sub=port_sub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
 
     # Record the configuration options.
     self._stream_hdf5 = stream_hdf5
@@ -164,7 +164,7 @@ class DataLogger(Worker):
   # The main run method for the DataLogger.
   # Initialize and start stream-logging to periodically write data if desired.
   def run(self):
-    super(DataLogger, self).run()
+    super().run()
 
     log_start_time_s = time.time()
 
@@ -195,13 +195,11 @@ class DataLogger(Worker):
         msg = deserialize(payload)
         topic_tree: list[str] = topic.split('.')
         self._streams[topic_tree[0]].append_data(**msg)
-        # TODO: video can have multiple subtopics
-        print("Received from %s"% topic_tree[0], flush=True)
       
       if self._killsig in poll_res[0]:
         # TODO: wait until every stream receives the "last" message to save everything 
         #   and then respond to StreamBroker that we are finished and exit
-        pass
+        self.quit()
 
 
   # Stop all data logging.
@@ -221,7 +219,7 @@ class DataLogger(Worker):
                          dump_video=self._dump_video, 
                          dump_audio=self._dump_audio,
                          log_time_s=log_stop_time_s)
-    super(DataLogger, self).quit()
+    super().quit()
 
 
   #################################

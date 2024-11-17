@@ -34,13 +34,13 @@ class InsoleStreamer(SensorStreamer):
       "sampling_rate_hz": sampling_rate_hz
     }
 
-    SensorStreamer.__init__(self, 
-                            stream_info=stream_info,
-                            port_pub=port_pub,
-                            port_sync=port_sync,
-                            port_killsig=port_killsig,
-                            print_status=print_status,
-                            print_debug=print_debug)
+    super().__init__(self, 
+                     stream_info=stream_info,
+                     port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     print_status=print_status,
+                     print_debug=print_debug)
     
     input_ip = "127.0.0.1"
     port = 8888
@@ -48,20 +48,22 @@ class InsoleStreamer(SensorStreamer):
     self.sock.settimeout(0.5)
     self.sock.bind((input_ip, port))
 
+
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
   def create_stream(cls, stream_info: dict) -> InsoleStream:
     return InsoleStream(**stream_info)
 
-  # Connect to the sensor.
-  def connect(self):
-    while True:
-      try:
-        self.sock.recv(1024)
-      except socket.timeout:
-        time.sleep(1)
-      return True
 
-  def run(self):
+  # Connect to the sensor.
+  def connect(self) -> bool:
+    try:
+      self.sock.recv(1024)
+    except socket.timeout:
+      time.sleep(1)
+    return True
+
+
+  def run(self) -> None:
     while self._running:
       data, address = self.sock.recvfrom(1024) # data is whitespace-separated byte string
       time_s: float = time.time()
@@ -75,7 +77,8 @@ class InsoleStreamer(SensorStreamer):
       # Send the data packet on the PUB socket.
       self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
+
   # Clean up and quit
-  def quit(self):
+  def quit(self) -> None:
     self.sock.close()
-    super(InsoleStreamer, self).quit()
+    super().quit()
