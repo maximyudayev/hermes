@@ -14,6 +14,7 @@ import numpy as np
 import time
 from collections import OrderedDict
 import traceback
+from utils.msgpack_utils import serialize
 
 from utils.print_utils import *
 
@@ -23,37 +24,13 @@ from utils.print_utils import *
 ################################################
 ################################################
 class TmsiStreamer(SensorStreamer):
-  
-  ########################
-  ###### INITIALIZE ######
-  ########################
-  
-  # Initialize the sensor streamer.
-  # @param visualization_options Can be used to specify how data should be visualized.
-  #   It should be a dictionary with the following keys:
-  #     'visualize_streaming_data': Whether or not visualize any data during streaming.
-  #     'update_period_s': How frequently to update the visualizations during streaming.
-  #     'visualize_all_data_when_stopped': Whether to visualize a summary of data at the end of the experiment.
-  #     'wait_while_visualization_windows_open': After the experiment finishes, whether to automatically close visualization windows or wait for the user to close them.
-  #     'classes_to_visualize': [optional] A list of class names that should be visualized (others will be suppressed).  For example, ['TouchStreamer', 'MyoStreamer']
-  #     'use_composite_video': Whether to combine visualizations from multiple streamers into a single tiled visualization.  If not, each streamer will create its own window.
-  #     'composite_video_filepath': If using composite video, can specify a filepath to save it as a video.
-  #     'composite_video_layout': If using composite video, can specify which streamers should be included and how to arrange them. See some of the launch files for examples.
-  # @param log_player_options Can be used to replay data from an existing log instead of streaming real-time data.
-  #   It should be a dictionary with the following keys:
-  #     'log_dir': The directory with log data to replay (should directly contain the HDF5 file).
-  #     'pause_to_replay_in_realtime': If reading from the logs is faster than real-time, can wait between reads to keep the replay in real time.
-  #     'skip_timesteps_to_replay_in_realtime': If reading from the logs is slower than real-time, can skip timesteps as needed to remain in real time.
-  #     'load_datasets_into_memory': Whether to load all data into memory before starting the replay, or whether to read from the HDF5 file each timestep.
-  # @param print_status Whether or not to print messages with level 'status'
-  # @param print_debug Whether or not to print messages with level 'debug'
-  # @param log_history_filepath A filepath to save log messages if desired.
+  _log_source_tag = 'SAGA'
+
   def __init__(self,
                port_pub: str = "42069",
                port_sync: str = "42071",
                port_killsig: str = "42066",
                stream_info: dict = {},
-               log_history_filepath: str | None = None,
                print_status: bool = True,
                print_debug: bool = False,)-> None:
     
@@ -63,65 +40,20 @@ class TmsiStreamer(SensorStreamer):
                             port_killsig = port_killsig,
                             stream_info = stream_info,
                             print_status=print_status, 
-                            print_debug=print_debug,
-                            log_history_filepath=log_history_filepath)
+                            print_debug=print_debug)
     
-    self._log_source_tag = 'SAGA'
+    
     self._device_name = 'TMSi_SAGA'
-    self._data = self.create_stream(stream_info)
-    """self.add_stream(device_name=self._device_name,
-                    stream_name='breath',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=20,
-                    extra_data_info={},
-                    data_notes="")
-    
-    self.add_stream(device_name=self._device_name,
-                    stream_name='GSR',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=20,
-                    extra_data_info={},
-                    data_notes="")
-    
-    self.add_stream(device_name=self._device_name,
-                    stream_name='SPO2',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=20,
-                    extra_data_info={},
-                    data_notes="")
-    
-    self.add_stream(device_name=self._device_name,
-                    stream_name='BIP-01',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=20,
-                    extra_data_info={},
-                    data_notes="")
-    
-    self.add_stream(device_name=self._device_name,
-                    stream_name='BIP-02',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=20,
-                    extra_data_info={},
-                    data_notes="")"""
     
 
   #######################################
-  def create_stream(self, stream_info: dict = {}) -> TmsiStream:  
+  def create_stream(self, stream_info: dict, **kwargs) -> TmsiStream:  
     return TmsiStream(**stream_info)
-  
-  def _log_source_tag(self):
-    pass
+
 
   # Connect to the sensor.
   # @param timeout_s How long to wait for the sensor to respond.
   def connect(self, timeout_s=10):
-    #from utils.tmsi_aux.TMSiSDK.tmsi_sdk import TMSiSDK
-    #from utils.tmsi_aux.TMSiSDK.device.devices.saga import saga_API
     try:
       TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.docked, ds_interface = DeviceInterfaceType.usb)
       discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
@@ -167,8 +99,9 @@ class TmsiStreamer(SensorStreamer):
         # Close the connection to the device (with the original interface type)
         self.dev.close()
         
-      print("Remove saga from the dock")
-      time.sleep(3)
+      #print("Remove saga from the dock")
+      time.sleep(3) # sleep a bit to allow system to set up corretly
+      print('wifi setup starting')
       # connection over wifi
       TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.wifi, ds_interface = DeviceInterfaceType.usb, num_retries = 10)
       discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
@@ -210,7 +143,10 @@ class TmsiStreamer(SensorStreamer):
             reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
             time_s = time.time()
             for column in reshaped.T:
-              self._data.append_data(time_s, column)
+              self._stream.append_data(time_s, column)
+              msg = serialize(time_s=time_s, column=column)
+              # Send the data packet on the PUB socket.
+              self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
         
     except KeyboardInterrupt: # The program was likely terminated
       pass
@@ -274,42 +210,3 @@ class TmsiStreamer(SensorStreamer):
               processed_options[device_name][stream_name][k] = v
   
     return processed_options
-
-
-#####################
-###### TESTING ######
-#####################
-if __name__ == '__main__':
-  # Configuration.
-  duration_s = 30
-  
-  # Connect to the device(s).
-  template_streamer = TmsiStreamer(print_status=True, print_debug=False)
-  template_streamer.connect()
-  
-  # Run for the specified duration and periodically print the sample rate.
-  print('\nRunning for %gs!' % duration_s)
-  template_streamer.run()
-  start_time_s = time.time()
-  try:
-    while time.time() - start_time_s < duration_s:
-      time.sleep(2)
-      # Print the sampling rates.
-      msg = ' Duration: %6.2fs' % (time.time() - start_time_s)
-      for device_name in template_streamer.get_device_names():
-        stream_names = template_streamer.get_stream_names(device_name=device_name)
-        for stream_name in stream_names:
-          num_timesteps = template_streamer.get_num_timesteps(device_name, stream_name)
-          msg += ' | %s-%s: %6.2f Hz (%4d Timesteps)' % \
-                 (device_name, stream_name, ((num_timesteps)/(time.time() - start_time_s)), num_timesteps)
-      print(msg)
-  except:
-    pass
-  
-  # Stop the streamer.
-  template_streamer.stop()
-  print('\n'*2)
-  print('='*75)
-  print('Done!')
-  print('\n'*2)
-
