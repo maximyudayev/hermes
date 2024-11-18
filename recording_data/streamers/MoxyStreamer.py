@@ -16,48 +16,10 @@ from openant.devices.scanner import Scanner
 from openant.devices.utilities import auto_create_device
 from openant.devices import ANTPLUS_NETWORK_KEY
 
-'''
-Moxy args to be added to main file
-# Moxy stream
-    {'class': 'MoxyStreamer',
-     'devices' : ["128.69.31.31:5",
-                    "128.68.31.31:5",
-                    "128.67.31.31:5"],
-     'print_debug': print_debug, 'print_status': print_status
-     },
-'''
-
 class CustomNode(Node):
 
     def __init__(self):
         super().__init__()
-
-    def _main(self):
-        while self._running:
-            try:
-                (data_type, channel, data) = self._datas.get(True, 1.0)
-                self._datas.task_done()
-                if data_type == "broadcast":
-                    byte_data = bytes(data)
-                    if byte_data[0] == 1:
-                        counter = byte_data[1]
-                        payload = int.from_bytes(byte_data[4:8],  byteorder='big', signed=False)
-                        total_hem = (payload >> 20) * 0.01
-                        previous_sat_hem = ((payload % (2 ** 20)) >> 10) * 0.1
-                        current_sat_hem = (payload % (2 ** 10)) * 0.1
-                        id = f"{byte_data[8]}.{byte_data[9]}.{byte_data[10]}.{byte_data[11]}:{byte_data[12]}"
-                        print(f"device: {id}; packet {counter}; total hem : {total_hem}g/dl; previous sat : {previous_sat_hem}%; current sat: {current_sat_hem}%")
-                    self.channels[channel].on_broadcast_data(data)
-                elif data_type == "burst":
-                    self.channels[channel].on_burst_data(data)
-                elif data_type == "broadcast_tx":
-                    self.channels[channel].on_broadcast_tx_data(data)
-                elif data_type == "acknowledge":
-                    self.channels[channel].on_acknowledge_data(data)
-                else:
-                    print("Unknown data type '%s': %r", data_type, data)
-            except queue.Empty as _:
-                pass
 
     def sample_devices(self):
         timer = 5
@@ -112,8 +74,8 @@ class MoxyStreamer(SensorStreamer):
 
   #def create_stream(argumets) -> AwindaStream:  
   #  return AwindaStream(argumets["device_mapping"], argumets["num_joints"], argumets["radio_channel"])
-
-  def create_stream(stream_info: dict) -> MoxyStream:
+  @classmethod
+  def create_stream(cls, stream_info: dict) -> MoxyStream:
     return MoxyStream(**stream_info)
   
   def connect(self) -> None:
@@ -121,39 +83,6 @@ class MoxyStreamer(SensorStreamer):
     self.devices = []
     self.node = CustomNode()
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
-
-    self.scanner = Scanner(self.node, device_id=0, device_type=0)
-
-    def on_update(device_tuple, common):
-        device_id = device_tuple[0]
-        print(f"Device #{device_id} common data update: {common}")
-
-    # local function to call when device update device speific page data
-    def on_device_data(device, page_name, data):
-        print(f"Device: {device}, broadcast: {page_name}, data: {data}")
-
-    # local function to call when a device is found - also does the auto-create if enabled
-    def on_found(device_tuple):
-        print("device found")
-        return
-        device_id, device_type, device_trans = device_tuple
-        print(
-            f"Found new device #{device_id} {DeviceType(device_type)}; device_type: {device_type}, transmission_type: {device_trans}"
-        )
-        if len(self.devices) < 16:
-            try:
-                dev = auto_create_device(self.node, device_id, device_type, device_trans)
-                # closure callback of on_device_data with device
-                dev.on_device_data = lambda _, page_name, data, dev=dev: on_device_data(
-                    dev, page_name, data
-                )
-                self.devices.append(dev)
-            except Exception as e:
-                print(f"Could not auto create device: {e}")
-
-    self.scanner.on_found = on_found
-    self.scanner.on_update = on_update
-
     self.node.sample_devices()
 
 

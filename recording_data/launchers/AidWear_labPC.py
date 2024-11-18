@@ -30,9 +30,10 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     True),  # One or more cameras
+    ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
+    ('MoxyStreamer',       False)
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
@@ -66,6 +67,13 @@ if __name__ == '__main__':
      'num_joints'        : 7,
      'sampling_rate_hz'  : 100,
      'radio_channel'     : 15,
+     'print_debug': print_debug, 'print_status': print_status
+     },
+     # Moxy stream
+    {'class': 'MoxyStreamer',
+     'devices' : ["128.69.31.31:5",
+                    "128.68.31.31:5",
+                    "128.67.31.31:5"],
      'print_debug': print_debug, 'print_status': print_status
      },
      # TMSi SAGA stream
@@ -161,7 +169,8 @@ if __name__ == '__main__':
       'DotsStreamer', 
       'AwindaStreamer', 
       'EyeStreamer', 
-      'CameraStreamer'
+      'CameraStreamer',
+      'MoxyStreamer'
       ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,
