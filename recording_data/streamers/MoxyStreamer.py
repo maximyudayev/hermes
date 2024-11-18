@@ -16,6 +16,17 @@ from openant.devices.scanner import Scanner
 from openant.devices.utilities import auto_create_device
 from openant.devices import ANTPLUS_NETWORK_KEY
 
+'''
+Moxy args to be added to main file
+# Moxy stream
+    {'class': 'MoxyStreamer',
+     'devices' : ["128.69.31.31:5",
+                    "128.68.31.31:5",
+                    "128.67.31.31:5"],
+     'print_debug': print_debug, 'print_status': print_status
+     },
+'''
+
 class CustomNode(Node):
 
     def __init__(self):
@@ -49,7 +60,7 @@ class CustomNode(Node):
                 pass
 
     def sample_devices(self):
-        timer = 10
+        timer = 5
         start_time = time.time()
         self.devices = set()
         while time.time() - timer < start_time:
@@ -80,13 +91,14 @@ class MoxyStreamer(SensorStreamer):
   ########################
 
   def __init__(self, 
+               devices: list[str] = [],
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
                print_status: bool = True, 
                print_debug: bool = False):
 
-    stream_info = {}
+    stream_info = {"devices": devices}
 
     super().__init__(port_pub=port_pub,
                         port_sync=port_sync,
@@ -95,18 +107,14 @@ class MoxyStreamer(SensorStreamer):
                         print_status=print_status, 
                         print_debug=print_debug)
     
-
-    self.devices = ["128.69.31.31:5",
-                    "128.68.31.31:5",
-                    "128.67.31.31:5"] # list of device ids
-    
+    self.devices = devices
    
 
   #def create_stream(argumets) -> AwindaStream:  
   #  return AwindaStream(argumets["device_mapping"], argumets["num_joints"], argumets["radio_channel"])
 
-  def create_stream(self) -> MoxyStream:
-    return MoxyStream(self.devices)
+  def create_stream(stream_info: dict) -> MoxyStream:
+    return MoxyStream(**stream_info)
   
   def connect(self) -> None:
     
@@ -165,10 +173,12 @@ class MoxyStreamer(SensorStreamer):
                     counter = data[1]
                     THb = ((int(data[4] >> 4) << 4) + (int(data[4] % 2**4)) + (int(data[5] % 2**4) << 8)) * 0.01
                     SmO2 = ((int(data[7] >> 4) << 6) + (int(data[7] % 2**4) << 2) + int(data[6] % 2**4)) * 0.1
-                    id = f"{byte_data[8]}.{byte_data[9]}.{byte_data[10]}.{byte_data[11]}:{byte_data[12]}"
-                    if counter_per_sensor[id] != counter:
-                        self._stream.append_data(id, time_s, THb, SmO2, counter)
-                    self.node.channels[channel].on_broadcast_data(data)
+                    device_id = f"{byte_data[8]}.{byte_data[9]}.{byte_data[10]}.{byte_data[11]}:{byte_data[12]}"
+                    if counter_per_sensor[device_id] != counter:
+                        self._stream.append_data(device_id, time_s, THb, SmO2, counter)
+                        msg = serialize(time_s=time_s, device_id=device_id, THb=THb, SmO2=SmO2, counter=counter)
+                        # Send the data packet on the PUB socket.
+                        self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
             else:
                   print("Unknown data type '%s': %r", data_type, data)
         except queue.Empty as _:

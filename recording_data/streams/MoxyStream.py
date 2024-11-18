@@ -9,7 +9,7 @@ from visualizers import LinePlotVisualizer
 ################################################
 ################################################
 class MoxyStream(Stream):
-  def __init__(self, devices) -> None:
+  def __init__(self, devices, **kwargs) -> None:
     super().__init__()
     
     self._device_name = 'MoxyStream'
