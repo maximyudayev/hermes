@@ -29,7 +29,7 @@ class CameraStream(Stream):
                       data_type='uint8',
                       sample_size=resolution,
                       sampling_rate_hz=fps,
-                      extra_data_info=None,
+                      is_measure_rate_hz=True,
                       data_notes=self._data_notes[camera_name]["frame"])
       self.add_stream(device_name=camera_name,
                       stream_name='timestamp',
@@ -37,7 +37,6 @@ class CameraStream(Stream):
                       data_type='float64',
                       sample_size=(1),
                       sampling_rate_hz=fps,
-                      extra_data_info=None,
                       data_notes=self._data_notes[camera_name]["timestamp"])
       self.add_stream(device_name=camera_name,
                       stream_name='frame_sequence',
@@ -45,8 +44,11 @@ class CameraStream(Stream):
                       data_type='float64',
                       sample_size=(1),
                       sampling_rate_hz=fps,
-                      extra_data_info=None,
                       data_notes=self._data_notes[camera_name]["frame_sequence"])
+
+
+  def get_fps(self) -> dict[str, float]:
+    return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
 
 
   def append_data(self,

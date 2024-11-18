@@ -18,36 +18,31 @@ class TmsiStream(Stream):
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz,
-                    extra_data_info=None,
-                    data_notes="")
+                    is_measure_rate_hz=True)
     self.add_stream(device_name=self._device_name,
                     stream_name='GSR',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
-                    extra_data_info=None,
-                    data_notes="")
+                    sampling_rate_hz=sampling_rate_hz)
     self.add_stream(device_name=self._device_name,
                     stream_name='SPO2',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
-                    extra_data_info=None,
-                    data_notes="")
+                    sampling_rate_hz=sampling_rate_hz)
     self.add_stream(device_name=self._device_name,
                     stream_name='BIP-01',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
-                    extra_data_info=None,
-                    data_notes="")
+                    sampling_rate_hz=sampling_rate_hz)
     self.add_stream(device_name=self._device_name,
                     stream_name='BIP-02',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
-                    extra_data_info=None,
-                    data_notes="")
+                    sampling_rate_hz=sampling_rate_hz)
+
+
+  def get_fps(self) -> dict[str, float]:
+    return {self._device_name: super()._get_fps(self._device_name, 'breath')}
 
 
   def append_data(self,

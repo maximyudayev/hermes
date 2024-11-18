@@ -31,57 +31,54 @@ class DotsStream(Stream):
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-x'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-y',
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-y'])
     self.add_stream(device_name=self._device_name,
                     stream_name='acceleration-z',
                     data_type='float32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None,
                     data_notes=self._data_notes['dots-imu']['acceleration-z'])
     self.add_stream(device_name=self._device_name,
                     stream_name='orientation-x',
                     data_type='float32',
                     sample_size=(self._num_joints),
-                    sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None, 
+                    sampling_rate_hz=self._sampling_rate_hz, 
                     data_notes=self._data_notes['dots-imu']['orientation-x'])
     self.add_stream(device_name=self._device_name,
                     stream_name='orientation-y',
                     data_type='float32',
                     sample_size=(self._num_joints),
-                    sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None, 
+                    sampling_rate_hz=self._sampling_rate_hz, 
                     data_notes=self._data_notes['dots-imu']['orientation-y'])
     self.add_stream(device_name=self._device_name,
                     stream_name='orientation-z',
                     data_type='float32',
                     sample_size=(self._num_joints),
-                    sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None, 
+                    sampling_rate_hz=self._sampling_rate_hz, 
                     data_notes=self._data_notes['dots-imu']['orientation-z'])
     self.add_stream(device_name=self._device_name,
                     stream_name='timestamp',
                     data_type='uint32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None,
                     data_notes=self._data_notes['dots-time']['timestamp'])
     self.add_stream(device_name=self._device_name,
                     stream_name='counter',
                     data_type='uint16',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    extra_data_info=None,
+                    is_measure_rate_hz=True,
                     data_notes=self._data_notes['dots-time']['counter'])
+
+
+  def get_fps(self) -> dict[str, float]:
+    return {self._device_name: super()._get_fps(self._device_name, 'counter')}
 
 
   def append_data(self,

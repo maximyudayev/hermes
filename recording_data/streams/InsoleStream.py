@@ -17,7 +17,8 @@ class InsoleStream(Stream):
                     stream_name='timestamp',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=sampling_rate_hz,
+                    is_measure_rate_hz=True)
     self.add_stream(device_name=self._device_name,
                     stream_name='foot_pressure_left',
                     data_type='float32',
@@ -68,6 +69,10 @@ class InsoleStream(Stream):
                     data_type='float32',
                     sample_size=[2],
                     sampling_rate_hz=sampling_rate_hz)
+
+
+  def get_fps(self) -> dict[str, float]:
+    return {self._device_name: super()._get_fps(self._device_name, 'timestamp')}
 
 
   def append_data(self,

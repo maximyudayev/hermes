@@ -25,6 +25,10 @@ class EyeStream(Stream):
     super().__init__()
 
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
+    self._stream_video_world = stream_video_world
+    self._stream_video_worldGaze = stream_video_worldGaze
+    self._stream_video_eye = stream_video_eye
+    self._is_binocular = is_binocular
     
     # Define data notes that will be associated with streams created below.
     self._define_data_notes()
@@ -37,8 +41,7 @@ class EyeStream(Stream):
                     stream_name='pupilCore_time_s',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-time']['pupilCore_time_s'])
 
     # Create streams for gaze data.
@@ -46,43 +49,38 @@ class EyeStream(Stream):
                     stream_name='confidence',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-gaze']['confidence'])
     self.add_stream(device_name='eye-tracking-gaze', 
                     stream_name='eye_center_3d',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-gaze']['eye_center_3d'])
     self.add_stream(device_name='eye-tracking-gaze', 
                     stream_name='normal_3d',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-gaze']['normal_3d'])
     self.add_stream(device_name='eye-tracking-gaze', 
                     stream_name='point_3d',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-gaze']['point_3d'])
     self.add_stream(device_name='eye-tracking-gaze', 
                     stream_name='position',
                     data_type='float64', 
                     sample_size=(2),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-gaze']['position'])
     self.add_stream(device_name='eye-tracking-gaze', 
                     stream_name='timestamp',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
+                    is_measure_rate_hz=True,
                     data_notes=self._data_notes['eye-tracking-gaze']['timestamp'])
 
     # Create streams for pupil data.
@@ -90,106 +88,92 @@ class EyeStream(Stream):
                     stream_name='confidence',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['confidence'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='circle3d_center',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['circle3d_center'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='circle3d_normal',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['circle3d_normal'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='circle3d_radius',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['circle3d_radius'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='diameter',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['diameter'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='diameter3d',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['diameter3d'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='polar_phi',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['polar_phi'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='polar_theta',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['polar_theta'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='position',
                     data_type='float64', 
                     sample_size=(2),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['position'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='projected_sphere_angle',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['projected_sphere_angle'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='projected_sphere_axes',
                     data_type='float64', 
                     sample_size=(2),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['projected_sphere_axes'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='projected_sphere_center',
                     data_type='float64', 
                     sample_size=(2),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['projected_sphere_center'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='sphere_center',
                     data_type='float64', 
                     sample_size=(3),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['sphere_center'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='sphere_radius',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-tracking-pupil']['sphere_radius'])
     self.add_stream(device_name='eye-tracking-pupil', 
                     stream_name='timestamp',
                     data_type='float64', 
                     sample_size=(1),
-                    sampling_rate_hz=None, 
-                    extra_data_info=None,
+                    sampling_rate_hz=fps_video_world,
+                    is_measure_rate_hz=True,
                     data_notes=self._data_notes['eye-tracking-pupil']['timestamp'])
 
     # Create streams for video data.
@@ -199,22 +183,20 @@ class EyeStream(Stream):
                       data_type='float64',
                       sample_size=(1),
                       sampling_rate_hz=fps_video_world,
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-world']['frame_timestamp'])
       self.add_stream(device_name='eye-tracking-video-world', 
                       stream_name='frame_index',
                       data_type='uint64', 
                       sample_size=(1),
                       sampling_rate_hz=fps_video_world, 
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-world']['frame_index'])
       self.add_stream(device_name='eye-tracking-video-world', 
                       stream_name='frame',
                       data_type='uint8', 
                       sample_size=shape_video_world,
                       sampling_rate_hz=fps_video_world, 
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-world']['frame'],
+                      is_measure_rate_hz=True,
                       is_video=True)
 
     if stream_video_worldGaze:
@@ -222,23 +204,21 @@ class EyeStream(Stream):
                       stream_name='frame_timestamp',
                       data_type='float64', 
                       sample_size=(1),
-                      sampling_rate_hz=fps_video_world, 
-                      extra_data_info=None,
+                      sampling_rate_hz=fps_video_world,
                       data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame_timestamp'])
       self.add_stream(device_name='eye-tracking-video-worldGaze', 
                       stream_name='frame_index',
                       data_type='uint64', 
                       sample_size=(1),
-                      sampling_rate_hz=fps_video_world, 
-                      extra_data_info=None,
+                      sampling_rate_hz=fps_video_world,
                       data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame_index'])
       self.add_stream(device_name='eye-tracking-video-worldGaze', 
                       stream_name='frame',
                       data_type='uint8', 
                       sample_size=shape_video_world,
-                      sampling_rate_hz=fps_video_world, 
-                      extra_data_info=None,
+                      sampling_rate_hz=fps_video_world,
                       data_notes=self._data_notes['eye-tracking-video-worldGaze']['frame'],
+                      is_measure_rate_hz=True,
                       is_video=True)
 
     if stream_video_eye:
@@ -247,22 +227,20 @@ class EyeStream(Stream):
                       data_type='float64', 
                       sample_size=(1),
                       sampling_rate_hz=fps_video_eye0, 
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-eye0']['frame_timestamp'])
       self.add_stream(device_name='eye-tracking-video-eye0', 
                       stream_name='frame_index',
                       data_type='uint64', 
                       sample_size=(1),
                       sampling_rate_hz=fps_video_eye0, 
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-eye0']['frame_index'])
       self.add_stream(device_name='eye-tracking-video-eye0', 
                       stream_name='frame',
                       data_type='uint8', 
                       sample_size=shape_video_eye0,
                       sampling_rate_hz=fps_video_eye0, 
-                      extra_data_info=None,
                       data_notes=self._data_notes['eye-tracking-video-eye0']['frame'],
+                      is_measure_rate_hz=True,
                       is_video=True)
       if is_binocular:
         self.add_stream(device_name='eye-tracking-video-eye1', 
@@ -270,23 +248,38 @@ class EyeStream(Stream):
                         data_type='float64', 
                         sample_size=(1),
                         sampling_rate_hz=fps_video_eye1, 
-                        extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-eye1']['frame_timestamp'])
         self.add_stream(device_name='eye-tracking-video-eye1', 
                         stream_name='frame_index',
                         data_type='uint64', 
                         sample_size=(1),
                         sampling_rate_hz=fps_video_eye1, 
-                        extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-eye1']['frame_index'])
         self.add_stream(device_name='eye-tracking-video-eye1', 
                         stream_name='frame',
                         data_type='uint8', 
                         sample_size=shape_video_eye1,
                         sampling_rate_hz=fps_video_eye1, 
-                        extra_data_info=None,
                         data_notes=self._data_notes['eye-tracking-video-eye1']['frame'],
+                        is_measure_rate_hz=True,
                         is_video=True)
+
+
+  def get_fps(self) -> dict[str, float]:
+    fps = {
+      'eye-tracking-gaze': super()._get_fps('eye-tracking-gaze', 'timestamp'),
+      'eye-tracking-pupil': super()._get_fps('eye-tracking-pupil', 'timestamp')
+    }
+
+    if self._stream_video_world:
+      fps['eye-tracking-video-world'] = super()._get_fps('eye-tracking-video-world', 'frame')
+    if self._stream_video_worldGaze:
+      fps['eye-tracking-video-worldGaze'] = super()._get_fps('eye-tracking-video-worldGaze', 'frame')
+    if self._stream_video_eye:
+      fps['eye-tracking-video-eye0'] = super()._get_fps('eye-tracking-video-eye0', 'frame')
+      if self._is_binocular:
+        fps['eye-tracking-video-eye1'] = super()._get_fps('eye-tracking-video-eye1', 'frame')
+    return fps
 
 
   def append_data(self, time_s: float, processed_data: dict) -> None:
