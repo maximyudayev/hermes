@@ -43,7 +43,6 @@ class CustomNode(Node):
     else:
       return False
 
-
 class MoxyStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = "moxy"
@@ -68,7 +67,6 @@ class MoxyStreamer(SensorStreamer):
 
     self.counter_per_sensor = defaultdict(lambda: -1)
 
-
   def create_stream(cls, stream_info: dict) -> MoxyStream:
     return MoxyStream(**stream_info)
 
@@ -78,39 +76,6 @@ class MoxyStreamer(SensorStreamer):
     self.devices = []
     self.node = CustomNode()
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
-
-    self.scanner = Scanner(self.node, device_id=0, device_type=0)
-
-    def on_update(device_tuple, common):
-        device_id = device_tuple[0]
-        print(f"Device #{device_id} common data update: {common}")
-
-    # local function to call when device update device speific page data
-    def on_device_data(device, page_name, data):
-        print(f"Device: {device}, broadcast: {page_name}, data: {data}")
-
-    # local function to call when a device is found - also does the auto-create if enabled
-    def on_found(device_tuple):
-        print("device found")
-        return
-        device_id, device_type, device_trans = device_tuple
-        print(
-            f"Found new device #{device_id} {DeviceType(device_type)}; device_type: {device_type}, transmission_type: {device_trans}"
-        )
-        if len(self.devices) < 16:
-            try:
-                dev = auto_create_device(self.node, device_id, device_type, device_trans)
-                # closure callback of on_device_data with device
-                dev.on_device_data = lambda _, page_name, data, dev=dev: on_device_data(
-                    dev, page_name, data
-                )
-                self.devices.append(dev)
-            except Exception as e:
-                print(f"Could not auto create device: {e}")
-
-    self.scanner.on_found = on_found
-    self.scanner.on_update = on_update
-
     self.node.sample_devices()
   
     return

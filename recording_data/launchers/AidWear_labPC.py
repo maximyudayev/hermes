@@ -31,10 +31,14 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     True),  # One or more cameras
+    ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
+<<<<<<< HEAD
     ('MoxyStreamer',       True)
+=======
+    ('MoxyStreamer',       False)
+>>>>>>> fdacabe (refator: Removed redundant code for Moxys)
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
