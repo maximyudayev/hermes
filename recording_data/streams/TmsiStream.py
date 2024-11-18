@@ -57,6 +57,14 @@ class TmsiStream(Stream):
                     sampling_rate_hz=20,
                     extra_data_info={},
                     data_notes="")
+    
+    self.add_stream(device_name=self._device_name,
+                    stream_name='counter',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=20,
+                    extra_data_info={},
+                    data_notes="")
 
   def append_data(self,
                   time_s: float, 
@@ -66,6 +74,7 @@ class TmsiStream(Stream):
             self._append_data(self._device_name, 'breath', time_s, column[2])
             self._append_data(self._device_name, 'GSR',    time_s, column[3])
             self._append_data(self._device_name, 'SPO2',   time_s, column[4])
+            self._append_data(self._device_name, 'counter',   time_s, column[-1])
 
   def get_default_visualization_options(self):
        return super().get_default_visualization_options()

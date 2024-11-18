@@ -47,7 +47,8 @@ class TmsiStreamer(SensorStreamer):
     
 
   #######################################
-  def create_stream(self, stream_info: dict, **kwargs) -> TmsiStream:  
+  @classmethod
+  def create_stream(cls, stream_info: dict) -> TmsiStream:  
     return TmsiStream(**stream_info)
 
 
@@ -99,7 +100,6 @@ class TmsiStreamer(SensorStreamer):
         # Close the connection to the device (with the original interface type)
         self.dev.close()
         
-      #print("Remove saga from the dock")
       time.sleep(3) # sleep a bit to allow system to set up corretly
       print('wifi setup starting')
       # connection over wifi
