@@ -33,7 +33,7 @@ import time
 
 class MovellaFacade(mdda.XsDotCallback):
   def __init__(self, max_buffer_size=5):
-    super().__init__(self)
+    super().__init__()
 
     self.__manager = 0
 
@@ -140,10 +140,10 @@ class MovellaFacade(mdda.XsDotCallback):
         while not connected and attempts < connectAttempts:
           attempts += 1
           connected = self.__manager.openPort(portInfo)
-          # if not connected: self._log_debug(f"Connection to {address} failed. Retrying {attempts}/{connectAttempts}. Reason: {self.__manager.lastResultText()}.")
+          if not connected: print(f"Connection to {address} failed. Retrying {attempts}/{connectAttempts}. Reason: {self.__manager.lastResultText()}.")
 
         if not connected:
-          # self._log_error(f"Could not connect to {address}.")
+          print(f"Could not connect to {address}.")
           return False
 
         device = self.__manager.device(portInfo.deviceId())
@@ -151,7 +151,7 @@ class MovellaFacade(mdda.XsDotCallback):
           return False
 
         # self._log_debug(f"Found a device with Tag: {device.deviceTagName()} @ address: {address}")
-        self.__connectedDots[portInfo.deviceId()] = device
+        self.__connectedDots[str(portInfo.deviceId())] = device
     # Return success if all devices were instantiated by the SDK
     return all(self.__connectedDots.values())
 
@@ -175,7 +175,7 @@ class MovellaFacade(mdda.XsDotCallback):
   def stream(self) -> bool:
     # Start live data output. Make sure root node is last to go to measurement.
     # self._log_status("Putting devices into measurement mode.")
-    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
+    for joint, device in [*[(device_id, device) for device_id, device in self.__connectedDots.items() if device_id != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
       if not device.startMeasurement(mdda.XsPayloadMode_ExtendedEuler):
         # self._log_error(f"Could not put {device.bluetoothAddress()} into measurement mode. Reason: {device.lastResultText()}")
         return False
@@ -183,7 +183,7 @@ class MovellaFacade(mdda.XsDotCallback):
     # self._log_debug("Successfully put all devices into measurement mode.")
     # self._log_debug("Resetting device headings, don't move the sensors.")
     time.sleep(5)
-    for joint, device in [*[items for items in self.__connectedDots.items() if items[0] != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
+    for joint, device in [*[(device_id, device) for device_id, device in self.__connectedDots.items() if device_id != self.__masterDotId], (self.__masterDotId, self.__connectedDots[self.__masterDotId])]:
       # self._log_debug(f"Resetting heading for device {device.bluetoothAddress()}: ")
       if not device.resetOrientation(mdda.XRM_Heading):
         return False
@@ -259,7 +259,7 @@ class MovellaFacade(mdda.XsDotCallback):
     Returns:
           True if a data packet is available for each of the connected Movella DOT devices
     """
-    for joint, device in self.__connectedDots.items():
+    for device_id, device in self.__connectedDots.items():
       if self.packetAvailable(device.bluetoothAddress()) == 0:
         return False
     return True
@@ -438,9 +438,9 @@ class MovellaFacade(mdda.XsDotCallback):
     """
     if newState == mdda.XDS_Destructing and not self.__closing:
       # print(f"\n{updatedDevice.deviceTagName()} Device powered down")
-      for joint, device in self.__connectedDots:
+      for device_id, device in self.__connectedDots:
         if device.bluetoothAddress() == updatedDevice.bluetoothAddress():
-          del self.__connectedDots[joint]
+          del self.__connectedDots[device_id]
 
   def onButtonClicked(self, device, timestamp):
     """
