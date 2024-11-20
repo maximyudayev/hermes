@@ -18,8 +18,8 @@ if __name__ == '__main__':
   is_real: bool = False # Data collection from actual trials
 
   # Configure network topology.
-  ip_wearablePC: str = "192.168.69.101"
-  ip_labPC: str = "192.168.69.100"
+  ip_wearablePC: str = "192.168.1.101"
+  ip_labPC: str = "192.168.1.100"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -78,17 +78,19 @@ if __name__ == '__main__':
      },
      # TMSi SAGA stream
     {'class': 'TmsiStreamer',
+     'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
      'device_mapping': {
-        'knee_right'  : '0',
-        'foot_right'  : '1',
-        'pelvis'      : '2',
-        'knee_left'   : '3',
-        'foot_left'   : '4',
+        'knee_right'  : '40195BFC800B01F2',
+        'foot_right'  : '40195BFC800B003B',
+        'pelvis'      : '40195BFD80C20052',
+        'knee_left'   : '40195BFC800B017A',
+        'foot_left'   : '40195BFD80C200D1',
       },
+     'master_device'   : 'pelvis', # wireless dot relaying messages, must match a key in the `device_mapping`
      'num_joints'      : 5,
      'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
@@ -142,7 +144,7 @@ if __name__ == '__main__':
 
   # Define local workers/consumers of data.
   workers = dict([
-    ('DataLogger',        True),
+    ('DataLogger',        False),
     ('DataVisualizer',    False),
   ])
   # Configure where and how to save sensor data.

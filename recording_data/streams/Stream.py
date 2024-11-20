@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import copy
 from collections import OrderedDict
+from queue import Queue
 import numpy as np
 
 from utils.time_utils import *
@@ -19,6 +20,7 @@ from utils.print_utils import *
 #       for data: 'data', 'time_s', 'time_str', and others if desired
 #       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz', 'timesteps_before_solidified', 'extra_data_info'
 # TODO: set a flag to periodically clear old data (if needed)
+# TODO: report effective sample rate periodically
 ################################################
 ################################################
 class Stream(ABC):
@@ -41,7 +43,7 @@ class Stream(ABC):
   ############################
   # Business logic of concrete Stream implementation, must specify `time_s` parameter and any custom data thereafter
   @abstractmethod
-  def append_data(self, time_s: float):
+  def append_data(self, time_s: float) -> None:
     pass
 
   # Get how each stream should be visualized.
@@ -49,12 +51,36 @@ class Stream(ABC):
   # Returns a dictionary mapping [device_name][stream_name] to a dict of visualizer options.
   # See DataVisualizer for options of default visualizers, such as line plots and videos.
   @abstractmethod
-  def get_default_visualization_options(self):
+  def get_default_visualization_options(self) -> dict:
+    # By default no streams are visualized
+    visualization_options = {}
+    for (device_name, device_info) in self._streams_info.items():
+      visualization_options.setdefault(device_name, {})
+      for (stream_name, stream_info) in device_info.items():
+        visualization_options[device_name].setdefault(stream_name, {'class': None})
+    return visualization_options
+
+  # Get actual frame rate, subject to expected transmission delay and throughput limitation,
+  #   to confidently judge the performance of the system.
+  # Computed based on how fast data becomes available to the data structure, hence suitable
+  #   to measure frame rate on the subscriber, local or remote.
+  @abstractmethod
+  def get_fps(self) -> dict[str, float]:
     pass
 
   #############################
   ###### GETTERS/SETTERS ######
   #############################
+  # Retrieve actual frame rate of a stream if it was set to measure.
+  # Records and refreshes statistics on each data structure append
+  #   call, making actual frame rate estimate if data sampled remotely and
+  #   sent over LAN to collection device.
+  def _get_fps(self, device_name: str, stream_name: str) -> float | None:
+    if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
+      return self._streams_info[device_name][stream_name]['actual_rate_hz']
+    else:
+      return None
+
   # Add a new device stream.
   # @param timesteps_before_solidified allows indication that data/timestamps for
   #   previous timesteps may be altered when a new sample is received.
@@ -72,7 +98,8 @@ class Stream(ABC):
                  stream_name: str, 
                  data_type: type, 
                  sample_size: list[int] | tuple[int], 
-                 sampling_rate_hz: int | None, 
+                 sampling_rate_hz: float, 
+                 is_measure_rate_hz: bool = False,
                  data_notes: str | dict = None,
                  is_video: bool = False,
                  is_audio: bool = False, 
@@ -86,11 +113,22 @@ class Stream(ABC):
                                                     ('sample_size', sample_size),
                                                     ('data_notes', data_notes or {}),
                                                     ('sampling_rate_hz', sampling_rate_hz),
+                                                    ('is_measure_rate_hz', is_measure_rate_hz),
                                                     ('is_video', is_video),
                                                     ('is_audio', is_audio),
                                                     ('timesteps_before_solidified', timesteps_before_solidified),
                                                     ('extra_data_info', extra_data_info or {}),
                                                     ])
+    if is_measure_rate_hz:
+      # Set at start actual rate equal to desired sample rate
+      self._streams_info[device_name][stream_name]['actual_rate_hz'] = self._streams_info[device_name][stream_name]['sampling_rate_hz']
+      # Create a circular buffer of 1 second, w.r.t. desired sample rate
+      circular_buffer_len: int = round(sampling_rate_hz)
+      self._streams_info[device_name][stream_name]['dt_circular_buffer'] = list([1/sampling_rate_hz] * circular_buffer_len)
+      self._streams_info[device_name][stream_name]['dt_circular_index'] = 0
+      self._streams_info[device_name][stream_name]['dt_running_sum'] = 1.0
+      self._streams_info[device_name][stream_name]['old_toa'] = time.time()
+
     self.clear_data(device_name, stream_name)
 
   # Add a single timestep of data to the data log.
@@ -110,6 +148,28 @@ class Stream(ABC):
     if extra_data is not None:
       for (extra_key, extra_value) in extra_data.items():
         self._data[device_name][stream_name][extra_key].append(extra_value)
+    # If stream set to measure actual fps
+    if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
+      # Make intermediate variables for current and previous samples' time-of-arrival
+      new_toa = time.time()
+      old_toa = self._streams_info[device_name][stream_name]['old_toa']
+      # Record the new arrival time for the next iteration
+      self._streams_info[device_name][stream_name]['old_toa'] = new_toa
+      # Update the running sum of time increments of the circular buffer  
+      oldest_dt = self._streams_info[device_name][stream_name]['dt_circular_buffer']\
+                    [self._streams_info[device_name][stream_name]['dt_circular_index']]
+      newest_dt = new_toa - old_toa
+      self._streams_info[device_name][stream_name]['dt_running_sum'] += (newest_dt - oldest_dt)
+      # Put current time increment in place of the oldest one in the circular buffer
+      self._streams_info[device_name][stream_name]['dt_circular_buffer']\
+        [self._streams_info[device_name][stream_name]['dt_circular_index']] = newest_dt
+      # Move the index in the circular fashion
+      self._streams_info[device_name][stream_name]['dt_circular_index'] %=\
+        len(self._streams_info[device_name][stream_name]['dt_circular_buffer'])
+      # Refresh the actual frame rate information
+      self._streams_info[device_name][stream_name]['actual_rate_hz'] = \
+        len(self._streams_info[device_name][stream_name]['dt_circular_buffer']) / \
+        self._streams_info[device_name][stream_name]['dt_running_sum']
 
   # Clear data for a stream (and add the stream if it doesn't exist).
   # Optionally, can clear only data before a specified index.
@@ -199,11 +259,11 @@ class Stream(ABC):
                return_deepcopy: bool = True) -> dict[str, np.ndarray]:
     # Convert desired times to indexes if applicable.
     if starting_time_s is not None:
-      starting_index = self.get_index_for_time_s(device_name, stream_name, starting_time_s, target_before=False)
+      starting_index = self._get_index_for_time_s(device_name, stream_name, starting_time_s, target_before=False)
       if starting_index is None:
         return None
     if ending_time_s is not None:
-      ending_index = self.get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
+      ending_index = self._get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
       if ending_index is None:
         return None
       else:
@@ -236,11 +296,11 @@ class Stream(ABC):
   # Helper to get the sample index that best corresponds to the specified time.
   # Will return the index of the last sample that is <= the specified time
   #  or the index of the first sample that is >= the specified time.
-  def get_index_for_time_s(self, 
-                           device_name: str, 
-                           stream_name: str, 
-                           target_time_s: float, 
-                           target_before: bool = True) -> np.ndarray:
+  def _get_index_for_time_s(self, 
+                            device_name: str, 
+                            stream_name: str, 
+                            target_time_s: float, 
+                            target_before: bool = True) -> np.ndarray:
     # Get the sample times streamed so far, or loaded from existing logs.
     times_s = np.array(self._get_times_s(device_name, stream_name))
     # Get the last sample before the specified time.

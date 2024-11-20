@@ -18,13 +18,13 @@ class HeatmapVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    Visualizer.__init__(self, 
-                        visualizer_options=visualizer_options, 
-                        hidden=hidden,
-                        parent_layout=parent_layout, 
-                        parent_layout_size=parent_layout_size,
-                        print_debug=print_debug, 
-                        print_status=print_status)
+    super().__init__(self, 
+                     visualizer_options=visualizer_options, 
+                     hidden=hidden,
+                     parent_layout=parent_layout, 
+                     parent_layout_size=parent_layout_size,
+                     print_debug=print_debug, 
+                     print_status=print_status)
     
     self._app = QtGui.QApplication([])
     self._layout = parent_layout
@@ -118,12 +118,13 @@ class HeatmapVisualizer(Visualizer):
   #   as part of a periodic update loop or in order to show all data at once.
   #   If periodically, new data should be added to the visualization if applicable.
   #   Otherwise the new data should replace the visualization if applicable.
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     # Update the heatmap with the latest data.
     self._data = np.array(new_data['data'][-1]).reshape(self._sample_size)
     self._heatmap.setImage(self._data.T) # index the image as (x, y) but numpy as (y, x)
     
     # Update the colorbar scale based on a buffer of recent colorbar levels.
+    # TODO: update the fps overlay
     if self._auto_colorbar_levels:
       heatmap_levels = self._heatmap.getLevels()
       # heatmap_levels = abs(heatmap_levels)*0.8 * np.sign(heatmap_levels)

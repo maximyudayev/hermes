@@ -62,10 +62,10 @@ class DataVisualizer(Worker):
                print_debug: bool = False, 
                log_history_filepath: str = None):
 
-    super(DataVisualizer, self).__init__(classes=classes_to_visualize,
-                                         port_sub=port_sub,
-                                         port_sync=port_sync,
-                                         port_killsig=port_killsig)
+    super().__init__(classes=classes_to_visualize,
+                     port_sub=port_sub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
 
     # Record the configuration options.
     self._update_period_s = update_period_s
@@ -99,7 +99,7 @@ class DataVisualizer(Worker):
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
   def run(self):
-    super(DataVisualizer, self).run()
+    super().run()
 
     self._start_stream_visualization()
 
@@ -122,14 +122,12 @@ class DataVisualizer(Worker):
       
       if self._killsig in sockets:
         # Stop the visualization thread
-        self._streamVis = False
-
-        pass
+        self.quit()
 
   def quit(self):
     self._stop_stream_visualization()
     self._close_visualizations()
-    super(DataVisualizer, self).quit()
+    super().quit()
 
 
   ##############################
@@ -489,7 +487,7 @@ class DataVisualizer(Worker):
               else:
                 starting_index = ending_index - 1
             else:
-              ending_index_forTime = stream.get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
+              ending_index_forTime = stream._get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
               if ending_index_forTime is not None:
                 ending_index_forTime += 1 # since will use as a list index and thus exclude the specified index
                 starting_index = ending_index_forTime - 1
@@ -506,7 +504,8 @@ class DataVisualizer(Worker):
             # Visualize any new data and save any updated sates.
             if visualizer is not None:
               start_visualizer_update_time_s = time.time()
-              visualizer.update(new_data, visualizing_all_data=False)
+              fps_info = stream.get_fps()
+              visualizer.update(new_data, visualizing_all_data=False, fps=fps_info[device_name])
               # self._log_status('Time to update vis: \t%s \t%s \t%s \t%0.3f' % (type(streamer).__name__, stream_name, type(visualizer).__name__, time.time() - start_visualizer_update_time_s))
             # Update starting indexes for the next write.
             num_new_entries = len(new_data['data'])
@@ -681,14 +680,14 @@ class DataVisualizer(Worker):
                                   [int(composite_img.shape[1]/50),  # for centered text: int(composite_img.shape[1] - self._composite_video_timestamp_textSize[0]/2)
                                    int(composite_img.shape[0] - self._composite_video_banner_height/2 + self._composite_video_banner_timestamp_textSize[1]/3)],
                                   fontFace=self._composite_video_banner_fontFace, 
-                                  ontScale=self._composite_video_banner_timestamp_fontScale,
+                                  fontScale=self._composite_video_banner_timestamp_fontScale,
                                   color=self._composite_video_banner_text_color, 
                                   thickness=self._composite_video_banner_fontThickness)
     # Add active labels to the bottom banner.
     if self._experimentControl_stream is not None:
       device_name = 'experiment-activities'
       stream_name = 'activities'
-      index_forTime = self._experimentControl_stream.get_index_for_time_s(device_name, stream_name, time_s, target_before=True)
+      index_forTime = self._experimentControl_stream._get_index_for_time_s(device_name, stream_name, time_s, target_before=True)
       if index_forTime is not None:
         # Get the most recent label entry.
         label_data = self._experimentControl_stream.get_data(device_name, 
@@ -775,7 +774,8 @@ class DataVisualizer(Worker):
             waiting_functions.append(visualizer.wait_for_user_to_close)
     # Wait for all of the functions to be satisfied.
     if len(waiting_functions) > 0:
-      self._log_userAction('\n\n*** Close all visualization windows to exit\n\n')
+      # self._log_userAction('\n\n*** Close all visualization windows to exit\n\n')
+      pass
     for wait_fn in waiting_functions:
       wait_fn()
     if self._use_composite_video and not self._hide_composite:

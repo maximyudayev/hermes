@@ -33,7 +33,7 @@ class Visualizer(ABC):
   #   If periodically, new data should be added to the visualization if applicable.
   #   Otherwise the new data should replace the visualization if applicable.
   @abstractmethod
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     pass
   
   # Retrieve an image of the most updated visualization.

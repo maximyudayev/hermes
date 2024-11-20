@@ -14,6 +14,7 @@ import zmq
 
 from streams.Stream import Stream
 from streamers import STREAMERS
+from streamers.SensorStreamer import SensorStreamer
 
 from utils.msgpack_utils import deserialize
 from utils.time_utils import *
@@ -89,12 +90,13 @@ class DataLogger(Worker):
                print_debug: bool = False,
                log_history_filepath: str = None):
 
-    super(DataLogger, self).__init__(classes=classes_to_log,
-                                     port_sub=port_sub,
-                                     port_sync=port_sync,
-                                     port_killsig=port_killsig)
+    super().__init__(classes=classes_to_log,
+                     port_sub=port_sub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
 
     # Record the configuration options.
+    self._streamer_specs = streamer_specs
     self._stream_hdf5 = stream_hdf5
     self._stream_csv = stream_csv
     self._stream_video = stream_video
@@ -117,27 +119,27 @@ class DataLogger(Worker):
     self._print_status = print_status
     self._print_debug = print_debug
     self._log_history_filepath = log_history_filepath
-    
+
     # Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
     self._streams: OrderedDict[str, Stream] = OrderedDict()
-    for streamer_spec in streamer_specs:
+    for streamer_spec in self._streamer_specs:
       class_name: str = streamer_spec['class']
       class_args = streamer_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Stream] = STREAMERS[class_name]
-      class_object: Stream = class_type.create_stream(**class_args)
+      class_type: type[SensorStreamer] = STREAMERS[class_name]
+      class_object: Stream = class_type.create_stream(None, stream_info=class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
     # Initialize a record of what indices have been logged,
     #  and how many timesteps to stay behind of the most recent step (if needed).
-    self._next_data_indexes = [OrderedDict() for _ in streamer_specs]
-    self._timesteps_before_solidified = [OrderedDict() for _ in streamer_specs]
+    self._next_data_indexes = [OrderedDict() for _ in self._streamer_specs]
+    self._timesteps_before_solidified = [OrderedDict() for _ in self._streamer_specs]
     # Each time an HDF5 dataset reaches its limit,
     #  its size will be increased by the following amount.
     self._hdf5_log_length_increment = 10000
-    self._next_data_indexes_hdf5 = [OrderedDict() for _ in streamer_specs]
+    self._next_data_indexes_hdf5 = [OrderedDict() for _ in self._streamer_specs]
 
     # Initialize the logging writers.
     self._csv_writers = None
@@ -164,7 +166,7 @@ class DataLogger(Worker):
   # The main run method for the DataLogger.
   # Initialize and start stream-logging to periodically write data if desired.
   def run(self):
-    super(DataLogger, self).run()
+    super().run()
 
     log_start_time_s = time.time()
 
@@ -195,13 +197,11 @@ class DataLogger(Worker):
         msg = deserialize(payload)
         topic_tree: list[str] = topic.split('.')
         self._streams[topic_tree[0]].append_data(**msg)
-        # TODO: video can have multiple subtopics
-        print("Received from %s"% topic_tree[0], flush=True)
       
       if self._killsig in poll_res[0]:
         # TODO: wait until every stream receives the "last" message to save everything 
         #   and then respond to StreamBroker that we are finished and exit
-        pass
+        self.quit()
 
 
   # Stop all data logging.
@@ -221,7 +221,7 @@ class DataLogger(Worker):
                          dump_video=self._dump_video, 
                          dump_audio=self._dump_audio,
                          log_time_s=log_stop_time_s)
-    super(DataLogger, self).quit()
+    super().quit()
 
 
   #################################

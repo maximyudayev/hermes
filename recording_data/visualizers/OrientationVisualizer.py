@@ -34,13 +34,13 @@ class OrientationVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    Visualizer.__init__(self, 
-                        visualizer_options=visualizer_options, 
-                        hidden=hidden,
-                        parent_layout=parent_layout, 
-                        parent_layout_size=parent_layout_size,
-                        print_debug=print_debug, 
-                        print_status=print_status)
+    super().__init__(self, 
+                     visualizer_options=visualizer_options, 
+                     hidden=hidden,
+                     parent_layout=parent_layout, 
+                     parent_layout_size=parent_layout_size,
+                     print_debug=print_debug, 
+                     print_status=print_status)
     
     if use_matplotlib:
       self._fig = None
@@ -245,13 +245,14 @@ class OrientationVisualizer(Visualizer):
     # Initialize the plot with the initial indicator.
     self.update({'data':[[0, 0, 0, 1]]},
                 visualizing_all_data=True,
+                fps=0,
                 real_data=False)
   
   # Update the skeleton visualization with new segment position data.
   # Only the most recent timestep will be visualized.
   # @param new_data is a dict with 'data' (all other entries will be ignored).
   #   It should contain all segment positions as a matrix (each row is xyz).
-  def update(self, new_data, visualizing_all_data, real_data=True):
+  def update(self, new_data, visualizing_all_data, fps, real_data=True):
   
     # Extract the latest quaternion and convert it to a rotation matrix.
     quaternion = np.array(new_data['data'][-1])

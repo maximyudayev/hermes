@@ -21,13 +21,13 @@ class VideoVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    Visualizer.__init__(self, 
-                        visualizer_options=visualizer_options, 
-                        hidden=hidden,
-                        parent_layout=parent_layout, 
-                        parent_layout_size=parent_layout_size,
-                        print_debug=print_debug, 
-                        print_status=print_status)
+    super().__init__(self, 
+                     visualizer_options=visualizer_options, 
+                     hidden=hidden,
+                     parent_layout=parent_layout, 
+                     parent_layout_size=parent_layout_size,
+                     print_debug=print_debug, 
+                     print_status=print_status)
 
     self._video_title = None
     self._layout = parent_layout
@@ -71,10 +71,11 @@ class VideoVisualizer(Visualizer):
   # @param new_data is a dict with 'data' (all other keys will be ignored).
   #   The 'data' entry must contain raw frames as a matrix in BGR format.
   #   The data may contain multiple timesteps (a list of matrices).
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     # Get the most recent frame.
     self._latest_frame = new_data['data'][-1]
     # Update the layout if one was provided.
+    # TODO: update fps overlay
     if self._is_sub_layout:
       self._plot_image_item.setImage(
           cv2.rotate(cv2.cvtColor(self._latest_frame, cv2.COLOR_BGR2RGB),

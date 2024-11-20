@@ -31,6 +31,7 @@ class SensorStreamer(ABC):
                stream_info: dict = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
+    
     self._port_pub = port_pub
     self._port_sync = port_sync
     self._port_killsig = port_killsig
@@ -43,7 +44,7 @@ class SensorStreamer(ABC):
 
 
   # A SensorStreamer instance is a callable to launch as a Process
-  def __call__(self, *args, **kwds):
+  def __call__(self):
     # Connect local publisher to the Proxy's XSUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
 
@@ -74,12 +75,12 @@ class SensorStreamer(ABC):
   #   Should also be a class method to create Stream objects on consumers. 
   @classmethod
   @abstractmethod
-  def create_stream(cls) -> Stream:
+  def create_stream(cls, stream_info: dict) -> Stream:
     pass
 
   # Connect to the sensor device(s).
   @abstractmethod
-  def connect(self) -> None:
+  def connect(self) -> bool:
     pass
 
   # Launch data streaming form the device.

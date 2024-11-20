@@ -1,5 +1,5 @@
 from streamers.SensorStreamer import SensorStreamer
-from streams import DotsStream
+from streams.DotsStream import DotsStream
 
 import numpy as np
 import time
@@ -24,6 +24,7 @@ class DotsStreamer(SensorStreamer):
   # Initialize the sensor streamer.
   def __init__(self,
                device_mapping: dict[str, str],
+               master_device: str,
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
@@ -35,7 +36,9 @@ class DotsStreamer(SensorStreamer):
     # Initialize any state that your sensor needs.
     self._sampling_rate_hz = sampling_rate_hz
     self._num_joints = num_joints
-    self._packet = OrderedDict()
+    self._master_device = master_device
+    self._device_mapping = device_mapping
+    self._packet = OrderedDict([(id, None) for name, id in self._device_mapping.items()])
 
     stream_info = {
       "num_joints": self._num_joints,
@@ -45,13 +48,12 @@ class DotsStreamer(SensorStreamer):
 
     # Abstract class will call concrete implementation's creation methods
     #   to build the data structure of the sensor
-    super(DotsStreamer, self).__init__(self,
-                                       port_pub=port_pub,
-                                       port_sync=port_sync,
-                                       port_killsig=port_killsig,
-                                       stream_info=stream_info,
-                                       print_status=print_status, 
-                                       print_debug=print_debug)
+    super().__init__(port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     stream_info=stream_info,
+                     print_status=print_status, 
+                     print_debug=print_debug)
 
 
   ######################################
@@ -63,121 +65,78 @@ class DotsStreamer(SensorStreamer):
     return DotsStream(**stream_info)
 
   # Connect to the sensor.
-  def connect(self):
+  def connect(self) -> True:
     timeout_s = 10
-    xqp_joints = [0,1,2,3,4] # remove lines with xqp_ variables 
-    def map_dot_to_joint(devices, device):
-      # msg = format_log_message("Which joint is this DOT attached to? (New DOT lights up green) : ", source_tag=self._log_source_tag, userAction=True, print_message=False)
-      while True:
-        try:
-          # joint_of_device = input(msg)
-          joint_of_device = str(xqp_joints.pop(0))
-          if int(joint_of_device) < 0 or str(int(joint_of_device)) in devices: raise KeyError
-          else: 
-            devices[joint_of_device] = device
-            # self._log_debug("DOT @%s associated with joint %s."% (device.bluetoothAddress(), joint_of_device))
-            return devices
-        except ValueError:
-          # self._log_error("Joint specifier must be a unique positive integer.")
-          pass
-        except KeyError:
-          # self._log_error("This joint specifier already used by %s" % devices[joint_of_device].bluetoothAddress())
-          pass
 
-    def set_master_joint(devices):
-      # msg = format_log_message("Which joint is center of skeleton? : ", source_tag=self._log_source_tag, userAction=True, print_message=False)
-      while True:
-        try:
-          # master_joint = int(input(msg))
-          master_joint = xqp_joints[0]
-          if master_joint < 0 or str(master_joint) not in devices: raise KeyError
-          else: 
-            # self._log_debug("Joint %s set as master. (DOT @%s)."% (master_joint, devices[str(master_joint)].bluetoothAddress()))
-            self._handler.setMasterDot(str(master_joint))
-            self._packet = OrderedDict([(v.bluetoothAddress(), None) for k, v in devices.items()])
-        except ValueError:
-          # self._log_error("Joint specifier must be a positive integer.")
-          pass
-        except KeyError:
-          # self._log_error("This joint specifier does not exist in the device list.")
-          pass
-        else: break
+    self._handler = None
 
-    # Connecting to your sensor.
-    #   Then return True or False to indicate whether connection was successful.
-    self._handler = MovellaFacade()
-
-    # DOTs backend is annoying and doesn't always connect/discover devices from first try, loop until success
+    # DOTs backend is annoying and doesn't always connect/discover devices from first try, 
+    #   loop until success of all steps, start over if any step fails.
     while True:
+      if self._handler is not None: self._handler.cleanup()
+      time.sleep(5)
+      self._handler = MovellaFacade()
+
+      # Initialize SDK
       if not self._handler.initialize():
         self._handler.cleanup()
         continue
-      else: break
 
-    while True:
+      # Scan for DOTs until all expected devices are found
       self._handler.scanForDots(timeout_s)
       if len(self._handler.detectedDots()) == 0:
         # self._log_error("No Movella DOT device(s) found. Aborting.")
-        pass
+        continue
       elif len(self._handler.detectedDots()) < self._num_joints:
         # self._log_error("Not all %s requested Movella DOT device(s) found. Aborting." % self._num_joints)
-        pass
-      else:
-        # self._log_debug("All %s requested Movella DOT device(s) found." % self._num_joints)
-        break
+        continue
 
-    while True:
-      self._handler.connectDots(onDotConnected=map_dot_to_joint, onConnected=set_master_joint, connectAttempts=10)
-      if len(self._handler.connectedDots()) == 0:
-        # self._log_error("Could not connect to any Movella DOT device(s). Aborting.")
-        pass
-      elif len(self._handler.connectedDots()) < self._num_joints:
-        # self._log_error("Not all requested Movella DOT devices connected %s/%s. Aborting." % (len(self._handler.connectedDots()), self._num_joints))
-        pass
-      else:
-        # self._log_debug("All %s detected Movella DOT device(s) connected." % self._num_joints)
-        break
+      # Connect to all discovered expected DOTs, attempt several times before starting over
+      if not self._handler.connectDots(device_mapping=self._device_mapping, master_device=self._master_device, connectAttempts=10):
+        continue
 
-    for joint, device in self._handler.connectedDots().items():
       # Make sure all connected devices have the same filter profile and output rate
-      if device.setOnboardFilterProfile("General"):
-        # self._log_debug("Successfully set profile to General for joint %s." % joint)
-        pass
-      else:
-        # self._log_error("Setting filter profile for joint %s failed!" % joint)
-        return False
+      for device_id, device in self._handler.connectedDots().items():
+        if device.setOnboardFilterProfile("General"):
+          print("Successfully set profile to General for joint %s." % device_id)
+          pass
+        else:
+          print("Setting filter profile for joint %s failed!" % device_id)
+          continue
 
-      if device.setOutputRate(self._sampling_rate_hz):
-        # self._log_debug(f"Successfully set output rate for joint {joint} to {self._sampling_rate_hz} Hz.")
-        pass
-      else:
-        # self._log_error("Setting output rate for joint %s failed!" % joint)
-        return False
+        if device.setOutputRate(self._sampling_rate_hz):
+          print(f"Successfully set output rate for joint {device_id} to {self._sampling_rate_hz} Hz.")
+          pass
+        else:
+          print("Setting output rate for joint %s failed!" % device_id)
+          continue
 
-    # Call facade sync function, not directly the backend manager proxy
-    while not self._handler.sync():
-      # self._log_error("Synchronization of dots failed! Retrying.")
-      pass
+      # Call facade sync function, not directly the backend manager proxy
+      if not self._handler.sync(syncAttempts=3):
+        continue
+
+      print('Successfully connected to the dots streamer.')
+
+      # Set dots to streaming mode and break out of the loop if successful
+      if self._handler.stream(): break
     
-    # self._log_debug(f"Successfully synchronized {len(self._handler.connectedDots())} dots.")
-    # self._log_status('Successfully connected to the dots streamer.')
+    return True
 
-    # Set dots to streaming mode
-    return self._handler.stream()
 
   # Loop until self._running is False.
   # Acquire data from your sensor as desired, and for each timestep.
-  def run(self):
+  def run(self) -> None:
     while self._running:
       if self._handler.packetsAvailable():
         time_s: float = time.time()
-        for joint, device in self._handler.connectedDots().items():
+        for device_id, device in self._handler.connectedDots().items():
           # Retrieve a packet
           packet = self._handler.getNextPacket(device.portInfo().bluetoothAddress())
           euler = packet.orientationEuler()
           acc = packet.freeAcceleration()
-          self._packet[device.bluetoothAddress()] = {
+          self._packet[device_id] = {
             'timestamp': packet.sampleTimeFine(),
+            'counter': packet.packetCounter(),
             'acceleration': (acc[0], acc[1], acc[2]),
             'orientation': (euler.x(), euler.y(), euler.z()),
           }
@@ -185,19 +144,63 @@ class DotsStreamer(SensorStreamer):
         acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
         orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
         timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
+        counter = np.array([v['counter'] for (_,v) in self._packet.items()])
 
         # Store the captured data into the data structure.
-        self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp)
+        self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
 
         # Get serialized object to send over ZeroMQ.
-        msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp)
+        msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
 
         # Send the data packet on the PUB socket.
         self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
+
   # Clean up and quit
-  def quit(self):
+  def quit(self) -> None:
     for device in self._handler.connectedDots(): device.stopMeasurement()
     self._handler.manager().stopSync()
     self._handler.manager().close()
-    super(DotsStreamer, self).quit()
+    super().quit()
+
+
+if __name__ == "__main__":
+  import zmq
+
+  device_mapping = {
+    'knee_right'  : '40195BFC800B01F2',
+    'foot_right'  : '40195BFC800B003B',
+    'pelvis'      : '40195BFD80C20052',
+    'knee_left'   : '40195BFC800B017A',
+    'foot_left'   : '40195BFD80C200D1',
+  }
+  master_device = 'pelvis' # wireless dot relaying messages, must match a key in the `device_mapping`
+
+  ip = "127.0.0.1"
+  port_backend = "42069"
+  port_frontend = "42070"
+  port_sync = "42071"
+  port_killsig = "42066"
+
+  # Pass exactly one ZeroMQ context instance throughout the program
+  ctx: zmq.Context = zmq.Context()
+
+  # Exposes a known address and port to locally connected sensors to connect to.
+  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
+  local_backend.bind("tcp://127.0.0.1:%s" % (port_backend))
+  backends: list[zmq.SyncSocket] = [local_backend]
+
+  # Exposes a known address and port to broker data to local workers.
+  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
+  local_frontend.bind("tcp://127.0.0.1:%s" % (port_frontend))
+  frontends: list[zmq.SyncSocket] = [local_frontend]
+
+  streamer = DotsStreamer(device_mapping=device_mapping, 
+                          master_device=master_device,
+                          port_pub=port_backend,
+                          port_sync=port_sync,
+                          port_killsig=port_killsig,
+                          sampling_rate_hz=20,
+                          num_joints=5)
+
+  streamer()

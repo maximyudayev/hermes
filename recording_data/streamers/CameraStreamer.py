@@ -45,13 +45,12 @@ class CameraStreamer(SensorStreamer):
       "resolution": resolution
     }
 
-    super(CameraStreamer, self).__init__(self,
-                                         port_pub=port_pub,
-                                         port_sync=port_sync,
-                                         port_killsig=port_killsig,
-                                         stream_info=stream_info,
-                                         print_status=print_status,
-                                         print_debug=print_debug)
+    super().__init__(port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     stream_info=stream_info,
+                     print_status=print_status,
+                     print_debug=print_debug)
 
   ######################################
   ###### INTERFACE IMPLEMENTATION ######
@@ -64,7 +63,7 @@ class CameraStreamer(SensorStreamer):
   # Connect to the sensor.
   # NOTE: if running background grab loop for multiple cameras impacts bandwidth, switch to per-process instantiation for each camera
   #   In this case, use each entry of the camera names dictionary to use filters on the device info objects for enumeration
-  def connect(self) -> None:
+  def connect(self) -> bool:
     tlf: pylon.TlFactory = pylon.TlFactory.GetInstance()
     fp: pylon.FeaturePersistence = pylon.FeaturePersistence()
 
@@ -111,7 +110,8 @@ class CameraStreamer(SensorStreamer):
         # Execute clock latch 
         cam.PtpDataSetLatch.Execute()
         time.sleep(1)
-
+    
+    return True
       #####################################################
       # https://github.com/basler/pypylon/issues/482
       # Make sure the frame trigger is set to Off to enable free run
@@ -129,14 +129,14 @@ class CameraStreamer(SensorStreamer):
       ######################################################
 
   # Register background grab loop with a callback responsible for sending frames over ZeroMQ
-  def run(self):
+  def run(self) -> None:
     def callback(camera_id: str, frame: np.ndarray, timestamp: np.uint64, sequence_id: np.int64) -> None:
       time_s = time.time()
       # Store the data.
-      self._stream.append_data(camera_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+      self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
 
       # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+      msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
 
       # Send the data packet on the PUB socket.
       self._pub.send_multipart(["%s.%s.data"%(self._log_source_tag, self._camera_mapping[camera_id]), msg])
@@ -161,11 +161,11 @@ class CameraStreamer(SensorStreamer):
     self._cam_array.DeregisterCameraEventHandler(self._image_handler)  
 
   # Clean up and quit
-  def quit(self):
+  def quit(self) -> None:
     # Stop capturing data
     self._cam_array.StopGrabbing()
     # Remove background loop event listener
     self._cam_array.DeregisterCameraEventHandler(self._image_handler)
     # Disconnect from the camera
     self._cam_array.Close()
-    super(CameraStreamer, self).quit()
+    super().quit()

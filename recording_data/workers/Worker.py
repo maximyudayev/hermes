@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import copy
 
 import zmq
 
@@ -25,7 +24,7 @@ class Worker(ABC):
     self._poller: zmq.Poller = zmq.Poller()
 
   # A worker instance is a callable to launch as a Process
-  def __call__(self, *args: copy.Any, **kwds: copy.Any):
+  def __call__(self):
     # Connect local subscriber to the Broker's XPUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
 

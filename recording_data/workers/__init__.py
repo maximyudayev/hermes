@@ -1,4 +1,5 @@
-from workers import DataLogger, DataVisualizer
+from workers.DataLogger import DataLogger
+from workers.DataVisualizer import DataVisualizer
 
 WORKERS = {
   "DataLogger": DataLogger,
