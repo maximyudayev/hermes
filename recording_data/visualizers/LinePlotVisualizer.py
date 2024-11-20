@@ -336,7 +336,7 @@ class LinePlotVisualizer(Visualizer):
   #   as part of a periodic update loop or in order to show all data at once.
   #   If periodically, new data should be added to the visualization if applicable.
   #   Otherwise the new data should replace the visualization if applicable.
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     # Subtract the starting time, so graph x axes start at 0.
     new_time_s = np.atleast_1d(np.array(new_data['time_s']))
     if self._plotting_start_time_s is None:
@@ -347,6 +347,7 @@ class LinePlotVisualizer(Visualizer):
     self._time_s = add_to_rolling_array(self._time_s, new_time_s)
 
     # Update the plots!
+    # TODO: update fps overlay
     
     # Reset the figure to the pre-plot canvas state.
     if use_matplotlib and self._use_blitting:

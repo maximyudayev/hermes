@@ -254,13 +254,15 @@ class XsensSkeletonVisualizer(Visualizer):
       
     # Create dummy data, and use it to initialize the plot.
     segment_positions_cm = np.zeros([len(self._segment_labels), 3])
-    self.update({'data':[segment_positions_cm.tolist()]}, visualizing_all_data=True)
+    self.update({'data':[segment_positions_cm.tolist()]}, 
+                visualizing_all_data=True,
+                fps=0)
 
   # Update the skeleton visualization with new segment position data.
   # Only the most recent timestep will be visualized.
   # @param new_data is a dict with 'data' (all other entries will be ignored).
   #   It should contain all segment positions as a matrix (each row is xyz).
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     # Extract the latest segment positions.
     segment_positions_cm = np.array(new_data['data'][-1])
     

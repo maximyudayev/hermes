@@ -71,10 +71,11 @@ class VideoVisualizer(Visualizer):
   # @param new_data is a dict with 'data' (all other keys will be ignored).
   #   The 'data' entry must contain raw frames as a matrix in BGR format.
   #   The data may contain multiple timesteps (a list of matrices).
-  def update(self, new_data, visualizing_all_data):
+  def update(self, new_data, visualizing_all_data, fps):
     # Get the most recent frame.
     self._latest_frame = new_data['data'][-1]
     # Update the layout if one was provided.
+    # TODO: update fps overlay
     if self._is_sub_layout:
       self._plot_image_item.setImage(
           cv2.rotate(cv2.cvtColor(self._latest_frame, cv2.COLOR_BGR2RGB),
