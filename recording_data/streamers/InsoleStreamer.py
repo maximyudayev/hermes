@@ -1,5 +1,5 @@
 from streamers.SensorStreamer import SensorStreamer
-from streams import InsoleStream
+from streams.InsoleStream import InsoleStream
 from utils.msgpack_utils import serialize
 
 import time
@@ -34,8 +34,7 @@ class InsoleStreamer(SensorStreamer):
       "sampling_rate_hz": sampling_rate_hz
     }
 
-    super().__init__(self, 
-                     stream_info=stream_info,
+    super().__init__(stream_info=stream_info,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,

@@ -54,8 +54,7 @@ class AwindaStreamer(SensorStreamer):
       "device_mapping": self._device_mapping
     }
 
-    super().__init__(self, 
-                     port_pub=port_pub,
+    super().__init__(port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
                      stream_info=stream_info,
@@ -200,7 +199,7 @@ class AwindaStreamer(SensorStreamer):
     # Clean up the SDK
     self._control.close()
     self._control.destruct()
-    super().quit(self)
+    super().quit()
 
 
 #####################

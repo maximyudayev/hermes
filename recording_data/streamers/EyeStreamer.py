@@ -62,8 +62,7 @@ class EyeStreamer(SensorStreamer):
       "fps_video_eye1": fps_video_eye1
     }
 
-    super().__init__(self,
-                     port_pub=port_pub,
+    super().__init__(port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
                      stream_info=stream_info,

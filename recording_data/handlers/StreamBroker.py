@@ -11,13 +11,32 @@ from streamers import STREAMERS
 from workers import WORKERS
 from workers.Worker import Worker
 
-from streamers import STREAMERS
-from workers import WORKERS
-from workers.Worker import Worker
+def pub_proc(spec: dict, port_backend: str, port_sync: str, port_killsig: str):
+  # Instantiate each desired local streamer.
+  # Use ZeroMQ sockets to transfer collected data to other processes.
+  class_name: str = spec['class']
+  class_args = spec.copy()
+  del(class_args['class'])
+  class_args['port_pub'] = port_backend      
+  class_args['port_sync'] = port_sync
+  class_args['port_killsig'] = port_killsig
+  # Create the class object.
+  class_type: type[SensorStreamer] = STREAMERS[class_name]
+  class_object: SensorStreamer = class_type(**class_args)
+  class_object()
 
-from streamers import STREAMERS
-from workers import WORKERS
-from workers.Worker import Worker
+def sub_proc(spec: dict, port_frontend: str, port_sync: str, port_killsig: str):
+  # Create all desired consumers and connect them to the PUB broker socket.
+  class_name: str = spec['class']
+  class_args = spec.copy()
+  del(class_args['class'])
+  class_args['port_sub'] = port_frontend
+  class_args['port_sync'] = port_sync
+  class_args['port_killsig'] = port_killsig
+  # Create the class object.
+  class_type: type[Worker] = WORKERS[class_name]
+  class_object: Worker = class_type(**class_args)
+  class_object()
 
 ################################################
 ################################################
@@ -43,8 +62,8 @@ class StreamBroker:
 
   def __init__(self, 
                ip: str,
-               streamer_specs: list[dict] | tuple[dict] = None,
-               worker_specs: list[dict] | tuple[dict] = None,
+               streamer_specs: list[dict] = [],
+               worker_specs: list[dict] = [],
                port_backend: str = "42069", 
                port_frontend: str = "42070", 
                port_sync: str = "42071",
@@ -60,6 +79,8 @@ class StreamBroker:
     self._port_killsig = port_killsig
     self._print_status = print_status
     self._print_debug = print_debug
+    self._streamer_specs = streamer_specs
+    self._worker_specs = worker_specs
 
     ###########################
     ###### CONFIGURATION ######
@@ -97,39 +118,6 @@ class StreamBroker:
 
     # Poll object to listen to sockets without blocking
     self._poller: zmq.Poller = zmq.Poller()
-
-    # Instantiate each desired local streamer.
-    # Use ZeroMQ sockets to transfer collected data to other processes.
-    self._streamers: list[SensorStreamer] = []
-    if streamer_specs is not None:
-      for streamer_spec in streamer_specs:
-        class_name: str = streamer_spec['class']
-        class_args = streamer_spec.copy()
-        del(class_args['class'])
-        class_args['port_pub'] = self._port_backend      
-        class_args['port_sync'] = self._port_sync
-        class_args['port_killsig'] = self._port_killsig
-        # Create the class object.
-        class_type: type[SensorStreamer] = STREAMERS[class_name]
-        class_object: SensorStreamer = class_type(**class_args)
-        # Store the streamer object.
-        self._streamers.append(class_object)
-
-    # Create all desired consumers and connect them to the PUB broker socket.
-    self._workers: list[Worker] = []
-    if worker_specs is not None:
-      for worker_spec in worker_specs:
-        class_name: str = worker_spec['class']
-        class_args = worker_spec.copy()
-        del(class_args['class'])
-        class_args['port_sub'] = self._port_frontend
-        class_args['port_sync'] = self._port_sync
-        class_args['port_killsig'] = self._port_killsig
-        # Create the class object.
-        class_type: type[Worker] = WORKERS[class_name]
-        class_object: Worker = class_type(**class_args)
-        # Store the consumer object.
-        self._workers.append(class_object)
 
   #############################
   ###### GETTERS/SETTERS ######
@@ -173,8 +161,16 @@ class StreamBroker:
     set_start_method('spawn')
 
     # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
-    nodes = [*self._streamers, *self._workers]
-    self._processes: list[Process] = [Process(target=node) for node in nodes]
+    self._processes: list[Process] = [Process(target=pub_proc, 
+                                              args=(spec, 
+                                                    self._port_backend, 
+                                                    self._port_sync, 
+                                                    self._port_killsig)) for spec in self._streamer_specs] + \
+                                     [Process(target=sub_proc, 
+                                              args=(spec, 
+                                                    self._port_frontend, 
+                                                    self._port_sync, 
+                                                    self._port_killsig)) for spec in self._worker_specs]
     for p in self._processes: 
       p.start()
 

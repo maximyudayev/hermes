@@ -18,8 +18,8 @@ if __name__ == '__main__':
   is_real: bool = False # Data collection from actual trials
 
   # Configure network topology.
-  ip_wearablePC: str = "192.168.69.101"
-  ip_labPC: str = "192.168.69.100"
+  ip_wearablePC: str = "192.168.1.101"
+  ip_labPC: str = "192.168.1.100"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     True),  # One or more cameras
+    ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
   ])
@@ -76,11 +76,11 @@ if __name__ == '__main__':
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
      'device_mapping': {
-        'knee_right'  : '0', # TODO: replace with device S/N
-        'foot_right'  : '1', # TODO: replace with device S/N
-        'pelvis'      : '2', # TODO: replace with device S/N
-        'knee_left'   : '3', # TODO: replace with device S/N
-        'foot_left'   : '4', # TODO: replace with device S/N
+        'knee_right'  : '40195BFC800B01F2',
+        'foot_right'  : '40195BFC800B003B',
+        'pelvis'      : '40195BFD80C20052',
+        'knee_left'   : '40195BFC800B017A',
+        'foot_left'   : '40195BFD80C200D1',
       },
      'master_device'   : 'pelvis', # wireless dot relaying messages, must match a key in the `device_mapping`
      'num_joints'      : 5,
@@ -136,7 +136,7 @@ if __name__ == '__main__':
 
   # Define local workers/consumers of data.
   workers = dict([
-    ('DataLogger',        True),
+    ('DataLogger',        False),
     ('DataVisualizer',    False),
   ])
   # Configure where and how to save sensor data.

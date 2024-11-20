@@ -34,8 +34,7 @@ class TmsiStreamer(SensorStreamer):
       "sampling_rate_hz": sampling_rate_hz
     }
 
-    super().__init__(self, 
-                     port_pub=port_pub,
+    super().__init__(port_pub=port_pub,
                      port_sync = port_sync,
                      port_killsig = port_killsig,
                      stream_info = stream_info,
@@ -151,4 +150,4 @@ class TmsiStreamer(SensorStreamer):
     # Set the DR-DS interface type back to docked
     self.dev.set_device_interface(DeviceInterfaceType.docked)
     self.dev.close()
-    super().quit(self)
+    super().quit()
