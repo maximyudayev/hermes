@@ -35,7 +35,7 @@ if use_matplotlib:
   import matplotlib
   import matplotlib.pyplot as plt
 else:
-  from PyQt5 import QtWidgets
+  from PyQt6 import QtWidgets
   import pyqtgraph
   import pyqtgraph.exporters
   from pyqtgraph.Qt import QtCore, QtGui
@@ -219,6 +219,9 @@ class LinePlotVisualizer(Visualizer):
       if self._hidden and not self._is_sub_layout:
         self._layout.hide()
       self._exporter = pyqtgraph.exporters.ImageExporter(self._layout.scene())
+      self._fps_label = QtWidgets.QLabel('%.1f'%float(0), self._layout)
+      self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
+      self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
       
     # Create time/data arrays for each axis,
     #  and use it to initialize the plots.
@@ -347,7 +350,6 @@ class LinePlotVisualizer(Visualizer):
     self._time_s = add_to_rolling_array(self._time_s, new_time_s)
 
     # Update the plots!
-    # TODO: update fps overlay
     
     # Reset the figure to the pre-plot canvas state.
     if use_matplotlib and self._use_blitting:
@@ -409,6 +411,8 @@ class LinePlotVisualizer(Visualizer):
         self._fig.canvas.flush_events()
     else:
       if not self._hidden:
+        self._fps_label.setText('%.1f'%float(fps))
+        self._fps_label.adjustSize()
         cv2.waitKey(1) # update the plot window (yes, this works)
 
   # Retrieve an image of the most updated visualization.
