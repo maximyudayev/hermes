@@ -1,15 +1,18 @@
 from collections import OrderedDict
+
+import numpy as np
 from streams.Stream import Stream
 
-################################################
-################################################
-# A structure to store Experiment stream's data.
-################################################
-################################################
+###############################################
+###############################################
+# A structure to store Experiment stream's data
+###############################################
+###############################################
 class ExperimentControlStream(Stream):
   def __init__(self, 
-               activities: list[str]) -> None:
-    super(ExperimentControlStream, self).__init__()
+               activities: list[str],
+               **_) -> None:
+    super().__init__()
 
     self._wait_after_stopping = False
     self._tkinter_root = None
@@ -158,6 +161,11 @@ class ExperimentControlStream(Stream):
     self._metadata[self._activities_device_name]['Target Locations [cm]'] = self._target_positions_cm
 
 
+  def get_fps(self) -> dict[str, float]:
+    return None
+
+
+  # TODO:
   def append_data(self,
                   device_id: str,
                   time_s: float, 
@@ -167,4 +175,3 @@ class ExperimentControlStream(Stream):
     self._append_data(self._camera_mapping[device_id], 'frame', time_s, frame)
     self._append_data(self._camera_mapping[device_id], 'timestamp', time_s, timestamp)
     self._append_data(self._camera_mapping[device_id], 'frame_sequence', time_s, sequence_id)
-

@@ -1,4 +1,6 @@
 import queue
+
+import zmq
 from streams.TmsiStream import TmsiStream
 from streamers.SensorStreamer import SensorStreamer
 from utils.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
@@ -10,13 +12,12 @@ from utils.TMSiSDK.device.tmsi_channel import ChannelType
 
 import numpy as np
 import time
-import traceback
 
 from utils.print_utils import *
 
 ################################################
 ################################################
-# A template class for implementing a new sensor.
+# A template class for implementing a new sensor
 ################################################
 ################################################
 class TmsiStreamer(SensorStreamer):
@@ -123,27 +124,37 @@ class TmsiStreamer(SensorStreamer):
       print(e)
     print(log_status("SAGA",'Unsuccessful connection to the TMSi streamer.'))
     return False
-  
+
 
   def run(self) -> None:
+    super().run()
     try:
       self.dev.start_measurement(MeasurementType.SAGA_SIGNAL)
       while self._running:
-        if len(self.data_queue.queue) != 0:
-            sample_data = self.data_queue.get(0)
-            reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
-            time_s = time.time()
-            for column in reshaped.T:
-              self._data.append_data(time_s, column)
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+        if not poll_res: continue
+
+        if self._pub in poll_res[0]:
+          self._process_data()
         
-    except KeyboardInterrupt: # The program was likely terminated
-      pass
-    except:
-      print(log_error("SAGA",'\n\n***ERROR RUNNING TemplateStreamer:\n%s\n' % traceback.format_exc()))
-    finally:
-      ## TODO: Disconnect from the sensor if desired.
-      pass
-  
+        if self._killsig in poll_res[0]:
+          self._running = False
+          print("quitting %s"%self._log_source_tag, flush=True)
+          self._killsig.recv_multipart()
+          self._poller.unregister(self._killsig)
+      self.quit()
+    except Exception as _: 
+      self.quit()
+
+
+  def _process_data(self) -> None:
+    if len(self.data_queue.queue) != 0:
+      sample_data = self.data_queue.get(0)
+      reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
+      time_s = time.time()
+      for column in reshaped.T:
+        self._data.append_data(time_s, column)
+
 
   # Clean up and quit
   def quit(self) -> None:

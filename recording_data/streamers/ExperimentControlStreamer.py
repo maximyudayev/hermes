@@ -42,68 +42,63 @@ class ExperimentControlStreamer(SensorStreamer):
                print_debug: bool = False):
     
     stream_info = {
-
+      "activities": activities
     }
 
+    super().__init__(port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     stream_info=stream_info,
+                     print_status=print_status, 
+                     print_debug=print_debug)
 
-    SensorStreamer.__init__(self,  
-                            port_pub=port_pub,
-                            port_sync=port_sync,
-                            port_killsig=port_killsig,
-                            stream_info=stream_info,
-                            print_status=print_status, 
-                            print_debug=print_debug)
 
   # Instantiate Stream datastructure object specific to this Streamer.
   #   Should also be a class method to create Stream objects on consumers. 
   def create_stream(cls, stream_info: dict) -> ExperimentControlStream:
     return ExperimentControlStream(**stream_info)
 
+
   # Connect to the sensor device(s).
-  def connect(self):
+  def connect(self) -> bool:
     # Without this, the window can be really tiny if matplotlib is used before the GUI generation.
     # Make sure this is called before any matplotlib.
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
     return True
-  
-  # Launch data streaming form the device.
+
+
   def run(self) -> None:
-    pass
+    self._experiment_is_running = True
+    self._create_gui()
 
-  # Clean up and quit.
+    while self._running:
+      self._tkinter_root.mainloop()
+
+    self.quit()
+
+
+  # Clean up and quit
   def quit(self) -> None:
-    pass
-
-
-
-
-
-
-
-  
-  def _on_quit(self):
-    self._experiment_is_running = False
     self._tkinter_root.destroy()
-  
-  # Get whether the user has ended the experiment.
-  def experiment_is_running(self):
-    return self._experiment_is_running
+    super().quit()
 
-  # Helpers to validate text inputs.
-  def _validate_text_input_float(self, new_text):
-    return len(new_text) == 0 or new_text.replace('.','',1).isnumeric()
-  def _validate_text_input_int(self, new_text):
-    return len(new_text) == 0 or new_text.isnumeric()
   
+
+
+
+
+
   ###############################
   ###### CALIBRATION LOGIC ######
   ###############################
-  
+
   # Helpers to get calibration elements.
   def _get_active_calibration_type(self):
     calibration_frame = self._tkinter_root.nametowidget('calibration_frame')
     notebook_calibration = calibration_frame.nametowidget('notebook_calibration')
     tab_label = notebook_calibration.tab(notebook_calibration.select(), 'text')
+    
+    
     for (calibration_type, info) in self._calibration_streams.items():
       if tab_label == info['tab_label']:
         return calibration_type
@@ -126,6 +121,8 @@ class ExperimentControlStreamer(SensorStreamer):
     # Toggle the calibration status.
     self._calibrating = not self._calibrating
     self._last_calibration_type = calibration_type
+    
+    
     
     # Add data to the appropriate stream.
     data = []
@@ -334,9 +331,18 @@ class ExperimentControlStreamer(SensorStreamer):
     notes = input_element.get('1.0', tkinter.END) # line 1 character 0 through the end
     notes = notes.strip()
     if len(notes) > 0:
-      self.append_data(self._notes_device_name, self._notes_stream_name,
-                       time.time(), notes)
+      self.append_data(self._notes_device_name, 
+                       self._notes_stream_name,
+                       time.time(), 
+                       notes)
     input_element.delete('1.0', tkinter.END)
+
+
+  # Helpers to validate text inputs.
+  def _validate_text_input_float(self, new_text: str):
+    return len(new_text) == 0 or new_text.replace('.','',1).isnumeric()
+  def _validate_text_input_int(self, new_text: str):
+    return len(new_text) == 0 or new_text.isnumeric()
 
   #################################
   ###### GUI LAYOUT/CREATION ######
@@ -346,7 +352,7 @@ class ExperimentControlStreamer(SensorStreamer):
   def _create_gui(self):
     # Create the root.
     self._tkinter_root = tkinter.Tk()
-    self._tkinter_root.title("Let's make an ActionNet!")
+    self._tkinter_root.title("MiSSDAISy") # MultI-Sensor Synchronous Data Acusition Intelligent System
     # Create some room around all the internal frames
     self._tkinter_root['padx'] = 5
     self._tkinter_root['pady'] = 5
@@ -389,15 +395,21 @@ class ExperimentControlStreamer(SensorStreamer):
     
     # Calibration!
     calibration_frame = ttk.Frame(self._tkinter_root, name='calibration_frame', style='CalibrationFrame.TFrame')
-    calibration_frame.grid(sticky=tkinter.W, padx=5, pady=15, **grid_positions['calibration_frame'])
+    calibration_frame\
+          .grid(sticky=tkinter.W, 
+                padx=5, 
+                pady=15, 
+                **grid_positions['calibration_frame'])
 
     # Create a notebook that will have tabs for various calibrations.
     ttk.Label(calibration_frame, text='Calibration')\
-      .grid(sticky=tkinter.W, **grid_positions['calibration_label'])
+          .grid(sticky=tkinter.W, **grid_positions['calibration_label'])
     notebook_calibration = ttk.Notebook(calibration_frame, name='notebook_calibration')
-    notebook_calibration.grid(**grid_positions['calibration_notebook'],
-                              sticky=tkinter.E + tkinter.W + tkinter.N + tkinter.S,
-                              padx=5, pady=5)
+    notebook_calibration\
+          .grid(**grid_positions['calibration_notebook'],
+                sticky=tkinter.E + tkinter.W + tkinter.N + tkinter.S,
+                padx=5, 
+                pady=5)
     # Create all calibration tabs based on the defined streams.
     # Will update the 'name' values in self._calibration_streams[calibration_type]['inputs']
     #  to reflect the names of the elements that are added to the GUI.
@@ -443,23 +455,24 @@ class ExperimentControlStreamer(SensorStreamer):
     # calibration_done_frame.grid(row=3, column=1, columnspan=2,
     #                             sticky=tkinter.W, padx=5, pady=25)
     self._button_calibration_startStop = ttk.Button(calibration_frame,
-                                           text='Start Calibration',
-                                           name='button_calibration_startStop',
-                                           command=self._button_callback_startStop_calibration,
-                                           )
-    self._button_calibration_startStop.grid(padx=5, 
-                                            pady=5, 
-                                            sticky=tkinter.W, 
-                                            **grid_positions['calibration_button_startStop'])
+                                                    text='Start Calibration',
+                                                    name='button_calibration_startStop',
+                                                    command=self._button_callback_startStop_calibration)
+    self._button_calibration_startStop\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['calibration_button_startStop'])
     # Add a field to enter notes about the trial.
     self._text_calibration_notes = tkinter.Text(calibration_frame,
                                                 width=25, 
                                                 height=1, 
                                                 name='calibration_notes')
-    self._text_calibration_notes.grid(padx=5, 
-                                      pady=5, 
-                                      sticky=tkinter.W, 
-                                      **grid_positions['calibration_notes'])
+    self._text_calibration_notes\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['calibration_notes'])
     self._text_calibration_notes['state'] = 'disabled'
     # Add buttons to mark the calibration as good/maybe/bad.
     self._button_calibration_markGood = ttk.Button(calibration_frame,
@@ -467,33 +480,38 @@ class ExperimentControlStreamer(SensorStreamer):
                                                    name='button_calibration_good',
                                                    command=self._button_callback_mark_calibration_good)
     self._button_calibration_markGood['state'] = 'disabled'
-    self._button_calibration_markGood.grid(padx=5, 
-                                           pady=5, 
-                                           sticky=tkinter.W, 
-                                           **grid_positions['calibration_button_markGood'])
+    self._button_calibration_markGood\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['calibration_button_markGood'])
     self._button_calibration_markMaybe = ttk.Button(calibration_frame,
                                                     text='Mark Maybe',
                                                     name='button_calibration_mabybe',
                                                     command=self._button_callback_mark_calibration_maybe)
     self._button_calibration_markMaybe['state'] = 'disabled'
-    self._button_calibration_markMaybe.grid(padx=5, 
-                                            pady=5, 
-                                            sticky=tkinter.W, 
-                                            **grid_positions['calibration_button_markMaybe'])
+    self._button_calibration_markMaybe\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['calibration_button_markMaybe'])
     self._button_calibration_markBad = ttk.Button(calibration_frame,
                                                   text='Mark Bad',
                                                   name='button_calibration_bad',
                                                   command=self._button_callback_mark_calibration_bad)
     self._button_calibration_markBad['state'] = 'disabled'
-    self._button_calibration_markBad.grid(padx=5, 
-                                          pady=5, 
-                                          sticky=tkinter.W, 
-                                          **grid_positions['calibration_button_markBad'])
+    self._button_calibration_markBad\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['calibration_button_markBad'])
     # Add time since each calibration type.
     calibration_times_element = ttk.Label(calibration_frame, text='')
-    calibration_times_element.grid(padx=5, pady=5, 
-                                   sticky=tkinter.W + tkinter.N,
-                                   **grid_positions['calibration_times'])
+    calibration_times_element\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W + tkinter.N,
+                **grid_positions['calibration_times'])
     def update_calibration_time_text():
       txt = 'Time since last calibrations:'
       for (calibration_type, last_time_s) in self._last_calibration_times_s.items():
@@ -513,53 +531,79 @@ class ExperimentControlStreamer(SensorStreamer):
     
     # Do activities!
     activities_frame = ttk.Frame(self._tkinter_root, name='activities_frame', style='ActivitiesFrame.TFrame')
-    activities_frame.grid(sticky=tkinter.W, padx=5, pady=15,
-                          **grid_positions['activities_frame'])
+    activities_frame\
+          .grid(sticky=tkinter.W, 
+                padx=5, 
+                pady=15,
+                **grid_positions['activities_frame'])
     ttk.Label(activities_frame, text='Activities') \
           .grid(sticky=tkinter.W + tkinter.N, **grid_positions['activities_label'])
     # Add a dropdown to select the activity.
-    ttk.Combobox(activities_frame, state='readonly', # no custom values
+    ttk.Combobox(activities_frame, 
+                 state='readonly', # no custom values
                  name='combo_activities',
                  values=['']+self._activities,
-                 width=max(20, max([len(x) for x in ['']+self._activities])),
-                 )\
-          .grid(sticky=tkinter.W + tkinter.N, padx=5, pady=5, **grid_positions['activities_combo'])
+                 width=max(20, max([len(x) for x in ['']+self._activities])))\
+          .grid(sticky=tkinter.W + tkinter.N, 
+                padx=5, 
+                pady=5, 
+                **grid_positions['activities_combo'])
     # Add a button to start/stop the activity.
     self._button_activity_startStop = ttk.Button(activities_frame,
-                                         text='Start Activity',
-                                         name='button_activity_startStop',
-                                         command=self._button_callback_startStop_activity,
-                                         )
-    self._button_activity_startStop.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['activities_button_startStop'])
+                                                 text='Start Activity',
+                                                 name='button_activity_startStop',
+                                                 command=self._button_callback_startStop_activity)
+    self._button_activity_startStop\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['activities_button_startStop'])
     # Add a field to enter notes about the trial.
     self._text_activity_notes = tkinter.Text(activities_frame, width=25, height=1, name='activity_notes')
-    self._text_activity_notes.grid(sticky=tkinter.W, padx=5, pady=5, **grid_positions['activities_notes'])
+    self._text_activity_notes\
+          .grid(sticky=tkinter.W, 
+                padx=5, 
+                pady=5, 
+                **grid_positions['activities_notes'])
     self._text_activity_notes['state'] = 'disabled'
     # Add buttons to mark trial as good/maybe/bad.
     self._button_activity_markGood = ttk.Button(activities_frame,
-                                       text='Mark Good',
-                                       name='button_activity_good',
-                                       command=self._button_callback_mark_activity_good,
-                                       )
+                                                text='Mark Good',
+                                                name='button_activity_good',
+                                                command=self._button_callback_mark_activity_good)
     self._button_activity_markGood['state'] = 'disabled'
-    self._button_activity_markGood.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['activities_button_markGood'])
+    self._button_activity_markGood\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['activities_button_markGood'])
     self._button_activity_markMaybe = ttk.Button(activities_frame,
-                                       text='Mark Maybe',
-                                       name='button_activity_maybe',
-                                       command=self._button_callback_mark_activity_maybe,
-                                       )
+                                                 text='Mark Maybe',
+                                                 name='button_activity_maybe',
+                                                 command=self._button_callback_mark_activity_maybe)
     self._button_activity_markMaybe['state'] = 'disabled'
-    self._button_activity_markMaybe.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['activities_button_markMaybe'])
+    self._button_activity_markMaybe\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['activities_button_markMaybe'])
     self._button_activity_markBad = ttk.Button(activities_frame,
-                                       text='Mark Bad',
-                                       name='button_activity_bad',
-                                       command=self._button_callback_mark_activity_bad,
-                                       )
+                                               text='Mark Bad',
+                                               name='button_activity_bad',
+                                               command=self._button_callback_mark_activity_bad)
     self._button_activity_markBad['state'] = 'disabled'
-    self._button_activity_markBad.grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['activities_button_markBad'])
+    self._button_activity_markBad\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['activities_button_markBad'])
     # Add number of trials of each activity.
     activities_counts_element = ttk.Label(activities_frame, text='')
-    activities_counts_element.grid(padx=5, pady=5, sticky=tkinter.W + tkinter.N, **grid_positions['activities_counts'])
+    activities_counts_element\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W + tkinter.N, 
+                **grid_positions['activities_counts'])
     def update_activities_counts_text():
       txt = 'Number of each activity performed [good/maybe/bad]:'
       for (activity, counts) in self._activities_counts.items():
@@ -571,31 +615,65 @@ class ExperimentControlStreamer(SensorStreamer):
     
     # Add an input for general notes.
     notes_frame = ttk.Frame(self._tkinter_root, name='notes_frame', style='NotesFrame.TFrame')
-    notes_frame.grid(sticky=tkinter.W, padx=5, pady=15, **grid_positions['notes_frame'])
+    notes_frame\
+          .grid(sticky=tkinter.W, 
+                padx=5, 
+                pady=15, 
+                **grid_positions['notes_frame'])
     ttk.Label(notes_frame, text='General notes')\
-          .grid(sticky=tkinter.W + tkinter.N, **grid_positions['notes_label'])
-    tkinter.Text(notes_frame, width=40, height=2, name='general_notes')\
-          .grid(sticky=tkinter.W, padx=5, pady=5, **grid_positions['notes_notes'])
+          .grid(sticky=tkinter.W + tkinter.N, 
+                **grid_positions['notes_label'])
+    tkinter.Text(notes_frame, 
+                 width=40, 
+                 height=2, 
+                 name='general_notes')\
+          .grid(sticky=tkinter.W, 
+                padx=5, 
+                pady=5, 
+                **grid_positions['notes_notes'])
     ttk.Button(notes_frame,
-                text='Submit Notes',
-                name='button_notes_submit',
-                command=self._button_callback_notes_submit,
-                ).grid(padx=5, pady=5, sticky=tkinter.W, **grid_positions['notes_button_submit'])
+               text='Submit Notes',
+               name='button_notes_submit',
+               command=self._button_callback_notes_submit)\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W, 
+                **grid_positions['notes_button_submit'])
 
     # Add a log view.
     logViewer_frame = ttk.Frame(self._tkinter_root, name='logViewer_frame', style='LogFrame.TFrame')
-    logViewer_frame.grid(sticky=tkinter.N + tkinter.W, padx=5, pady=15, **grid_positions['logViewer_frame'])
+    logViewer_frame\
+          .grid(sticky=tkinter.N + tkinter.W, 
+                padx=5, 
+                pady=15, 
+                **grid_positions['logViewer_frame'])
     ttk.Label(logViewer_frame, text='Status Log') \
-      .grid(sticky=tkinter.W + tkinter.N, **grid_positions['logViewer_label'])
+          .grid(sticky=tkinter.W + tkinter.N, 
+                **grid_positions['logViewer_label'])
     # logViewer_log = ttk.Label(logViewer_frame, text='')
-    logViewer_log = tkinter.Text(logViewer_frame, width=60, height=40,
+    logViewer_log = tkinter.Text(logViewer_frame, 
+                                 width=60, 
+                                 height=40,
                                  wrap=tkinter.NONE,
-                                 font=('Courier', 8), name='logViewer_text')
-    logViewer_log.grid(padx=5, pady=5, sticky=tkinter.W + tkinter.N, **grid_positions['logViewer_log'])
+                                 font=('Courier', 8), 
+                                 name='logViewer_text')
+    logViewer_log\
+          .grid(padx=5, 
+                pady=5, 
+                sticky=tkinter.W + tkinter.N, 
+                **grid_positions['logViewer_log'])
     logViewer_scroll_vertical = tkinter.Scrollbar(logViewer_frame, command=logViewer_log.yview)
-    logViewer_scroll_vertical.grid(padx=5, pady=5, sticky='nsew', **grid_positions['logViewer_scrollbar_vertical'])
+    logViewer_scroll_vertical\
+          .grid(padx=5, 
+                pady=5, 
+                sticky='nsew', 
+                **grid_positions['logViewer_scrollbar_vertical'])
     logViewer_scroll_horizontal = tkinter.Scrollbar(logViewer_frame, command=logViewer_log.xview, orient='horizontal')
-    logViewer_scroll_horizontal.grid(padx=5, pady=5, sticky='nsew', **grid_positions['logViewer_scrollbar_horizontal'])
+    logViewer_scroll_horizontal\
+          .grid(padx=5, 
+                pady=5, 
+                sticky='nsew', 
+                **grid_positions['logViewer_scrollbar_horizontal'])
     logViewer_log['yscrollcommand'] = logViewer_scroll_vertical.set
     logViewer_log['xscrollcommand'] = logViewer_scroll_horizontal.set
     logViewer_log.xview_moveto(0.09)
@@ -605,11 +683,12 @@ class ExperimentControlStreamer(SensorStreamer):
       if self._log_history_filepath is None:
         logViewer_log['state'] = 'normal'
         logViewer_log.delete(1.0, tkinter.END)
-        logViewer_log.insert(tkinter.END, '\n\n'
-                                        + '*'*25
-                                        + '\nNo log file was specified\n'
-                                        + '*'*25
-                                        + '\n\n')
+        logViewer_log.insert(tkinter.END, 
+                             '\n\n'
+                              + '*'*25
+                              + '\nNo log file was specified\n'
+                              + '*'*25
+                              + '\n\n')
         logViewer_log['state'] = 'disabled'
         return
       # Determine whether the user has moved the scrollbar or it's still in autoscroll mode.
@@ -643,35 +722,15 @@ class ExperimentControlStreamer(SensorStreamer):
     update_logViewer_text()
     
     # Handle quitting, via a button or closing the window.
-    self._tkinter_root.protocol("WM_DELETE_WINDOW", self._on_quit)
-    quit_button = ttk.Button(self._tkinter_root, text='End Experiment', command=self._on_quit)
-    quit_button.grid(padx=5, pady=50, sticky=tkinter.E, **grid_positions['quit_button'])
+    self._tkinter_root.protocol("WM_DELETE_WINDOW", self.quit())
+    quit_button = ttk.Button(self._tkinter_root, text='End Experiment', command=self.quit())
+    quit_button\
+          .grid(padx=5, 
+                pady=50, 
+                sticky=tkinter.E, 
+                **grid_positions['quit_button'])
 
-  #####################
-  ###### RUNNING ######
-  #####################
-  
-  # Loop until self._running is False
-  def _run(self):
-    self._experiment_is_running = True
-    self._create_gui()
-    try:
-      while self._running and self.experiment_is_running():
-        self._tkinter_root.mainloop()
-    except KeyboardInterrupt: # The program was likely terminated
-      pass
-    except:
-      self._log_error('\n\n***ERROR RUNNING ExperimentControlStreamer:\n%s\n' % traceback.format_exc())
-    finally:
-      self._log_status('Done!')
-  
-  # Clean up and quit
-  def quit(self):
-    self._on_quit()
-    super(ExperimentControlStreamer, self).quit()
-    
 
 #####################
 ###### TESTING ######
 #####################
-
