@@ -6,6 +6,7 @@ import numpy as np
 import pyqtgraph
 import pyqtgraph.exporters
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt6.QtWidgets import QLabel
 
 ################################################
 # Visualize videos.
@@ -62,6 +63,9 @@ class VideoVisualizer(Visualizer):
       self._plot.addItem(self._plot_image_item)
       self._plot.hideAxis('bottom')
       self._plot.hideAxis('left')
+      self._fps_label = QLabel('%.1f'%float(fps), self._plot)
+      self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
+      self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
     elif not self._hidden:
       cv2.imshow(self._video_title, self._latest_frame)
       cv2.waitKey(1) # necessary to show/update the window; argument is in ms
@@ -75,13 +79,14 @@ class VideoVisualizer(Visualizer):
     # Get the most recent frame.
     self._latest_frame = new_data['data'][-1]
     # Update the layout if one was provided.
-    # TODO: update fps overlay
     if self._is_sub_layout:
       self._plot_image_item.setImage(
           cv2.rotate(cv2.cvtColor(self._latest_frame, cv2.COLOR_BGR2RGB),
                      cv2.cv2.ROTATE_90_CLOCKWISE))
     # Show the image if appropriate.
     elif not self._hidden:
+      self._fps_label.setText('%.1f'%float(fps))
+      self._fps_label.adjustSize()
       cv2.imshow(self._video_title, self._latest_frame)
       cv2.waitKey(1) # necessary to show/update the window; argument is in ms
 

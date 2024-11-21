@@ -2,6 +2,7 @@ from visualizers.Visualizer import Visualizer
 
 import pyqtgraph
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt6 import QtWidgets
 import pyqtgraph.exporters
 import cv2
 import numpy as np
@@ -100,7 +101,9 @@ class HeatmapVisualizer(Visualizer):
     h_colorbar = h_plot.addColorBar(h_heatmap, colorMap=colormap) # , interactive=False)
     # Add a callback to show values.
     h_plot.scene().sigMouseMoved.connect(self._mouse_moved_callback)
-    
+    self._fps_label = QtWidgets.QLabel('%.1f'%float(0), self._layout)
+    self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
+    self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
     # Create an exporter to grab an image of the plot.
     self._exporter = pyqtgraph.exporters.ImageExporter(self._layout.scene())
     
@@ -148,6 +151,8 @@ class HeatmapVisualizer(Visualizer):
     
     # Update the figure to see the changes.
     if not self._hidden:
+      self._fps_label.setText('%.1f'%float(fps))
+      self._fps_label.adjustSize()
       cv2.waitKey(1) # find a better way?
 
   # Retrieve an image of the most updated visualization.
