@@ -4,24 +4,20 @@ from streams.DotsStream import DotsStream
 import numpy as np
 import time
 from collections import OrderedDict
+import zmq
 
 from utils.msgpack_utils import serialize
-from handlers.MovellaFacade import MovellaFacade
+from handlers.MovellaHandler import MovellaFacade
 
-################################################
-################################################
-# A class for streaming Dots IMU data.
-################################################
-################################################
+#####################################
+#####################################
+# A class for streaming Dots IMU data
+#####################################
+#####################################
 class DotsStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = 'dots'
 
-  ########################
-  ###### INITIALIZE ######
-  ########################
-  
-  # Initialize the sensor streamer.
   def __init__(self,
                device_mapping: dict[str, str],
                master_device: str,
@@ -33,7 +29,7 @@ class DotsStreamer(SensorStreamer):
                print_status: bool = True,
                print_debug: bool = False):
 
-    # Initialize any state that your sensor needs.
+    # Initialize any state that the sensor needs.
     self._sampling_rate_hz = sampling_rate_hz
     self._num_joints = num_joints
     self._master_device = master_device
@@ -55,118 +51,83 @@ class DotsStreamer(SensorStreamer):
                      print_status=print_status, 
                      print_debug=print_debug)
 
-
-  ######################################
-  ###### INTERFACE IMPLEMENTATION ######
-  ######################################
-
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
   def create_stream(cls, stream_info: dict) -> DotsStream:
     return DotsStream(**stream_info)
 
   # Connect to the sensor.
-  def connect(self) -> True:
-    timeout_s = 10
-
-    self._handler = None
-
-    # DOTs backend is annoying and doesn't always connect/discover devices from first try, 
-    #   loop until success of all steps, start over if any step fails.
-    while True:
-      if self._handler is not None: self._handler.cleanup()
-      time.sleep(5)
-      self._handler = MovellaFacade()
-
-      # Initialize SDK
-      if not self._handler.initialize():
-        self._handler.cleanup()
-        continue
-
-      # Scan for DOTs until all expected devices are found
-      self._handler.scanForDots(timeout_s)
-      if len(self._handler.detectedDots()) == 0:
-        # self._log_error("No Movella DOT device(s) found. Aborting.")
-        continue
-      elif len(self._handler.detectedDots()) < self._num_joints:
-        # self._log_error("Not all %s requested Movella DOT device(s) found. Aborting." % self._num_joints)
-        continue
-
-      # Connect to all discovered expected DOTs, attempt several times before starting over
-      if not self._handler.connectDots(device_mapping=self._device_mapping, master_device=self._master_device, connectAttempts=10):
-        continue
-
-      # Make sure all connected devices have the same filter profile and output rate
-      for device_id, device in self._handler.connectedDots().items():
-        if device.setOnboardFilterProfile("General"):
-          print("Successfully set profile to General for joint %s." % device_id)
-          pass
-        else:
-          print("Setting filter profile for joint %s failed!" % device_id)
-          continue
-
-        if device.setOutputRate(self._sampling_rate_hz):
-          print(f"Successfully set output rate for joint {device_id} to {self._sampling_rate_hz} Hz.")
-          pass
-        else:
-          print("Setting output rate for joint %s failed!" % device_id)
-          continue
-
-      # Call facade sync function, not directly the backend manager proxy
-      if not self._handler.sync(syncAttempts=3):
-        continue
-
-      print('Successfully connected to the dots streamer.')
-
-      # Set dots to streaming mode and break out of the loop if successful
-      if self._handler.stream(): break
-    
+  def connect(self) -> bool:
+    self._handler = MovellaFacade(device_mapping=self._device_mapping, 
+                                  master_device=self._master_device,
+                                  sampling_rate_hz=self._sampling_rate_hz)
+    # Keep reconnecting until success
+    while not self._handler.initialize(): 
+      self._handler.cleanup()
     return True
-
 
   # Loop until self._running is False.
   # Acquire data from your sensor as desired, and for each timestep.
+  # SDK thread pushes data into shared memory space, this thread does pulls data and does all the processing,
+  #   ensuring that lost packets are responsibility of the slow consumer.
   def run(self) -> None:
-    while self._running:
-      if self._handler.packetsAvailable():
-        time_s: float = time.time()
-        for device_id, device in self._handler.connectedDots().items():
-          # Retrieve a packet
-          packet = self._handler.getNextPacket(device.portInfo().bluetoothAddress())
-          euler = packet.orientationEuler()
-          acc = packet.freeAcceleration()
-          self._packet[device_id] = {
-            'timestamp': packet.sampleTimeFine(),
-            'counter': packet.packetCounter(),
-            'acceleration': (acc[0], acc[1], acc[2]),
-            'orientation': (euler.x(), euler.y(), euler.z()),
-          }
+    super().run()
+    try:
+      while self._running:
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+        if not poll_res: continue
 
-        acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
-        orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
-        timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
-        counter = np.array([v['counter'] for (_,v) in self._packet.items()])
+        if self._pub in poll_res[0]:
+          if self._handler.is_packets_available():
+            self._process_data()
+        
+        if self._killsig in poll_res[0]:
+          self._running = False
+          print("quitting %s"%self._log_source_tag, flush=True)
+          self._killsig.recv_multipart()
+          self._poller.unregister(self._killsig)
+      self.quit()
+    # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
+    except Exception as _:
+      self.quit()
 
-        # Store the captured data into the data structure.
-        self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+  def _process_data(self) -> None:
+    time_s: float = time.time()
+    # Retrieve the oldest enqueued packet for each sensor 
+    for packet in self._handler.get_next_packet():
+      device_id: str = str(packet.deviceId())
+      euler = packet.orientationEuler()
+      acc = packet.freeAcceleration()
+      self._packet[device_id] = {
+        'timestamp': packet.sampleTimeFine(),
+        'counter': packet.packetCounter(),
+        'acceleration': (acc[0], acc[1], acc[2]),
+        'orientation': (euler.x(), euler.y(), euler.z()),
+      }
 
-        # Get serialized object to send over ZeroMQ.
-        msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+    acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
+    orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
+    timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
+    counter = np.array([v['counter'] for (_,v) in self._packet.items()])
 
-        # Send the data packet on the PUB socket.
-        self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
+    # Store the captured data into the data structure.
+    self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
 
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
   # Clean up and quit
   def quit(self) -> None:
-    for device in self._handler.connectedDots(): device.stopMeasurement()
-    self._handler.manager().stopSync()
-    self._handler.manager().close()
+    self._handler.cleanup()
     super().quit()
 
 
+#####################
+###### TESTING ######
+#####################
 if __name__ == "__main__":
-  import zmq
-
   device_mapping = {
     'knee_right'  : '40195BFC800B01F2',
     'foot_right'  : '40195BFC800B003B',
