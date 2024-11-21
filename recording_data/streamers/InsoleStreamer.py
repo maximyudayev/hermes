@@ -1,27 +1,21 @@
 from streamers.SensorStreamer import SensorStreamer
 from streams.InsoleStream import InsoleStream
+
 from utils.msgpack_utils import serialize
-
-import time
-
 from utils.print_utils import *
-
 import socket
+import time
+import zmq
 
-################################################
-################################################
-# A class to inteface with Moticon insole sensors.
-################################################
-################################################
+#################################################
+#################################################
+# A class to inteface with Moticon insole sensors
+#################################################
+#################################################
 class InsoleStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = 'insole'
 
-  ########################
-  ###### INITIALIZE ######
-  ########################
-
-  # Initialize the sensor streamer.
   def __init__(self,
                sampling_rate_hz: int = 100,
                port_pub: str = None,
@@ -63,18 +57,38 @@ class InsoleStreamer(SensorStreamer):
 
 
   def run(self) -> None:
-    while self._running:
-      data, address = self.sock.recvfrom(1024) # data is whitespace-separated byte string
-      time_s: float = time.time()
+    super().run()
+    try:
+      while self._running:
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+        if not poll_res: continue
 
-      # Store the captured data into the data structure.
-      self._stream.append_data(time_s=time_s, data=data)
+        if self._pub in poll_res[0]:
+          self._process_data()
+        
+        if self._killsig in poll_res[0]:
+          self._running = False
+          print("quitting %s"%self._log_source_tag, flush=True)
+          self._killsig.recv_multipart()
+          self._poller.unregister(self._killsig)
+      self.quit()
+    # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
+    except Exception as _:
+      self.quit()
 
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, data=data)
 
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
+  def _process_data(self) -> None:
+    data, address = self.sock.recvfrom(1024) # data is whitespace-separated byte string
+    time_s: float = time.time()
+
+    # Store the captured data into the data structure.
+    self._stream.append_data(time_s=time_s, data=data)
+    
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(time_s=time_s, data=data)
+    
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
 
 
   # Clean up and quit

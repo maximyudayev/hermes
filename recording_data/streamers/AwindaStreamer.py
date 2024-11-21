@@ -50,8 +50,10 @@ class AwindaStreamer(SensorStreamer):
                      print_status=print_status, 
                      print_debug=print_debug)
 
+
   def create_stream(self, stream_info: dict) -> AwindaStream:  
     return AwindaStream(**stream_info)
+
 
   def connect(self) -> bool:
     self._handler = XsensFacade(device_mapping=self._device_mapping,
@@ -61,6 +63,7 @@ class AwindaStreamer(SensorStreamer):
     while not self._handler.initialize(): 
       self._handler.cleanup()
     return True
+
 
   # Acquire data from the sensors until signalled externally to quit
   def run(self) -> None:
@@ -83,6 +86,7 @@ class AwindaStreamer(SensorStreamer):
     # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
     except Exception as _:
       self.quit()
+
 
   def _process_all_data(self) -> None:
     time_s = time.time()
@@ -141,6 +145,7 @@ class AwindaStreamer(SensorStreamer):
   #   msg = serialize(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
   #   # Send the data packet on the PUB socket.
   #   self._pub.send_multipart(["%s.%s" % (self._log_source_tag, device_id), msg])
+
 
   # Clean up and quit
   def quit(self) -> None:

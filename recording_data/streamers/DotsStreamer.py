@@ -51,9 +51,11 @@ class DotsStreamer(SensorStreamer):
                      print_status=print_status, 
                      print_debug=print_debug)
 
+
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
   def create_stream(cls, stream_info: dict) -> DotsStream:
     return DotsStream(**stream_info)
+
 
   # Connect to the sensor.
   def connect(self) -> bool:
@@ -64,6 +66,7 @@ class DotsStreamer(SensorStreamer):
     while not self._handler.initialize(): 
       self._handler.cleanup()
     return True
+
 
   # Loop until self._running is False.
   # Acquire data from your sensor as desired, and for each timestep.
@@ -89,6 +92,7 @@ class DotsStreamer(SensorStreamer):
     # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
     except Exception as _:
       self.quit()
+
 
   def _process_data(self) -> None:
     time_s: float = time.time()
@@ -117,6 +121,7 @@ class DotsStreamer(SensorStreamer):
 
     # Send the data packet on the PUB socket.
     self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
+
 
   # Clean up and quit
   def quit(self) -> None:

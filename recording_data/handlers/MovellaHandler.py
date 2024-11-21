@@ -55,8 +55,8 @@ class MovellaFacade:
 
     def on_advertisement_found(portInfo) -> None:
       if not portInfo.isBluetooth(): return
-      while not (is_connected:= self._manager.openPort(portInfo)): 
-        print("reconnecting to %s"%portInfo.bluetoothAddress())
+      if not self._manager.openPort(portInfo): 
+        print("failed to connect to %s"%portInfo.bluetoothAddress())
       device = self._manager.device(portInfo.deviceId())
       device_id: str = str(portInfo.deviceId())
       self._connected_devices[device_id] = device

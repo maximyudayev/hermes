@@ -1,4 +1,6 @@
 from collections import OrderedDict
+
+import zmq
 from handlers.BaslerHandler import ImageEventHandler
 from streamers.SensorStreamer import SensorStreamer
 from streams.CameraStream import CameraStream
@@ -8,20 +10,15 @@ import pypylon.pylon as pylon
 
 from utils.print_utils import *
 
-################################################
-################################################
-# A class for streaming videos from USB cameras.
-################################################
-################################################
+###############################################
+###############################################
+# A class for streaming videos from USB cameras
+###############################################
+###############################################
 class CameraStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = 'cameras'
 
-  ########################
-  ###### INITIALIZE ######
-  ########################
-  
-  # Initialize the sensor streamer.
   def __init__(self,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
@@ -52,13 +49,11 @@ class CameraStreamer(SensorStreamer):
                      print_status=print_status,
                      print_debug=print_debug)
 
-  ######################################
-  ###### INTERFACE IMPLEMENTATION ######
-  ######################################
 
   # Factory class method called inside superclass's constructor to instantiate corresponding Stream object.
   def create_stream(cls, stream_info: dict) -> CameraStream:
     return CameraStream(**stream_info)
+
 
   # Connect to the sensor.
   # NOTE: if running background grab loop for multiple cameras impacts bandwidth, switch to per-process instantiation for each camera
@@ -110,7 +105,10 @@ class CameraStreamer(SensorStreamer):
         # Execute clock latch 
         cam.PtpDataSetLatch.Execute()
         time.sleep(1)
-    
+
+    # Instantiate callback handler
+    self._image_handler = ImageEventHandler(cam_array=self._cam_array)
+
     return True
       #####################################################
       # https://github.com/basler/pypylon/issues/482
@@ -130,35 +128,49 @@ class CameraStreamer(SensorStreamer):
 
   # Register background grab loop with a callback responsible for sending frames over ZeroMQ
   def run(self) -> None:
-    def callback(camera_id: str, frame: np.ndarray, timestamp: np.uint64, sequence_id: np.int64) -> None:
-      time_s = time.time()
-      # Store the data.
-      self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
-
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
-
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart(["%s.%s.data"%(self._log_source_tag, self._camera_mapping[camera_id]), msg])
+    super().run()
     
-    # Instantiate callback handler
-    self._image_handler = ImageEventHandler(callback)
-    # Register with the pylon loop
-    self._cam_array.RegisterImageEventHandler(self._image_handler, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
+    
+    
+    
 
     # Fetch some images with background loop
     self._cam_array.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
     
     # While background process reads-out new frames, can do something useful
     #   like poll for commands from the Broker to terminate
-    while self._running:
-      # TODO:
-      pass
-    
-    # Stop capturing data
-    self._cam_array.StopGrabbing()
-    # Remove background loop event listener
-    self._cam_array.DeregisterCameraEventHandler(self._image_handler)  
+    super().run()
+    try:
+      while self._running:
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+        if not poll_res: continue
+
+        if self._pub in poll_res[0]:
+          if self._handler.is_packets_available():
+            self._process_data()
+        
+        if self._killsig in poll_res[0]:
+          self._running = False
+          print("quitting %s"%self._log_source_tag, flush=True)
+          self._killsig.recv_multipart()
+          self._poller.unregister(self._killsig)
+      self.quit()
+    # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
+    except Exception as _:
+      self.quit()
+ 
+
+  def _process_data(self):
+    time_s = time.time()
+    # Store the data.
+    self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart(["%s.%s.data"%(self._log_source_tag, self._camera_mapping[camera_id]), msg])
+
 
   # Clean up and quit
   def quit(self) -> None:
