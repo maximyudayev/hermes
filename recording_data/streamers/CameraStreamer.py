@@ -129,24 +129,17 @@ class CameraStreamer(SensorStreamer):
   # Register background grab loop with a callback responsible for sending frames over ZeroMQ
   def run(self) -> None:
     super().run()
-    
-    
-    
-    
 
     # Fetch some images with background loop
     self._cam_array.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
-    
-    # While background process reads-out new frames, can do something useful
-    #   like poll for commands from the Broker to terminate
-    super().run()
+
     try:
       while self._running:
         poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
         if not poll_res: continue
 
         if self._pub in poll_res[0]:
-          if self._handler.is_packets_available():
+          if self._image_handler.is_data_available():
             self._process_data()
         
         if self._killsig in poll_res[0]:
@@ -161,15 +154,14 @@ class CameraStreamer(SensorStreamer):
  
 
   def _process_data(self):
-    time_s = time.time()
-    # Store the data.
-    self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
-
-    # Get serialized object to send over ZeroMQ.
-    msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
-
-    # Send the data packet on the PUB socket.
-    self._pub.send_multipart(["%s.%s.data"%(self._log_source_tag, self._camera_mapping[camera_id]), msg])
+    for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
+      time_s = time.time()
+      # Store the data.
+      self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+      # Get serialized object to send over ZeroMQ.
+      msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+      # Send the data packet on the PUB socket.
+      self._pub.send_multipart([("%s.%s.data" % (self._log_source_tag, self._camera_mapping[camera_id])).encode('utf-8'), msg])
 
 
   # Clean up and quit
