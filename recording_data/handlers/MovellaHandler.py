@@ -44,7 +44,7 @@ class MovellaFacade:
     self._lock = Lock() # TODO: Use a smarter multi-threaded data sharing strategy than locking all the packet buffers
 
     self._buffer_size = buffer_size
-    self._master_device_id = master_device
+    self._master_device_id = device_mapping[master_device]
     self._sampling_rate_hz = sampling_rate_hz
 
   def initialize(self) -> bool:
@@ -66,9 +66,9 @@ class MovellaFacade:
       # TODO: actually, no guarantee that DOTs won't drift from each other if some are consumed slower
       device_id: str = str(device.deviceId())
       self._lock.acquire()
-      while len(self._packet_buffer[device_id]) >= self._buffer_size:
-        self._packet_buffer[device_id].pop()
-      self._packet_buffer[device_id].append(packet)
+      while self._packet_buffer[device_id].qsize() >= self._buffer_size:
+        self._packet_buffer[device_id].get()
+      self._packet_buffer[device_id].put(packet)
       self._lock.release()
 
     def on_device_disconnected(device):
@@ -130,7 +130,7 @@ class MovellaFacade:
 
   def is_packet_available(self, device_id: str) -> bool:
     self._lock.acquire()
-    res = len(self._packet_buffer[device_id]) > 0
+    res = self._packet_buffer[device_id].qsize() > 0
     self._lock.release()
     return res
 
@@ -138,7 +138,7 @@ class MovellaFacade:
   def get_next_packet(self):
     for device_id in self._connected_devices.keys():
       self._lock.acquire()
-      oldest_packet = self._packet_buffer[device_id].pop(0)
+      oldest_packet = self._packet_buffer[device_id].get()
       self._lock.release()
       yield oldest_packet
 

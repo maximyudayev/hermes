@@ -88,7 +88,7 @@ class InsoleStreamer(SensorStreamer):
     msg = serialize(time_s=time_s, data=data)
     
     # Send the data packet on the PUB socket.
-    self._pub.send_multipart(["%s.data"%self._log_source_tag, msg])
+    self._pub.send_multipart([("%s.data"%self._log_source_tag).encode('utf-8'), msg])
 
 
   # Clean up and quit

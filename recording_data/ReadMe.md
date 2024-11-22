@@ -30,6 +30,8 @@ A brief summary of the required software and the currently tested versions is be
 
 Recreate the environment by `conda create --file environment.yml` on each networked PC that will connect to sensors and broker data in the setup in any capacity (i.e. fixed and wearable PC).
 
+With `aidwear` conda environment active, install missing PyPi packages `pip install PyQt6 pypylon opencv-python`.
+
 ### Pupil Capture
 
 The Pupil Core software to interface with the eye tracker can be downloaded from https://docs.pupil-labs.com/core.  Version 3.5.1 has been tested so far.
