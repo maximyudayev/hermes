@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
   # Configure network topology.
   ip_wearablePC: str = "192.168.1.101"
-  ip_labPC: str = "192.168.1.100"
+  ip_labPC: str = "10.46.135.149"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
-    ('MoxyStreamer',       False)
+    ('MoxyStreamer',       True)
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
@@ -167,11 +167,6 @@ if __name__ == '__main__':
 
   datalogging_options = {
     'classes_to_log': [
-      'ExperimentControlStreamer', 
-      'DotsStreamer', 
-      'AwindaStreamer', 
-      'EyeStreamer', 
-      'CameraStreamer',
       'MoxyStreamer'
       ],
     'log_dir': log_dir, 'log_tag': log_tag,

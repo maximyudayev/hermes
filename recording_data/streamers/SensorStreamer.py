@@ -88,6 +88,7 @@ class SensorStreamer(ABC):
   def run(self) -> None:
     # TODO: boiler plate for awaiting the SYNC signal from the broker
     self._poller.register(self._killsig, zmq.POLLIN)
+    self._poller.register(self._pub, zmq.POLLOUT)
 
   # Clean up and quit.
   @abstractmethod

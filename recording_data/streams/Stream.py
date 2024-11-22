@@ -123,7 +123,7 @@ class Stream(ABC):
       # Set at start actual rate equal to desired sample rate
       self._streams_info[device_name][stream_name]['actual_rate_hz'] = self._streams_info[device_name][stream_name]['sampling_rate_hz']
       # Create a circular buffer of 1 second, w.r.t. desired sample rate
-      circular_buffer_len: int = round(sampling_rate_hz)
+      circular_buffer_len: int = max(round(sampling_rate_hz), 1)
       self._streams_info[device_name][stream_name]['dt_circular_buffer'] = list([1/sampling_rate_hz] * circular_buffer_len)
       self._streams_info[device_name][stream_name]['dt_circular_index'] = 0
       self._streams_info[device_name][stream_name]['dt_running_sum'] = 1.0

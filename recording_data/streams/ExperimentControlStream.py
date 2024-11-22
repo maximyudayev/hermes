@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from streams.Stream import Stream
+import numpy as np
 
 ################################################
 ################################################
