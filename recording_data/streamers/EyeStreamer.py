@@ -1,22 +1,17 @@
+import zmq
 from handlers.PupilFacade import PupilFacade
 from streamers.SensorStreamer import SensorStreamer
 from streams.EyeStream import EyeStream
 from utils.msgpack_utils import serialize
 
-################################################
-################################################
-# A class to interface with the Pupil Labs eye tracker.
-# Will stream gaze data in the video and world frames.
-# Will stream world video and eye video.
-################################################
-################################################
+######################################################
+######################################################
+# A class to interface with the Pupil Labs eye tracker
+######################################################
+######################################################
 class EyeStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = 'eye'
-
-  ########################
-  ###### INITIALIZE ######
-  ########################
 
   def __init__(self,
                port_pub: str = None,
@@ -91,17 +86,37 @@ class EyeStreamer(SensorStreamer):
 
   # Loop until self._running is False
   def run(self) -> None:
-    while self._running:
-      time_s, data = self._handler.process_pupil_data()
-      
-      # Store the data.
-      self._stream.append_data(time_s=time_s, data=data)
+    super().run()
+    try:
+      while self._running:
+        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+        if not poll_res: continue
 
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, data=data)
+        if self._pub in poll_res[0]:
+          self._process_data()
+        
+        if self._killsig in poll_res[0]:
+          self._running = False
+          print("quitting %s"%self._log_source_tag, flush=True)
+          self._killsig.recv_multipart()
+          self._poller.unregister(self._killsig)
+      self.quit()
+    # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
+    except Exception as _:
+      self.quit()
 
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart(["%s.data"%(self._log_source_tag), msg])
+
+  def _process_data(self) -> None:
+    time_s, data = self._handler.process_pupil_data()
+    
+    # Store the data.
+    self._stream.append_data(time_s=time_s, data=data)
+
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(time_s=time_s, data=data)
+
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart([("%s.data" % (self._log_source_tag)).encode('utf-8'), msg])
 
 
   # Clean up and quit

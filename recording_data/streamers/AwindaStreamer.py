@@ -121,7 +121,7 @@ class AwindaStreamer(SensorStreamer):
     # Get serialized object to send over ZeroMQ.
     msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     # Send the data packet on the PUB socket.
-    self._pub.send_multipart(["%s.data" % self._log_source_tag, msg])
+    self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
 
   # NOTE: if sending data over the socket throttles the callback thread,
   #   only put packets into shared queue object and have the parent thread do this instead

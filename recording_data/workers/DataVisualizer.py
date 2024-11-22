@@ -15,6 +15,8 @@ import os
 import time
 from collections import OrderedDict
 
+import zmq
+
 from utils.msgpack_utils import deserialize
 from workers.Worker import Worker
 from streamers import STREAMERS
@@ -111,16 +113,16 @@ class DataVisualizer(Worker):
       #################
       ###### SUB ######
       #################
-      sockets, events = zip(*self._poller.poll())
-      if self._sub in sockets:
+      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
+      if self._sub in poll_res[0]:
         topic, msg = self._sub.recv_multipart()
         data = deserialize(msg)
         # Put data into the corresponding Stream object
-        topic_tree: list[str] = topic.split(".")
+        topic_tree: list[str] = topic.decode('utf-8').split(".")
         streamer_name: str = topic_tree[0]
         self._streams[streamer_name].append_data(**data)
       
-      if self._killsig in sockets:
+      if self._killsig in poll_res[0]:
         # Stop the visualization thread
         self.quit()
 
