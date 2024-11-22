@@ -19,8 +19,12 @@ if __name__ == '__main__':
 
   # Configure network topology.
   ip_wearablePC: str = "192.168.1.101"
+<<<<<<< HEAD
   ip_labPC: str = "10.38.74.26"
 
+=======
+  ip_labPC: str = "10.46.135.149"
+>>>>>>> 52bdb7c (feat(moxy): finalize data capture setup with only moxys)
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -35,10 +39,14 @@ if __name__ == '__main__':
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
 <<<<<<< HEAD
+<<<<<<< HEAD
     ('MoxyStreamer',       True)
 =======
     ('MoxyStreamer',       False)
 >>>>>>> fdacabe (refator: Removed redundant code for Moxys)
+=======
+    ('MoxyStreamer',       True)
+>>>>>>> 52bdb7c (feat(moxy): finalize data capture setup with only moxys)
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
@@ -172,8 +180,13 @@ if __name__ == '__main__':
 
   datalogging_options = {
     'classes_to_log': [
+<<<<<<< HEAD
       'MoxyStreamer',
       'AwindaStreamer', 
+=======
+      'AwindaStreamer', 
+      'MoxyStreamer'
+>>>>>>> 52bdb7c (feat(moxy): finalize data capture setup with only moxys)
       ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,

@@ -67,21 +67,16 @@ class MoxyStreamer(SensorStreamer):
 
     self.counter_per_sensor = defaultdict(lambda: -1)
 
+
   def create_stream(cls, stream_info: dict) -> MoxyStream:
     return MoxyStream(**stream_info)
 
 
-  def connect(self) -> bool:
-
-    self.devices = []
-    self.node = CustomNode()
-    self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
-    self.node.sample_devices()
-  
-    return
+  def connect(self) -> bool:   
 
     self.node = CustomNode()
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
+
 
     self.scanner = Scanner(self.node, device_id=0, device_type=0)
     def on_update(device_tuple, common):
@@ -125,7 +120,7 @@ class MoxyStreamer(SensorStreamer):
 
 
   def _process_data(self):
-    
+
     try:
       (data_type, channel, data) = self.node._datas.get(True, 1.0)
       self.node._datas.task_done()
@@ -142,6 +137,7 @@ class MoxyStreamer(SensorStreamer):
             msg = serialize(time_s=time_s, device_id=device_id, THb=THb, SmO2=SmO2, counter=counter)
             self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
             self.counter_per_sensor[device_id] = counter
+
       else:
         print("Unknown data type '%s': %r", data_type, data)
     except Exception as _:
