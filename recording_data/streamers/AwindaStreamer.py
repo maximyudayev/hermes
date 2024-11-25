@@ -102,7 +102,7 @@ class AwindaStreamer(SensorStreamer):
       # Get serialized object to send over ZeroMQ.
       msg = serialize(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
       # Send the data packet on the PUB socket.
-      self._pub.send_multipart(["%s.%s" % (self._log_source_tag, device_id), msg])
+      self._pub.send_multipart([("%s.%s" % (self._log_source_tag, device_id)).encode('utf-8'), msg])
 
     def process_all_packets(time_s: float, devices: list[xda.XsDevice], packets: list[xda.XsPacket]) -> None:
       for dev, packet in zip(devices, packets):

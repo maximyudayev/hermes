@@ -2,15 +2,12 @@ from collections import OrderedDict
 import queue
 from vicon_dssdk import ViconDataStream
 
-import numpy as np
 
 from streamers.SensorStreamer import SensorStreamer
-from streams.AwindaStream import AwindaStream
+from streams.ViconStream import ViconStream
 
 from utils.msgpack_utils import serialize
 from utils.print_utils import *
-
-import xsensdeviceapi as xda
 
 import zmq
 
@@ -21,7 +18,7 @@ import zmq
 ################################################
 class ViconStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
-  _log_source_tag = 'awinda'
+  _log_source_tag = 'vicon'
 
   ########################
   ###### INITIALIZE ######
@@ -37,16 +34,16 @@ class ViconStreamer(SensorStreamer):
     stream_info = {
     }
 
-    super(ViconStreamer, self).__init__(self, 
+    super(ViconStreamer, self).__init__( 
                                          port_pub=port_pub,
                                          port_sync=port_sync,
                                          port_killsig=port_killsig,
                                          stream_info=stream_info,
                                          print_status=print_status, 
                                          print_debug=print_debug)
-
-  def create_stream(self, stream_info: dict) -> AwindaStream:  
-    return AwindaStream(**stream_info)
+  @classmethod
+  def create_stream(self, stream_info: dict) -> ViconStream:  
+    return ViconStream(**stream_info)
 
 
   def connect(self) -> None:
@@ -69,8 +66,22 @@ class ViconStreamer(SensorStreamer):
     # Set server push mode, server pushes frames to client buffer, TCP/IP buffer, then server buffer. Code must keep up to ensure no overflow
     self._client.SetStreamMode( ViconDataStream.Client.StreamMode.EServerPush )
     print( 'Get Frame Push', self._client.GetFrame(), self._client.GetFrameNumber() )
-
-    self._client.getFrame()
+    
+    time.sleep(1) # wait for the setup
+    HasFrame = False
+    timeout = 50
+    while not HasFrame:
+        print( '.' )
+        try:
+            if self._client.GetFrame():
+                HasFrame = True
+            timeout=timeout-1
+            if timeout < 0:
+                print('Failed to get frame')
+        except ViconDataStream.DataStreamException as e:
+            self._client.GetFrame()
+    
+    self._client.GetDeviceNames()
 
 
   # Acquire data from the sensors until signalled externally to quit
@@ -78,25 +89,30 @@ class ViconStreamer(SensorStreamer):
     # While background process reads-out new data, can do something useful
     #   like poll for commands from the Broker to terminate, and block on the Queue 
     devices = self._client.GetDeviceNames()
+    # Keep only EMG. This device was renamed in the Nexus SDK
+    devices = [d for d in devices if d[0] == "Cometa EMG"]
     while self._running:
-      self._client.getFrame()
+      self._client.GetFrame()
       time_s = time.time()
-      frame_number = self._client.getFrameNumber()
+      frame_number = self._client.GetFrameNumber()
 
       for deviceName, deviceType in devices:
-        print( deviceName, 'Device of type', deviceType )
-        deviceOutputDetails = self._client.GetDeviceOutputDetails( deviceName )
-        for outputName, componentName, unit in deviceOutputDetails:
+        # handle Cometa EMG
+        if deviceName == "Cometa EMG":
+          deviceOutputDetails = self._client.GetDeviceOutputDetails( deviceName )
+          all_results = []
+          for outputName, componentName, unit in deviceOutputDetails:
+            if outputName != "EMG Channels": continue # only record EMG
             values, occluded = self._client.GetDeviceOutputValues( deviceName, outputName, componentName )
-            print( deviceName, componentName, values, unit, occluded )
+            all_results.append(values)
             # Store the captured data into the data structure.
-            self._stream.append_data(time_s=time_s, deviceName=deviceName, componentName=componentName, values=values, frame_number=frame_number)
-            # Get serialized object to send over ZeroMQ.
-            msg = serialize(time_s=time_s, deviceName=deviceName, componentName=componentName, values=values, frame_number=frame_number)
-            # Send the data packet on the PUB socket.
-            self._pub.send_multipart(["%s.data" % self._log_source_tag, msg])
-
-    #TODO make this work while at the Vicon Lab
+          result_array = np.array(all_results)
+          for sample in result_array.T:
+            self._stream.append_data_EMG(time_s, sample)
+            msg = serialize(time_s=time_s, mocap = None, EMG=sample, frame_number=frame_number)
+          # Send the data packet on the PUB socket.
+            self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
+          
 
   # Clean up and quit
   def quit(self) -> None:

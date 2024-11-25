@@ -1,4 +1,7 @@
 import os
+import sys
+sys.path.append('C:\\Users\\Vicon\\LiveStream Vicon\\AidWear\\recording_data')
+
 from utils.time_utils import *
 from handlers.StreamBroker import StreamBroker
 
@@ -19,7 +22,7 @@ if __name__ == '__main__':
 
   # Configure network topology.
   ip_wearablePC: str = "192.168.69.101"
-  ip_labPC: str = "10.46.134.52"
+  ip_labPC: str = "10.244.21.115"
 
   # Define locally connected streamers.
   sensor_streamers = dict([

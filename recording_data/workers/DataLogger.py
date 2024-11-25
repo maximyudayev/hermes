@@ -126,7 +126,7 @@ class DataLogger(Worker):
       del(class_args['class'])
       # Create the class object.
       class_type: type[Stream] = STREAMERS[class_name]
-      class_object: Stream = class_type.create_stream(**class_args)
+      class_object: Stream = class_type.create_stream(class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
@@ -193,7 +193,7 @@ class DataLogger(Worker):
       if self._sub in poll_res[0]:
         topic, payload = self._sub.recv_multipart()
         msg = deserialize(payload)
-        topic_tree: list[str] = topic.split('.')
+        topic_tree: list[str] = topic.decode('utf-8').split('.')
         self._streams[topic_tree[0]].append_data(**msg)
       
       if self._killsig in poll_res[0]:
