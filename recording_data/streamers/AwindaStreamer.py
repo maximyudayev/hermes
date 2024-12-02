@@ -123,29 +123,6 @@ class AwindaStreamer(SensorStreamer):
     # Send the data packet on the PUB socket.
     self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
 
-  # NOTE: if sending data over the socket throttles the callback thread,
-  #   only put packets into shared queue object and have the parent thread do this instead
-  # def _process_each_data(self) -> None:
-  #   counter: np.uint16 = packet.packetCounter()
-  #   acc = packet.freeAcceleration()
-  #   euler = packet.orientationEuler()
-  #   acceleration = np.array((acc[0], acc[1], acc[2]))
-  #   orientation = np.array((euler.x(), euler.y(), euler.z()))
-
-  #   # Pick which timestamp information to use (also for DOTs)
-  #   timestamp: xda.XsTimeInfo = packet.utcTime()
-  #   finetime: np.uint32 = packet.sampleTimeFine()
-  #   timestamp_estimate: xda.XsTimeStamp = packet.estimatedTimeOfSampling()
-  #   timestamp_arrival: xda.XsTimeStamp = packet.timeOfArrival()
-
-  #   # Store the captured data into the data structure.
-  #   device_id: str = str(dev.deviceId())
-  #   self._stream.append_data(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
-  #   # Get serialized object to send over ZeroMQ.
-  #   msg = serialize(time_s=time_s, device_id=device_id, acceleration=acceleration, orientation=orientation, timestamp=finetime, counter=counter)
-  #   # Send the data packet on the PUB socket.
-  #   self._pub.send_multipart(["%s.%s" % (self._log_source_tag, device_id), msg])
-
 
   # Clean up and quit
   def quit(self) -> None:

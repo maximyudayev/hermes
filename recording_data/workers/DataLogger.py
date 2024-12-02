@@ -128,7 +128,7 @@ class DataLogger(Worker):
       del(class_args['class'])
       # Create the class object.
       class_type: type[SensorStreamer] = STREAMERS[class_name]
-      class_object: Stream = class_type.create_stream(None, stream_info=class_args)
+      class_object: Stream = class_type.create_stream(class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
