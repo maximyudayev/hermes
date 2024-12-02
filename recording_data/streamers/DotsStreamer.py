@@ -80,8 +80,7 @@ class DotsStreamer(SensorStreamer):
         if not poll_res: continue
 
         if self._pub in poll_res[0]:
-          if self._handler.is_packets_available():
-            self._process_data()
+          self._process_data()
         
         if self._killsig in poll_res[0]:
           self._running = False
@@ -96,8 +95,11 @@ class DotsStreamer(SensorStreamer):
 
   def _process_data(self) -> None:
     time_s: float = time.time()
-    # Retrieve the oldest enqueued packet for each sensor 
-    for packet in self._handler.get_next_packet():
+    # Retrieve the oldest enqueued packet for each sensor
+    snapshot = self._handler.get_snapshot()
+    if not snapshot: return
+
+    for packet in snapshot:
       device_id: str = str(packet.deviceId())
       euler = packet.orientationEuler()
       acc = packet.freeAcceleration()
@@ -115,10 +117,8 @@ class DotsStreamer(SensorStreamer):
 
     # Store the captured data into the data structure.
     self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
-
     # Get serialized object to send over ZeroMQ.
     msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
-
     # Send the data packet on the PUB socket.
     self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
 

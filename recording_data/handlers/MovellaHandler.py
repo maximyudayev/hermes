@@ -63,13 +63,8 @@ class MovellaFacade:
       if all(self._connected_devices.values()): self._is_all_connected_queue.put(True)
 
     def on_packet_received(device, packet):
-      # TODO: actually, no guarantee that DOTs won't drift from each other if some are consumed slower
       device_id: str = str(device.deviceId())
-      self._lock.acquire()
-      while self._packet_buffer[device_id].qsize() >= self._buffer_size:
-        self._packet_buffer[device_id].get()
-      self._packet_buffer[device_id].put(packet)
-      self._lock.release()
+      self._put_packet(device_id, packet)
 
     def on_device_disconnected(device):
       device_id: str = str(device.deviceId())
@@ -122,29 +117,41 @@ class MovellaFacade:
         return False
     return True
 
-  def is_packets_available(self) -> bool:
-    for device_id, device in self._connected_devices.items():
-      if self.is_packet_available(device_id) == 0:
-        return False
-    return True
-
-  def is_packet_available(self, device_id: str) -> bool:
-    self._lock.acquire()
-    res = self._packet_buffer[device_id].qsize() > 0
-    self._lock.release()
-    return res
-
-  # Must be called after `packetsAvailable()`
-  def get_next_packet(self):
-    for device_id in self._connected_devices.keys():
-      self._lock.acquire()
-      oldest_packet = self._packet_buffer[device_id].get()
-      self._lock.release()
-      yield oldest_packet
-
   def cleanup(self) -> None:
     for device in self._connected_devices.values():
       if device is not None:
         device.stopMeasurement()
     self._manager.stopSync()
     self._manager.close()
+
+  def _put_packet(self, device_id, packet) -> None:
+    self._lock.acquire()
+    try:
+      self._packet_buffer[device_id].put_nowait(packet)
+    except queue.Full:
+      for id in self._connected_devices.keys():
+        try:
+          self._packet_buffer[id].get_nowait()
+        except queue.Empty:
+          pass
+    self._lock.release()
+
+  # Get the snapshot from all the sensors
+  #   during this time no DOTs can put new samples into their independent queues
+  # Prevents drift in samples due to software reading the async queues
+  def get_snapshot(self) -> list | None:
+    self._lock.acquire()
+    if self.is_data_available():
+      oldest_snapshot = [self._packet_buffer[device_id].get() for device_id in self._connected_devices.keys()]
+      self._lock.release()
+      return oldest_snapshot
+    else:
+      self._lock.release()
+      return None
+
+  # If each device has a new packet
+  def is_data_available(self) -> bool:
+    for device_id, device in self._connected_devices.items():
+      if self._packet_buffer[device_id].qsize() == 0:
+        return False
+    return True
