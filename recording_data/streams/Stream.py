@@ -20,7 +20,6 @@ from utils.print_utils import *
 #       for data: 'data', 'time_s', 'time_str', and others if desired
 #       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz', 'timesteps_before_solidified', 'extra_data_info'
 # TODO: set a flag to periodically clear old data (if needed)
-# TODO: report effective sample rate periodically
 ################################################
 ################################################
 class Stream(ABC):

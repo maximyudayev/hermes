@@ -10,11 +10,11 @@ import pypylon.pylon as pylon
 
 from utils.print_utils import *
 
-###############################################
-###############################################
-# A class for streaming videos from USB cameras
-###############################################
-###############################################
+######################################################
+######################################################
+# A class for streaming videos from Basler PoE cameras
+######################################################
+######################################################
 class CameraStreamer(SensorStreamer):
   # Mandatory read-only property of the abstract class.
   _log_source_tag = 'cameras'
@@ -32,7 +32,7 @@ class CameraStreamer(SensorStreamer):
 
     # Initialize general state.
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
-    self._camera_mapping = OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
+    self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
 
     self._camera_config_filepath = camera_config_filepath
 
@@ -55,22 +55,15 @@ class CameraStreamer(SensorStreamer):
     return CameraStream(**stream_info)
 
 
-  # Connect to the sensor.
-  # NOTE: if running background grab loop for multiple cameras impacts bandwidth, switch to per-process instantiation for each camera
-  #   In this case, use each entry of the camera names dictionary to use filters on the device info objects for enumeration
+  # Connect to the cameras
   def connect(self) -> bool:
     tlf: pylon.TlFactory = pylon.TlFactory.GetInstance()
-    fp: pylon.FeaturePersistence = pylon.FeaturePersistence()
 
     # Get Transport Layer for just the GigE Basler cameras
-    self._tl: pylon.TransportLayer = tlf.CreateTl(pylon.TLTypeGigE)
-    # di = pylon.DeviceInfo()
-    # di.SetUserDefinedName("")
-    # di.SetSerialNumber("")
-    # self._cam = pylon.InstantCamera(tlf.CreateDevice(di))
+    self._tl: pylon.TransportLayer = tlf.CreateTl('BaslerGigE')
 
     # Filter discovered cameras by user-defined serial numbers
-    devices: list[pylon.DeviceInfo] = [d for d in self._tl.EnumerateDevices() if d.GetSerialNumber() in self._camera_mapping.values()]
+    devices: list[pylon.DeviceInfo] = [d for d in self._tl.EnumerateAllDevices() if d.GetSerialNumber() in self._camera_mapping.keys()]
 
     # Instantiate cameras
     self._cam_array: pylon.InstantCameraArray = pylon.InstantCameraArray(len(devices))
@@ -88,17 +81,13 @@ class CameraStreamer(SensorStreamer):
 
       # Preload persistent feature configurations saved to a file (easier configuration of all cameras)
       if self._camera_config_filepath is not None: 
-        fp.Load(self._camera_config_filepath, cam.GetNodeMap())
+        pylon.FeaturePersistence.Load(self._camera_config_filepath, cam.GetNodeMap())
       
       # Assign an ID to each grabbed frame, corresponding to the host device
       cam.SetCameraContext(idx)
       
       # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate
       cam.PtpEnable.SetValue(True)
-      
-      # Verify status is no longer "Initializing"
-      while cam.PtpStatus.GetValue() != "Initializing":
-        time.sleep(1)
 
       # Verify that the slave device are sufficiently synchronized
       while cam.PtpServoStatus.GetValue() != "Locked":
@@ -110,21 +99,7 @@ class CameraStreamer(SensorStreamer):
     self._image_handler = ImageEventHandler(cam_array=self._cam_array)
 
     return True
-      #####################################################
-      # https://github.com/basler/pypylon/issues/482
-      # Make sure the frame trigger is set to Off to enable free run
-      # cam.TriggerSelector.SetValue('FrameStart')
-      # cam.TriggerMode.SetValue('Off')
-      # # Let the free run start immediately without a specific start time
-      # cam.SyncFreeRunTimerStartTimeLow.SetValue(0)
-      # cam.SyncFreeRunTimerStartTimeHigh.SetValue(0)
-      # # Set the trigger rate to 10 frames per second
-      # cam.SyncFreeRunTimerTriggerRateAbs.SetValue(10)
-      # # Apply the changes
-      # cam.SyncFreeRunTimerUpdate.Execute()
-      # # Start the synchronous free run
-      # cam.SyncFreeRunTimerEnable.SetValue(True)
-      ######################################################
+
 
   # Register background grab loop with a callback responsible for sending frames over ZeroMQ
   def run(self) -> None:
@@ -141,6 +116,7 @@ class CameraStreamer(SensorStreamer):
         if self._pub in poll_res[0]:
           if self._image_handler.is_data_available():
             self._process_data()
+            print(self._stream.get_fps())
         
         if self._killsig in poll_res[0]:
           self._running = False
@@ -149,13 +125,13 @@ class CameraStreamer(SensorStreamer):
           self._poller.unregister(self._killsig)
       self.quit()
     # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
-    except Exception as _:
+    except Exception as e:
       self.quit()
- 
+
 
   def _process_data(self):
+    time_s = time.time()
     for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
-      time_s = time.time()
       # Store the data.
       self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
       # Get serialized object to send over ZeroMQ.
@@ -169,7 +145,51 @@ class CameraStreamer(SensorStreamer):
     # Stop capturing data
     self._cam_array.StopGrabbing()
     # Remove background loop event listener
-    self._cam_array.DeregisterCameraEventHandler(self._image_handler)
+    for cam in self._cam_array: cam.DeregisterImageEventHandler(self._image_handler)
     # Disconnect from the camera
     self._cam_array.Close()
     super().quit()
+
+
+#####################
+###### TESTING ######
+#####################
+if __name__ == "__main__":
+  camera_mapping = { # map camera names (usable as device names in the HDF5 file) to capture device indexes
+    'basler_north' : '40478064',
+    'basler_east'  : '40549960',
+    'basler_south' : '40549975',
+    'basler_west'  : '40549976',
+  }
+  fps = 20
+  resolution = (1944, 2592) # Uses BayerRG8 format with colors encoded, which gets converted to RGB in visualization by the GUI thread
+  camera_config_filepath = 'resources/pylon_20fps_maxres.pfs'
+
+  ip = "127.0.0.1"
+  port_backend = "42069"
+  port_frontend = "42070"
+  port_sync = "42071"
+  port_killsig = "42066"
+
+  # Pass exactly one ZeroMQ context instance throughout the program
+  ctx: zmq.Context = zmq.Context()
+
+  # Exposes a known address and port to locally connected sensors to connect to.
+  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
+  local_backend.bind("tcp://127.0.0.1:%s" % (port_backend))
+  backends: list[zmq.SyncSocket] = [local_backend]
+
+  # Exposes a known address and port to broker data to local workers.
+  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
+  local_frontend.bind("tcp://127.0.0.1:%s" % (port_frontend))
+  frontends: list[zmq.SyncSocket] = [local_frontend]
+
+  streamer = CameraStreamer(camera_mapping=camera_mapping, 
+                            fps=fps,
+                            resolution=resolution,
+                            port_pub=port_backend,
+                            port_sync=port_sync,
+                            port_killsig=port_killsig,
+                            camera_config_filepath=camera_config_filepath)
+
+  streamer()

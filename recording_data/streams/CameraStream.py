@@ -1,13 +1,14 @@
 from collections import OrderedDict
+import cv2
 import numpy as np
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
-#########################################
-#########################################
-# A structure to store DOTs stream's data
-#########################################
-#########################################
+###########################################
+###########################################
+# A structure to store Camera stream's data
+###########################################
+###########################################
 class CameraStream(Stream):
   def __init__(self, 
                camera_mapping: dict,
@@ -17,7 +18,7 @@ class CameraStream(Stream):
     super().__init__()
 
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
-    self._camera_mapping = OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
+    self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
 
     self._define_data_notes()
 
@@ -48,7 +49,7 @@ class CameraStream(Stream):
 
 
   def get_fps(self) -> dict[str, float]:
-    return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
+    return {camera_name: super(CameraStream, self)._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
 
 
   def append_data(self,
@@ -67,7 +68,8 @@ class CameraStream(Stream):
     
     # Show frames from each camera as a video.
     for camera_id in self._camera_mapping.values():
-      visualization_options[camera_id]['frame'] = {'class': VideoVisualizer}
+      visualization_options[camera_id]['frame'] = {'class': VideoVisualizer,
+                                                   'format': cv2.COLOR_BAYER_RG2RGB}
     
     return visualization_options
 

@@ -8,11 +8,11 @@ import pyqtgraph.exporters
 from pyqtgraph.Qt import QtCore, QtGui
 from PyQt6.QtWidgets import QLabel
 
-################################################
+##################################################################
 # Visualize videos.
 # Assumes that the stream's data['data'] field contains raw frames
 #   as matrices in BGR format.
-################################################
+##################################################################
 class VideoVisualizer(Visualizer):
 
   def __init__(self, 
@@ -81,7 +81,7 @@ class VideoVisualizer(Visualizer):
     # Update the layout if one was provided.
     if self._is_sub_layout:
       self._plot_image_item.setImage(
-          cv2.rotate(cv2.cvtColor(self._latest_frame, cv2.COLOR_BGR2RGB),
+          cv2.rotate(cv2.cvtColor(self._latest_frame, self._visualizer_options['format']),
                      cv2.cv2.ROTATE_90_CLOCKWISE))
     # Show the image if appropriate.
     elif not self._hidden:
@@ -94,7 +94,7 @@ class VideoVisualizer(Visualizer):
   # Should return a matrix in RGB format.
   def get_visualization_image(self, device_name, stream_name):
     img = self._latest_frame.copy()
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.cvtColor(img, self._visualizer_options['format'])
     return img
 
   # Close the window.
