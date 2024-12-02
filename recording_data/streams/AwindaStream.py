@@ -153,41 +153,41 @@ class AwindaStream(Stream):
 
     self._data_notes['awinda-imu']['acceleration-x'] = OrderedDict([
       ('Description', 'Acceleration in the X direction'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-imu']['acceleration-y'] = OrderedDict([
       ('Description', 'Acceleration in the Y direction'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-imu']['acceleration-z'] = OrderedDict([
       ('Description', 'Acceleration in the Z direction'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-imu']['orientation-x'] = OrderedDict([
       ('Description', 'Orientation in the Roll direction (around X axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-imu']['orientation-y'] = OrderedDict([
       ('Description', 'Orientation in the Pitch direction (around Y axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-imu']['orientation-z'] = OrderedDict([
       ('Description', 'Orientation in the Yaw direction (around Z axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-counter']['counter'] = OrderedDict([
       ('Description', 'Index of the sampled packet per device, starting from 0 on turn-on and wrapping around after 65535.'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])
     self._data_notes['awinda-timestamp']['timestamp'] = OrderedDict([
       ('Description', 'Time of sampling of the packet at the device. \
                       If one of the device measurement is missed for timestep `i`, \
                       data will be interpolated on the next timestep.Acceleration in the X direction'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      (Stream.metadata_data_headings_key, self._device_mapping.values()),
     ])

@@ -1,16 +1,17 @@
 from numpy import ndarray
 from streams.Stream import Stream
 
-#########################################
-#########################################
-# A structure to store DOTs stream's data
-#########################################
-#########################################
+##############################################
+##############################################
+# A structure to store TMSi SAGA stream's data
+##############################################
+##############################################
 class TmsiStream(Stream):
   def __init__(self, 
                sampling_rate_hz: int = 20,
                **_) -> None:
     super().__init__()
+
     self._device_name = 'tmsi'
 
     self.add_stream(device_name=self._device_name,

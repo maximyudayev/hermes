@@ -8,9 +8,9 @@ import cv2
 import numpy as np
 import time
 
-################################################
-# Visualize 2D matrix data as a heatmap.
-################################################
+#######################################
+# Visualize 2D matrix data as a heatmap
+#######################################
 class HeatmapVisualizer(Visualizer):
   def __init__(self, 
                visualizer_options = None, 
@@ -127,7 +127,6 @@ class HeatmapVisualizer(Visualizer):
     self._heatmap.setImage(self._data.T) # index the image as (x, y) but numpy as (y, x)
     
     # Update the colorbar scale based on a buffer of recent colorbar levels.
-    # TODO: update the fps overlay
     if self._auto_colorbar_levels:
       heatmap_levels = self._heatmap.getLevels()
       # heatmap_levels = abs(heatmap_levels)*0.8 * np.sign(heatmap_levels)

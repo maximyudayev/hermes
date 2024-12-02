@@ -17,6 +17,7 @@ from collections import OrderedDict
 
 import zmq
 
+from streamers.SensorStreamer import SensorStreamer
 from utils.msgpack_utils import deserialize
 from workers.Worker import Worker
 from streamers import STREAMERS
@@ -95,8 +96,8 @@ class DataVisualizer(Worker):
       class_args = streamer_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Stream] = STREAMERS[class_name]
-      class_object: Stream = class_type.create_stream(**class_args)
+      class_type: type[SensorStreamer] = STREAMERS[class_name]
+      class_object: Stream = class_type.create_stream(class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
 

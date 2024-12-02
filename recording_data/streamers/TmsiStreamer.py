@@ -3,23 +3,23 @@ import queue
 import zmq
 from streams.TmsiStream import TmsiStream
 from streamers.SensorStreamer import SensorStreamer
-from utils.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
-from utils.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
-from utils.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as Reshape
-from utils.TMSiSDK.tmsi_sdk import TMSiSDK
-from utils.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
-from utils.TMSiSDK.device.tmsi_channel import ChannelType
+from handlers.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
+from handlers.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
+from handlers.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as Reshape
+from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
+from handlers.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
+from handlers.TMSiSDK.device.tmsi_channel import ChannelType
 
 import numpy as np
 import time
 
 from utils.print_utils import *
 
-################################################
-################################################
-# A template class for implementing a new sensor
-################################################
-################################################
+#######################################
+#######################################
+# A class to interface TMSi SAGA device
+#######################################
+#######################################
 class TmsiStreamer(SensorStreamer):
   _log_source_tag = 'SAGA'
 
