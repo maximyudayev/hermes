@@ -27,12 +27,13 @@ if __name__ == '__main__':
     # Use one of the following to control the experiment (enter notes, quit, etc)
     ('ExperimentControlStreamer', False),  # A GUI to label activities/calibrations and enter notes
     # Sensors!
-    ('AwindaStreamer',     True),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
-    ('DotsStreamer',       True),   # The Dots lower limb tracking system
+    ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
+    ('DotsStreamer',       True),  # The Dots lower limb tracking system
     ('EyeStreamer',        True),  # The Pupil Labs eye-tracking headset
-    # ('MicrophoneStreamer', False),  # One or more microphones
+    ('MicrophoneStreamer', False),  # One or more microphones
     ('CameraStreamer',     False),  # One or more cameras
-    ('InsoleStreamer',     True),  # The Moticon pressure insoles
+    ('InsoleStreamer',     False),  # The Moticon pressure insoles
+    ('TmsiStreamer',       False),
   ])
   # Configure settings for each streamer.
   sensor_streamer_specs = [
@@ -54,29 +55,35 @@ if __name__ == '__main__':
      },
     # Stream from the Awinda body tracking and Manus gloves.
     {'class': 'AwindaStreamer',
-      "device_mapping": {
-        "pelvis"         : "11850724",
-        "upper_leg_right": "11850711",
-        "lower_leg_right": "11850722",
-        "foot_right"     : "11850717",
-        "upper_leg_left" : "11850727",
-        "lower_leg_left" : "11850708",
-        "foot_left"      : "11850712",
+      'device_mapping': {
+        'pelvis'         : '00B4D3E4',
+        'upper_leg_right': '00B4D3D7',
+        'lower_leg_right': '00B4D3E2',
+        'foot_right'     : '00B4D3DD',
+        'upper_leg_left' : '00B4D3E7',
+        'lower_leg_left' : '00B4D3D4',
+        'foot_left'      : '00B4D3D8',
       },
      'num_joints'        : 7,
      'sampling_rate_hz'  : 100,
-     "radio_channel"     : 15,
+     'radio_channel'     : 15,
+     'print_debug': print_debug, 'print_status': print_status
+     },
+     # TMSi SAGA stream
+    {'class': 'TmsiStreamer',
+     'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
      },
     # Stream from the Dots lower limb tracking.
     {'class': 'DotsStreamer',
-     "device_mapping": {
-        "knee_right"  : "0",
-        "foot_right"  : "1",
-        "pelvis"      : "2",
-        "knee_left"   : "3",
-        "foot_left"   : "4",
+     'device_mapping': {
+        'knee_right'  : '40195BFC800B01F2',
+        'foot_right'  : '40195BFC800B003B',
+        'pelvis'      : '40195BFD80C20052',
+        'knee_left'   : '40195BFC800B017A',
+        'foot_left'   : '40195BFD80C200D1',
       },
+     'master_device'   : 'pelvis', # wireless dot relaying messages, must match a key in the `device_mapping`
      'num_joints'      : 5,
      'sampling_rate_hz': 20,
      'print_debug': print_debug, 'print_status': print_status
@@ -91,9 +98,9 @@ if __name__ == '__main__':
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
      'stream_video_eye'      : False, # video of the eye
      'is_binocular'          : True, # uses both eyes for gaze data and for video
-     'shape_video_world'     : (1080,720,3),
-     'shape_video_eye0'      : (192,192,3),
-     'shape_video_eye1'      : (192,192,3),
+     'shape_video_world'     : (720,1280,3),
+     'shape_video_eye0'      : (400,400,3),
+     'shape_video_eye1'      : (400,400,3),
      'fps_video_world'       : 30.0,
      'fps_video_eye0'        : 120.0,
      'fps_video_eye1'        : 120.0,
@@ -102,23 +109,26 @@ if __name__ == '__main__':
     # Stream from one or more cameras.
     {'class': 'CameraStreamer',
      'cameras_to_stream': { # map camera names (usable as device names in the HDF5 file) to capture device indexes
-       'basler_north' : "40478064",
-       'basler_east'  : "40549960",
-       'basler_south' : "40549975",
-       'basler_west'  : "40549976",
+       'basler_north' : '40478064',
+       'basler_east'  : '40549960',
+       'basler_south' : '40549975',
+       'basler_west'  : '40549976',
      },
+     'fps': 20,
+     'resolution': (1944, 2592),
      'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
      'print_debug': print_debug, 'print_status': print_status
      },
      # Insole pressure sensor.
     {'class': 'InsoleStreamer',
+     'sampling_rate_hz': 100,
      'print_debug': print_debug, 'print_status': print_status
      },
-    # # Stream from one or more microphones.
-    # {'class': 'MicrophoneStreamer',
-    #  'device_names_withAudioKeywords': {'microphone_conference': 'USB audio CODEC'},
-    #  'print_debug': print_debug, 'print_status': print_status
-    #  }
+    # Stream from one or more microphones.
+    {'class': 'MicrophoneStreamer',
+     'device_names_withAudioKeywords': {'microphone_conference': 'USB audio CODEC'},
+     'print_debug': print_debug, 'print_status': print_status
+     }
   ]
   # Remove disabled streamers.
   streamer_specs = [spec for spec in sensor_streamer_specs 
@@ -149,11 +159,13 @@ if __name__ == '__main__':
   os.makedirs(log_dir, exist_ok=True)
 
   datalogging_options = {
-    'classes_to_log': ['ExperimentControlStreamer', 
-                       'DotsStreamer', 
-                       'AwindaStreamer', 
-                       'EyeStreamer', 
-                       'CameraStreamer'],
+    'classes_to_log': [
+      # 'ExperimentControlStreamer', 
+      'DotsStreamer', 
+      # 'AwindaStreamer', 
+      'EyeStreamer', 
+      # 'CameraStreamer'
+      ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,
     'videos_in_hdf5': False,
@@ -162,13 +174,13 @@ if __name__ == '__main__':
     'stream_hdf5' : True, # recommended over CSV since it creates a single file
     'stream_csv'  : False, # will create a CSV per stream
     'stream_video': True,
-    'stream_audio': True,
+    'stream_audio': False,
     'stream_period_s': 10, # how often to save streamed data to disk
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
     # Choose whether to write all data at the end.
     'dump_csv'  : False,
     'dump_hdf5' : True,
-    'dump_video': True,
+    'dump_video': False,
     'dump_audio': False,
     # Additional configuration.
     'videos_format': 'avi', # mp4 occasionally gets openCV errors about a tag not being supported?
@@ -177,51 +189,53 @@ if __name__ == '__main__':
 
   # Find the camera names for future use.
   camera_streamer_index: int = ['CameraStreamer' in spec['class'] for spec in sensor_streamer_specs].index(True)
-  camera_names: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].keys())
+  camera_ids: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].values())
 
   # Configure visualization.
   composite_frame_size = (1920, 1080) # screen resolution
   composite_col_width_quarter = int(composite_frame_size[0]/4)
   composite_row_height = int(composite_frame_size[1]/5)
   visualization_options = {
-    'visualize_streaming_data'       : True,
-    'visualize_all_data_when_stopped': True,
-    'wait_while_visualization_windows_open': False,
+    'is_visualize_streaming'       : True,
+    'is_visualize_all_when_stopped': True,
+    'is_wait_while_windows_open': False,
     'update_period_s': 0.2,
-    'classes_to_visualize': ['DotsStreamer', 
-                             'AwindaStreamer', 
-                             'EyeStreamer', 
-                             'CameraStreamer'],
+    'classes_to_visualize': [
+      # 'DotsStreamer', 
+      # 'AwindaStreamer', 
+      # 'EyeStreamer', 
+      # 'CameraStreamer'
+      ],
     'use_composite_video': True,
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
     'composite_video_layout': [ # first 3 rows of IMU data, next 2 of video data with Pupil Core spanning 2x2 cell and 4 PoE cameras around it
       [ # row  0
         {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  1
         {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  2
         {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  3 
-        {'device_name':camera_names[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'eye-tracking-video-worldGaze', 'stream_name':'frame', 'rowspan':2, 'colspan':2, 'width':2*composite_col_width_quarter, 'height':2*composite_row_height},
-        {'device_name':camera_names[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  4
-        {'device_name':camera_names[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
-        {'device_name':camera_names[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':camera_ids[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
     ]
   }
