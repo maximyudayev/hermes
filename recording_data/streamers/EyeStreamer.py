@@ -123,3 +123,51 @@ class EyeStreamer(SensorStreamer):
   def quit(self):
     self._handler.close()
     super().quit()
+
+
+#####################
+###### TESTING ######
+#####################
+if __name__ == "__main__":
+  stream_info = {
+    'pupil_capture_ip'      : 'localhost',
+    'pupil_capture_port'    : '50020',
+    'video_image_format'    : 'bgr',
+    'gaze_estimate_stale_s' : 0.2,
+    'stream_video_world'    : False, # the world video
+    'stream_video_worldGaze': True, # the world video with gaze indication overlayed
+    'stream_video_eye'      : False, # video of the eye
+    'is_binocular'          : True, # uses both eyes for gaze data and for video
+    'shape_video_world'     : (720,1280,3),
+    'shape_video_eye0'      : (400,400,3),
+    'shape_video_eye1'      : (400,400,3),
+    'fps_video_world'       : 30.0,
+    'fps_video_eye0'        : 120.0,
+    'fps_video_eye1'        : 120.0
+  }
+
+  ip = "127.0.0.1"
+  port_backend = "42069"
+  port_frontend = "42070"
+  port_sync = "42071"
+  port_killsig = "42066"
+
+  # Pass exactly one ZeroMQ context instance throughout the program
+  ctx: zmq.Context = zmq.Context()
+
+  # Exposes a known address and port to locally connected sensors to connect to.
+  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
+  local_backend.bind("tcp://127.0.0.1:%s" % (port_backend))
+  backends: list[zmq.SyncSocket] = [local_backend]
+
+  # Exposes a known address and port to broker data to local workers.
+  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
+  local_frontend.bind("tcp://127.0.0.1:%s" % (port_frontend))
+  frontends: list[zmq.SyncSocket] = [local_frontend]
+
+  streamer = EyeStreamer(**stream_info, 
+                         port_pub=port_backend,
+                         port_sync=port_sync,
+                         port_killsig=port_killsig)
+
+  streamer()

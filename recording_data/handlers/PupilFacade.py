@@ -32,7 +32,7 @@ class PupilFacade:
     self._zmq_context = zmq.Context.instance()
     self._zmq_requester: zmq.SyncSocket = self._zmq_context.socket(zmq.REQ)
     self._zmq_requester.RCVTIMEO = 2000 # receive timeout in milliseconds
-    self._zmq_requester.connect('tcp://%s:%d' % (self._pupil_capture_ip, self._pupil_capture_port))
+    self._zmq_requester.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._pupil_capture_port))
     # Get the port that will be used for data.
     self._zmq_requester.send_string('SUB_PORT')
     self._ipc_sub_port = self._zmq_requester.recv_string()
@@ -142,24 +142,33 @@ class PupilFacade:
         world_img = img
         gaze_norm_pos = self._get_latest_stream_data_fn(device_name='eye-tracking-gaze', stream_name='position', starting_index=-1)
         gaze_timestamp = self._get_latest_stream_data_fn(device_name='eye-tracking-gaze', stream_name='timestamp', starting_index=-1)
-        world_gaze_time_diff_s = frame_timestamp - gaze_timestamp
-        gaze_radius = 10
-        gaze_color_outer = (255, 255, 255) # BGR format
-        if abs(world_gaze_time_diff_s) < self._gaze_estimate_stale_s: # check if the gaze prediction is recent
-          gaze_color_inner = (0, 255, 0) # BGR format
-        else: # gaze prediction is stale
-          gaze_color_inner = (0, 0, 0) # BGR format
-        gaze_norm_pos = np.array(gaze_norm_pos)
-        world_with_gaze = world_img.copy()
-        gaze_norm_pos[1] = 1 - gaze_norm_pos[1]
-        gaze_norm_pos = tuple((gaze_norm_pos * [world_with_gaze.shape[1], world_with_gaze.shape[0]]).astype(int))
-        cv2.circle(world_with_gaze, gaze_norm_pos, gaze_radius, gaze_color_outer, -1, lineType=cv2.LINE_AA)
-        cv2.circle(world_with_gaze, gaze_norm_pos, round(gaze_radius*0.7), gaze_color_inner, -1, lineType=cv2.LINE_AA)
-        video_worldGaze_items = [
-          ('frame_timestamp', frame_timestamp), 
-          ('frame_index', metadata['index']), # world view frame index used for annotation
-          ('frame', world_with_gaze),
-        ]
+        if gaze_norm_pos is not None and gaze_timestamp is not None:
+          gaze_norm_pos = gaze_norm_pos['data'][0]
+          gaze_timestamp = gaze_timestamp['data'][0]
+          world_gaze_time_diff_s = frame_timestamp - gaze_timestamp
+          gaze_radius = 10
+          gaze_color_outer = (255, 255, 255) # BGR format
+          if abs(world_gaze_time_diff_s) < self._gaze_estimate_stale_s: # check if the gaze prediction is recent
+            gaze_color_inner = (0, 255, 0) # BGR format
+          else: # gaze prediction is stale
+            gaze_color_inner = (0, 0, 0) # BGR format
+          gaze_norm_pos = np.array(gaze_norm_pos)
+          world_with_gaze = world_img.copy()
+          gaze_norm_pos[1] = 1 - gaze_norm_pos[1]
+          gaze_norm_pos = tuple((gaze_norm_pos * [world_with_gaze.shape[1], world_with_gaze.shape[0]]).astype(int))
+          cv2.circle(world_with_gaze, gaze_norm_pos, gaze_radius, gaze_color_outer, -1, lineType=cv2.LINE_AA)
+          cv2.circle(world_with_gaze, gaze_norm_pos, round(gaze_radius*0.7), gaze_color_inner, -1, lineType=cv2.LINE_AA)
+          video_worldGaze_items = [
+            ('frame_timestamp', frame_timestamp), 
+            ('frame_index', metadata['index']), # world view frame index used for annotation
+            ('frame', world_with_gaze),
+          ]
+        else:
+          video_worldGaze_items = [
+            ('frame_timestamp', frame_timestamp), 
+            ('frame_index', metadata['index']), # world view frame index used for annotation
+            ('frame', world_img),
+          ]
       except KeyError: # Streams haven't been configured yet
         pass
       except IndexError: # Data hasn't been received yet
