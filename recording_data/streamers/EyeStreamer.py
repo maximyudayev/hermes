@@ -108,13 +108,11 @@ class EyeStreamer(SensorStreamer):
 
   def _process_data(self) -> None:
     time_s, data = self._handler.process_pupil_data()
-    
-    # Store the data.
-    self._stream.append_data(time_s=time_s, data=data)
 
+    # Store the data.
+    # self._stream.append_data(time_s=time_s, data=data)
     # Get serialized object to send over ZeroMQ.
     msg = serialize(time_s=time_s, data=data)
-
     # Send the data packet on the PUB socket.
     self._pub.send_multipart([("%s.data" % (self._log_source_tag)).encode('utf-8'), msg])
 

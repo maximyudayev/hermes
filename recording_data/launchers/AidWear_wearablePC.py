@@ -160,10 +160,10 @@ if __name__ == '__main__':
 
   datalogging_options = {
     'classes_to_log': [
-      # 'ExperimentControlStreamer', 
-      'DotsStreamer', 
-      # 'AwindaStreamer', 
-      'EyeStreamer', 
+      # 'ExperimentControlStreamer',
+      'DotsStreamer',
+      # 'AwindaStreamer',
+      'EyeStreamer',
       # 'CameraStreamer'
       ],
     'log_dir': log_dir, 'log_tag': log_tag,
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
     # Choose whether to write all data at the end.
     'dump_csv'  : False,
-    'dump_hdf5' : True,
+    'dump_hdf5' : False,
     'dump_video': False,
     'dump_audio': False,
     # Additional configuration.
@@ -199,12 +199,12 @@ if __name__ == '__main__':
     'is_visualize_streaming'       : True,
     'is_visualize_all_when_stopped': True,
     'is_wait_while_windows_open': False,
-    'update_period_s': 0.2,
+    'update_period_s': 0.1,
     'classes_to_visualize': [
-      # 'DotsStreamer', 
+      'DotsStreamer', 
       # 'AwindaStreamer', 
-      # 'EyeStreamer', 
-      # 'CameraStreamer'
+      'EyeStreamer', 
+      'CameraStreamer'
       ],
     'use_composite_video': True,
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
@@ -212,7 +212,7 @@ if __name__ == '__main__':
       [ # row  0
         {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        # {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         # {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  1

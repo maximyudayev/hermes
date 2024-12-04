@@ -58,8 +58,7 @@ class LinePlotVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    super().__init__(self, 
-                     visualizer_options=visualizer_options, 
+    super().__init__(visualizer_options=visualizer_options, 
                      hidden=hidden,
                      parent_layout=parent_layout, 
                      parent_layout_size=parent_layout_size,
@@ -219,9 +218,9 @@ class LinePlotVisualizer(Visualizer):
       if self._hidden and not self._is_sub_layout:
         self._layout.hide()
       self._exporter = pyqtgraph.exporters.ImageExporter(self._layout.scene())
-      self._fps_label = QtWidgets.QLabel('%.1f'%float(0), self._layout)
-      self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
-      self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
+      # self._fps_label = QtWidgets.QLabel('%.1f'%float(0), self._layout)
+      # self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
+      # self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
       
     # Create time/data arrays for each axis,
     #  and use it to initialize the plots.
@@ -411,8 +410,8 @@ class LinePlotVisualizer(Visualizer):
         self._fig.canvas.flush_events()
     else:
       if not self._hidden:
-        self._fps_label.setText('%.1f'%float(fps))
-        self._fps_label.adjustSize()
+        # self._fps_label.setText('%.1f'%float(fps))
+        # self._fps_label.adjustSize()
         cv2.waitKey(1) # update the plot window (yes, this works)
 
   # Retrieve an image of the most updated visualization.

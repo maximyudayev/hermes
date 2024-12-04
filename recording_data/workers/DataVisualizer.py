@@ -6,7 +6,8 @@ if not use_opencv_for_composite:
   import pyqtgraph
   import pyqtgraph.exporters
   import numpy as np
-  from pyqtgraph.Qt import QtCore, QtGui
+  from PyQt6 import QtWidgets, QtGui
+
 
 from threading import Thread
 import cv2
@@ -17,6 +18,7 @@ from collections import OrderedDict
 
 import zmq
 
+from streamers.EyeStreamer import EyeStreamer
 from streamers.SensorStreamer import SensorStreamer
 from utils.msgpack_utils import deserialize
 from workers.Worker import Worker
@@ -97,7 +99,7 @@ class DataVisualizer(Worker):
       del(class_args['class'])
       # Create the class object.
       class_type: type[SensorStreamer] = STREAMERS[class_name]
-      class_object: Stream = class_type.create_stream(class_args)
+      class_object: Stream = class_type.create_stream(class_type, class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
 
@@ -222,13 +224,13 @@ class DataVisualizer(Worker):
       if not use_opencv_for_composite:
         pyqtgraph.setConfigOption('background', 'w')
         pyqtgraph.setConfigOption('foreground', 'k')
-        self._app = QtGui.QApplication([])
+        self._app = QtWidgets.QApplication([])
         # Define a top-level widget to hold everything
-        self._composite_widget = QtGui.QWidget()
+        self._composite_widget = QtWidgets.QWidget()
         if hide_composite:
           self._composite_widget.hide()
         # Create a grid layout to manage the widgets size and position
-        self._composite_parent_layout = QtGui.QGridLayout()
+        self._composite_parent_layout = QtWidgets.QGridLayout()
         self._composite_widget.setLayout(self._composite_parent_layout)
         self._composite_widget.setWindowTitle('Composite Visualization')
         self._composite_widget.setGeometry(10, 50, self._composite_frame_width, self._composite_frame_height)
@@ -289,7 +291,7 @@ class DataVisualizer(Worker):
       for (device_name, device_info) in stream.get_all_stream_infos().items():
         self._visualizers[stream_index][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
-          visualizer_options = stream.get_default_visualization_options(device_name, stream_name)
+          visualizer_options = stream.get_default_visualization_options()[device_name][stream_name]
           if callable(visualizer_options['class']):
             try:
               composite_visualizer_layout = self._composite_visualizer_layouts[device_name][stream_name]
@@ -511,8 +513,9 @@ class DataVisualizer(Worker):
               visualizer.update(new_data, visualizing_all_data=False, fps=fps_info[device_name])
               # self._log_status('Time to update vis: \t%s \t%s \t%s \t%0.3f' % (type(streamer).__name__, stream_name, type(visualizer).__name__, time.time() - start_visualizer_update_time_s))
             # Update starting indexes for the next write.
-            num_new_entries = len(new_data['data'])
-            next_starting_index = starting_index + num_new_entries
+            stream.clear_data(device_name, stream_name, first_index_to_keep=starting_index)
+            next_starting_index = 0
+            new_data = None
             self._next_data_indexes[stream_index][device_name][stream_name] = next_starting_index
             if self._print_debug_extra: pass
               # self._log_debug('Visualized %d new entries for stream %s.%s' % (num_new_entries, device_name, stream_name))
@@ -786,3 +789,53 @@ class DataVisualizer(Worker):
         cv2.waitKey(0)
       else:
         self._app.exec()
+
+
+#####################
+###### TESTING ######
+#####################
+if __name__ == "__main__":
+  stream_info = {
+    'pupil_capture_ip'      : 'localhost',
+    'pupil_capture_port'    : '50020',
+    'video_image_format'    : 'bgr',
+    'gaze_estimate_stale_s' : 0.2,
+    'stream_video_world'    : False, # the world video
+    'stream_video_worldGaze': True, # the world video with gaze indication overlayed
+    'stream_video_eye'      : False, # video of the eye
+    'is_binocular'          : True, # uses both eyes for gaze data and for video
+    'shape_video_world'     : (720,1280,3),
+    'shape_video_eye0'      : (400,400,3),
+    'shape_video_eye1'      : (400,400,3),
+    'fps_video_world'       : 30.0,
+    'fps_video_eye0'        : 120.0,
+    'fps_video_eye1'        : 120.0
+  }
+
+  ip = "127.0.0.1"
+  port_backend = "42069"
+  port_frontend = "42070"
+  port_sync = "42071"
+  port_killsig = "42066"
+
+  # Pass exactly one ZeroMQ context instance throughout the program
+  ctx: zmq.Context = zmq.Context()
+
+  # Exposes a known address and port to locally connected sensors to connect to.
+  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
+  local_backend.bind("tcp://127.0.0.1:%s" % (port_backend))
+  backends: list[zmq.SyncSocket] = [local_backend]
+
+  # Exposes a known address and port to broker data to local workers.
+  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
+  local_frontend.bind("tcp://127.0.0.1:%s" % (port_frontend))
+  frontends: list[zmq.SyncSocket] = [local_frontend]
+
+  streamer = EyeStreamer(**stream_info, 
+                         port_pub=port_backend,
+                         port_sync=port_sync,
+                         port_killsig=port_killsig)
+  
+  # TODO: add datavis in main process to debug
+
+  streamer()

@@ -117,7 +117,7 @@ class AwindaStreamer(SensorStreamer):
     timestamp = np.array([v['timestamp'] for v in self._packet.values()])
 
     # Store the captured data into the data structure.
-    self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+    # self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     # Get serialized object to send over ZeroMQ.
     msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     # Send the data packet on the PUB socket.

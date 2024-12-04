@@ -133,7 +133,7 @@ class CameraStreamer(SensorStreamer):
     time_s = time.time()
     for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
       # Store the data.
-      self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+      # self._stream.append_data(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
       # Get serialized object to send over ZeroMQ.
       msg = serialize(device_id=camera_id, time_s=time_s, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
       # Send the data packet on the PUB socket.
