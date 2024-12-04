@@ -116,7 +116,7 @@ class DotsStreamer(SensorStreamer):
     counter = np.array([v['counter'] for (_,v) in self._packet.items()])
 
     # Store the captured data into the data structure.
-    self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+    # self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     # Get serialized object to send over ZeroMQ.
     msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     # Send the data packet on the PUB socket.

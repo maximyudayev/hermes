@@ -295,11 +295,18 @@ class EyeStream(Stream):
   def get_default_visualization_options(self) -> dict:
     visualization_options = super().get_default_visualization_options()
 
-    visualization_options['eye-tracking-video-worldGaze']['frame'] = {'class': VideoVisualizer,
-                                                                      'format': cv2.COLOR_BGR2RGB},
-    visualization_options['eye-tracking-video-world']['frame'] = {'class': None},
-    visualization_options['eye-tracking-video-eye0']['frame'] = {'class': None},
-    visualization_options['eye-tracking-video-eye1']['frame'] = {'class': None},
+    if self._stream_video_worldGaze:
+      visualization_options['eye-tracking-video-worldGaze']['frame'] = {'class': VideoVisualizer,
+                                                                        'format': cv2.COLOR_BGR2RGB}
+    if self._stream_video_world:
+      visualization_options['eye-tracking-video-world']['frame'] = {'class': VideoVisualizer,
+                                                                    'format': cv2.COLOR_BGR2RGB}
+    if self._stream_video_eye:
+      visualization_options['eye-tracking-video-eye0']['frame'] = {'class': VideoVisualizer,
+                                                                   'format': cv2.COLOR_BGR2RGB}
+      if self._is_binocular:
+        visualization_options['eye-tracking-video-eye1']['frame'] = {'class': VideoVisualizer,
+                                                                     'format': cv2.COLOR_BGR2RGB}
 
     return visualization_options
 

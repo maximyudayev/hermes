@@ -59,8 +59,7 @@ class XsensSkeletonVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    super().__init__(self, 
-                     visualizer_options=visualizer_options, 
+    super().__init__(visualizer_options=visualizer_options, 
                      hidden=hidden,
                      parent_layout=parent_layout, 
                      parent_layout_size=parent_layout_size,

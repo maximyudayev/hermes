@@ -5,8 +5,6 @@ import numpy as np
 
 import pyqtgraph
 import pyqtgraph.exporters
-from pyqtgraph.Qt import QtCore, QtGui
-from PyQt6.QtWidgets import QLabel
 
 ##################################################################
 # Visualize videos.
@@ -22,8 +20,7 @@ class VideoVisualizer(Visualizer):
                parent_layout_size = None,
                print_debug: bool = False, 
                print_status: bool = False):
-    super().__init__(self, 
-                     visualizer_options=visualizer_options, 
+    super().__init__(visualizer_options=visualizer_options, 
                      hidden=hidden,
                      parent_layout=parent_layout, 
                      parent_layout_size=parent_layout_size,
@@ -63,9 +60,9 @@ class VideoVisualizer(Visualizer):
       self._plot.addItem(self._plot_image_item)
       self._plot.hideAxis('bottom')
       self._plot.hideAxis('left')
-      self._fps_label = QLabel('%.1f'%float(fps), self._plot)
-      self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
-      self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
+      # self._fps_label = QLabel('%.1f'%float(fps), self._plot)
+      # self._fps_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom)
+      # self._fps_label.setStyleSheet('background-color: rgba(0,0,0,0)')
     elif not self._hidden:
       cv2.imshow(self._video_title, self._latest_frame)
       cv2.waitKey(1) # necessary to show/update the window; argument is in ms
@@ -82,11 +79,11 @@ class VideoVisualizer(Visualizer):
     if self._is_sub_layout:
       self._plot_image_item.setImage(
           cv2.rotate(cv2.cvtColor(self._latest_frame, self._visualizer_options['format']),
-                     cv2.cv2.ROTATE_90_CLOCKWISE))
+                     cv2.ROTATE_90_CLOCKWISE))
     # Show the image if appropriate.
     elif not self._hidden:
-      self._fps_label.setText('%.1f'%float(fps))
-      self._fps_label.adjustSize()
+      # self._fps_label.setText('%.1f'%float(fps))
+      # self._fps_label.adjustSize()
       cv2.imshow(self._video_title, self._latest_frame)
       cv2.waitKey(1) # necessary to show/update the window; argument is in ms
 

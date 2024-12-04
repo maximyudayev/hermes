@@ -184,7 +184,7 @@ if __name__ == '__main__':
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
     # Choose whether to write all data at the end.
     'dump_csv'  : False,
-    'dump_hdf5' : True,
+    'dump_hdf5' : False,
     'dump_video': False,
     'dump_audio': False,
     # Additional configuration.
@@ -204,11 +204,11 @@ if __name__ == '__main__':
     'is_visualize_streaming'       : True,
     'is_visualize_all_when_stopped': True,
     'is_wait_while_windows_open': False,
-    'update_period_s': 0.2,
+    'update_period_s': 0.1,
     'classes_to_visualize': [
-      'DotsStreamer', 
-      # 'AwindaStreamer', 
-      'EyeStreamer', 
+      'DotsStreamer',
+      # 'AwindaStreamer',
+      'EyeStreamer',
       'CameraStreamer'
       ],
     'use_composite_video': True,
