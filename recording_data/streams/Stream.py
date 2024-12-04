@@ -140,9 +140,7 @@ class Stream(ABC):
                    time_s: float, 
                    data, 
                    extra_data: dict[str, dict] = None) -> None:
-    time_str = get_time_str(time_s, '%Y-%m-%d %H:%M:%S.%f')
     self._data[device_name][stream_name]['time_s'].append(time_s)
-    self._data[device_name][stream_name]['time_str'].append(time_str)
     self._data[device_name][stream_name]['data'].append(data)
     if extra_data is not None:
       for (extra_key, extra_value) in extra_data.items():
