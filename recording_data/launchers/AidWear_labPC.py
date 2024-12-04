@@ -21,6 +21,7 @@ if __name__ == '__main__':
   ip_wearablePC: str = "192.168.1.101"
   ip_labPC: str = "10.38.74.26"
 
+
   # Define locally connected streamers.
   sensor_streamers = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     False),  # One or more cameras
+    ('CameraStreamer',     True),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
     ('MoxyStreamer',       True)
@@ -105,9 +106,9 @@ if __name__ == '__main__':
      'stream_video_worldGaze': True, # the world video with gaze indication overlayed
      'stream_video_eye'      : False, # video of the eye
      'is_binocular'          : True, # uses both eyes for gaze data and for video
-     'shape_video_world'     : (1280,720,3),
-     'shape_video_eye0'      : (192,192,3),
-     'shape_video_eye1'      : (192,192,3),
+     'shape_video_world'     : (720,1280,3),
+     'shape_video_eye0'      : (400,400,3),
+     'shape_video_eye1'      : (400,400,3),
      'fps_video_world'       : 30.0,
      'fps_video_eye0'        : 120.0,
      'fps_video_eye1'        : 120.0,
@@ -122,7 +123,7 @@ if __name__ == '__main__':
        'basler_west'  : '40549976',
      },
      'fps': 20,
-     'resolution': (2592,1944,3),
+     'resolution': (1944, 2592),
      'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
      'print_debug': print_debug, 'print_status': print_status
      },
@@ -167,7 +168,8 @@ if __name__ == '__main__':
 
   datalogging_options = {
     'classes_to_log': [
-      'MoxyStreamer'
+      'MoxyStreamer',
+      'AwindaStreamer', 
       ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,
@@ -205,7 +207,7 @@ if __name__ == '__main__':
     'update_period_s': 0.2,
     'classes_to_visualize': [
       'DotsStreamer', 
-      'AwindaStreamer', 
+      # 'AwindaStreamer', 
       'EyeStreamer', 
       'CameraStreamer'
       ],
@@ -215,20 +217,20 @@ if __name__ == '__main__':
       [ # row  0
         {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  1
         {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  2
         {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         {'device_name':'dots-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        # {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  3 
         {'device_name':camera_ids[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
