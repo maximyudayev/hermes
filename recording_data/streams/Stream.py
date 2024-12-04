@@ -163,7 +163,8 @@ class Stream(ABC):
       self._streams_info[device_name][stream_name]['dt_circular_buffer']\
         [self._streams_info[device_name][stream_name]['dt_circular_index']] = newest_dt
       # Move the index in the circular fashion
-      self._streams_info[device_name][stream_name]['dt_circular_index'] %=\
+      self._streams_info[device_name][stream_name]['dt_circular_index'] =\
+        (self._streams_info[device_name][stream_name]['dt_circular_index'] + 1) %\
         len(self._streams_info[device_name][stream_name]['dt_circular_buffer'])
       # Refresh the actual frame rate information
       self._streams_info[device_name][stream_name]['actual_rate_hz'] = \
