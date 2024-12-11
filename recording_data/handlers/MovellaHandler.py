@@ -38,7 +38,9 @@ class MovellaFacade:
                master_device: str,
                sampling_rate_hz: int,
                buffer_size: int = 5) -> None:
-    self._is_all_connected_queue = queue.Queue(maxsize=1)
+    self._is_all_discovered_queue = queue.Queue(maxsize=1)
+    self._device_mapping = device_mapping
+    self._discovered_devices = list()
     self._connected_devices = OrderedDict([(v, None) for v in device_mapping.values()])
     self._packet_buffer = OrderedDict([(v, queue.Queue(maxsize=buffer_size)) for v in device_mapping.values()]) # dictionary of buffers
     self._lock = Lock() # TODO: Use a smarter multi-threaded data sharing strategy than locking all the packet buffers
@@ -55,12 +57,9 @@ class MovellaFacade:
 
     def on_advertisement_found(portInfo) -> None:
       if not portInfo.isBluetooth(): return
-      if not self._manager.openPort(portInfo): 
-        print("failed to connect to %s"%portInfo.bluetoothAddress())
-      device = self._manager.device(portInfo.deviceId())
-      device_id: str = str(portInfo.deviceId())
-      self._connected_devices[device_id] = device
-      if all(self._connected_devices.values()): self._is_all_connected_queue.put(True)
+      self._discovered_devices.append(portInfo)
+      if len(self._discovered_devices) == len(self._device_mapping): self._is_all_discovered_queue.put(True)
+      print("discovered %s"%portInfo.bluetoothAddress())
 
     def on_packet_received(device, packet):
       device_id: str = str(device.deviceId())
@@ -78,8 +77,16 @@ class MovellaFacade:
 
     # Start a scan and wait until we have found all devices
     self._manager.enableDeviceDetection()
-    self._is_all_connected_queue.get()
+    self._is_all_discovered_queue.get()
     self._manager.disableDeviceDetection()
+
+    for portInfo in self._discovered_devices:
+      if not self._manager.openPort(portInfo): 
+        print("failed to connect to %s"%portInfo.bluetoothAddress())
+        return False
+      device = self._manager.device(portInfo.deviceId())
+      device_id: str = str(portInfo.deviceId())
+      self._connected_devices[device_id] = device
 
     # Make sure all connected devices have the same filter profile and output rate
     for device_id, device in self._connected_devices.items():
@@ -118,9 +125,11 @@ class MovellaFacade:
     return True
 
   def cleanup(self) -> None:
-    for device in self._connected_devices.values():
+    for device_id, device in self._connected_devices.items():
       if device is not None:
         device.stopMeasurement()
+        self._connected_devices[device_id] = None
+    self._discovered_devices = list()
     self._manager.stopSync()
     self._manager.close()
 
@@ -134,6 +143,7 @@ class MovellaFacade:
           self._packet_buffer[id].get_nowait()
         except queue.Empty:
           pass
+      self._packet_buffer[device_id].put_nowait(packet)
     self._lock.release()
 
   # Get the snapshot from all the sensors
