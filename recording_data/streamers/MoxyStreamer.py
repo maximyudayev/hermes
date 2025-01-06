@@ -137,7 +137,6 @@ class MoxyStreamer(SensorStreamer):
             msg = serialize(time_s=time_s, device_id=device_id, THb=THb, SmO2=SmO2, counter=counter)
             self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
             self.counter_per_sensor[device_id] = counter
-
       else:
         print("Unknown data type '%s': %r", data_type, data)
     except Exception as _:

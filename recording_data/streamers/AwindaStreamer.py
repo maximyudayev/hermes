@@ -62,6 +62,7 @@ class AwindaStreamer(SensorStreamer):
     # Keep reconnecting until success
     while not self._handler.initialize(): 
       self._handler.cleanup()
+
     return True
 
 
