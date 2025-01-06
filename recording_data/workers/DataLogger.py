@@ -195,7 +195,7 @@ class DataLogger(Worker):
       if self._sub in poll_res[0]:
         topic, payload = self._sub.recv_multipart()
         msg = deserialize(payload)
-        topic_tree: list[str] = topic.split('.')
+        topic_tree: list[str] = topic.decode('utf-8').split('.')
         self._streams[topic_tree[0]].append_data(**msg)
       
       if self._killsig in poll_res[0]:

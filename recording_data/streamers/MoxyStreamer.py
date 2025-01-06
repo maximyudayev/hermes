@@ -16,6 +16,10 @@ from openant.devices.utilities import auto_create_device
 from openant.devices import ANTPLUS_NETWORK_KEY
 
 class CustomNode(Node):
+
+  def __init__(self):
+    super().__init__()
+
   def sample_devices(self):
     timer = 5
     start_time = time.time()
@@ -27,14 +31,14 @@ class CustomNode(Node):
         self._datas.task_done()
         if data_type == "broadcast":
           byte_data = bytes(data)
-          id = f"{byte_data[8]}.{byte_data[9]}.{byte_data[10]}.{byte_data[11]}:{byte_data[12]}"
+          id = str(byte_data[9] + (byte_data[10] << 8))
           if id not in self.devices:
             print(f"device: {id} found")
             self.channels[channel].on_broadcast_data(data)
             self.devices.add(id)
       except queue.Empty as _:
         pass
-    if len(self.devices) == 2:
+    if len(self.devices) == 3:
       return True
     else:
       return False
@@ -62,12 +66,55 @@ class MoxyStreamer(SensorStreamer):
                      print_status=print_status, 
                      print_debug=print_debug)
 
+    self.counter_per_sensor = defaultdict(lambda: -1)
+
 
   def create_stream(cls, stream_info: dict) -> MoxyStream:
     return MoxyStream(**stream_info)
 
 
   def connect(self) -> bool:
+
+    self.devices = []
+    self.node = CustomNode()
+    self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
+
+    self.scanner = Scanner(self.node, device_id=0, device_type=0)
+
+    def on_update(device_tuple, common):
+        device_id = device_tuple[0]
+        print(f"Device #{device_id} common data update: {common}")
+
+    # local function to call when device update device speific page data
+    def on_device_data(device, page_name, data):
+        print(f"Device: {device}, broadcast: {page_name}, data: {data}")
+
+    # local function to call when a device is found - also does the auto-create if enabled
+    def on_found(device_tuple):
+        print("device found")
+        return
+        device_id, device_type, device_trans = device_tuple
+        print(
+            f"Found new device #{device_id} {DeviceType(device_type)}; device_type: {device_type}, transmission_type: {device_trans}"
+        )
+        if len(self.devices) < 16:
+            try:
+                dev = auto_create_device(self.node, device_id, device_type, device_trans)
+                # closure callback of on_device_data with device
+                dev.on_device_data = lambda _, page_name, data, dev=dev: on_device_data(
+                    dev, page_name, data
+                )
+                self.devices.append(dev)
+            except Exception as e:
+                print(f"Could not auto create device: {e}")
+
+    self.scanner.on_found = on_found
+    self.scanner.on_update = on_update
+
+    self.node.sample_devices()
+  
+    return
+
     self.node = CustomNode()
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
 
@@ -113,7 +160,7 @@ class MoxyStreamer(SensorStreamer):
 
 
   def _process_data(self):
-    counter_per_sensor = defaultdict(lambda: -1)
+    
     try:
       (data_type, channel, data) = self.node._datas.get(True, 1.0)
       self.node._datas.task_done()
@@ -124,11 +171,12 @@ class MoxyStreamer(SensorStreamer):
           counter = data[1]
           THb = ((int(data[4] >> 4) << 4) + (int(data[4] % 2**4)) + (int(data[5] % 2**4) << 8)) * 0.01
           SmO2 = ((int(data[7] >> 4) << 6) + (int(data[7] % 2**4) << 2) + int(data[6] % 2**4)) * 0.1
-          device_id = f"{byte_data[8]}.{byte_data[9]}.{byte_data[10]}.{byte_data[11]}:{byte_data[12]}"
-          if counter_per_sensor[device_id] != counter:
+          device_id = str(byte_data[9] + (byte_data[10] << 8))
+          if self.counter_per_sensor[device_id] != counter:
             self._stream.append_data(device_id, time_s, THb, SmO2, counter)
             msg = serialize(time_s=time_s, device_id=device_id, THb=THb, SmO2=SmO2, counter=counter)
             self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
+            self.counter_per_sensor[device_id] = counter
       else:
         print("Unknown data type '%s': %r", data_type, data)
     except Exception as _:

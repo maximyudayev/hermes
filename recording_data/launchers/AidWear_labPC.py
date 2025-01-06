@@ -19,14 +19,14 @@ if __name__ == '__main__':
 
   # Configure network topology.
   ip_wearablePC: str = "192.168.1.101"
-  ip_labPC: str = "10.46.135.149"
+  ip_labPC: str = "10.38.74.26"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
     ('ExperimentControlStreamer', False),  # A GUI to label activities/calibrations and enter notes
     # Sensors!
-    ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
+    ('AwindaStreamer',     True),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
@@ -71,9 +71,9 @@ if __name__ == '__main__':
      },
      # Moxy stream
     {'class': 'MoxyStreamer',
-     'devices' : ["128.69.31.31:5",
-                    "128.68.31.31:5",
-                    "128.67.31.31:5"],
+     'devices' : ["8523",
+                    "8524",
+                    "8525"],
      'print_debug': print_debug, 'print_status': print_status
      },
      # TMSi SAGA stream
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
   # Define local workers/consumers of data.
   workers = dict([
-    ('DataLogger',        False),
+    ('DataLogger',        True),
     ('DataVisualizer',    False),
   ])
   # Configure where and how to save sensor data.
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     # Choose whether to periodically write data to files.
     'stream_hdf5' : True, # recommended over CSV since it creates a single file
     'stream_csv'  : False, # will create a CSV per stream
-    'stream_video': True,
+    'stream_video': False,
     'stream_audio': False,
     'stream_period_s': 10, # how often to save streamed data to disk
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below

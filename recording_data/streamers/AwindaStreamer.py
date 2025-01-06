@@ -82,7 +82,7 @@ class AwindaStreamer(SensorStreamer):
 
     # NOTE: if sending data over the socket throttles the callback thread,
     #   only put packets into shared queue object and have the parent thread do this instead
-    def process_packet(time_s: float, dev: xda.XsDevice, packet: xda.XsPacket) -> None:
+    def process_packet(time_s: float, dev: xda.XsDevice, packet) -> None:
       counter: np.uint16 = packet.packetCounter()
       acc = packet.freeAcceleration()
       euler = packet.orientationEuler()
@@ -103,7 +103,7 @@ class AwindaStreamer(SensorStreamer):
       # Send the data packet on the PUB socket.
       self._pub.send_multipart(["%s.%s" % (self._log_source_tag, device_id), msg])
 
-    def process_all_packets(time_s: float, devices: list[xda.XsDevice], packets: list[xda.XsPacket]) -> None:
+    def process_all_packets(time_s: float, devices: list[xda.XsDevice], packets) -> None:
       for dev, packet in zip(devices, packets):
         acc = packet.freeAcceleration()
         euler = packet.orientationEuler()

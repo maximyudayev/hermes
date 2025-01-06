@@ -37,7 +37,7 @@ class MoxyStream(Stream):
 
 
   def append_data(self,
-                  device_id: int,
+                  device_id: str,
                   time_s: float,
                   THb: np.ndarray,
                   SmO2: np.ndarray,
