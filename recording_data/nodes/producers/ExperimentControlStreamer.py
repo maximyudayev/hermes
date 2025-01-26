@@ -1,4 +1,4 @@
-from streamers.SensorStreamer import SensorStreamer
+from producers.Producer import Producer
 
 import tkinter
 from tkinter import ttk
@@ -11,18 +11,17 @@ import ctypes
 from streams.ExperimentControlStream import ExperimentControlStream
 from utils.print_utils import *
 
-################################################
-################################################
+#####################################################################
+#####################################################################
 # A class to create a GUI that can record experiment events.
 # Includes calibration periods, activities, and arbitrary user input.
-################################################
-################################################
-class ExperimentControlStreamer(SensorStreamer):
-  _log_source_tag = 'control'
+#####################################################################
+#####################################################################
+class ExperimentControlStreamer(Producer):
+  @property
+  def _log_source_tag(self) -> str:
+    return 'control'
 
-  ########################
-  ###### INITIALIZE ######
-  ########################
   
   def __init__(self,
                activities: list[str] = ['Balance beam',
@@ -39,7 +38,8 @@ class ExperimentControlStreamer(SensorStreamer):
                port_sync: str = None,
                port_killsig: str = None,
                print_status: bool = True, 
-               print_debug: bool = False):
+               print_debug: bool = False,
+               **_):
     
     stream_info = {
       "activities": activities
@@ -60,7 +60,7 @@ class ExperimentControlStreamer(SensorStreamer):
 
 
   # Connect to the sensor device(s).
-  def connect(self) -> bool:
+  def _connect(self) -> bool:
     # Without this, the window can be really tiny if matplotlib is used before the GUI generation.
     # Make sure this is called before any matplotlib.
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -74,13 +74,13 @@ class ExperimentControlStreamer(SensorStreamer):
     while self._running:
       self._tkinter_root.mainloop()
 
-    self.quit()
+    self._cleanup()
 
 
   # Clean up and quit
-  def quit(self) -> None:
+  def _cleanup(self) -> None:
     self._tkinter_root.destroy()
-    super().quit()
+    super()._cleanup()
 
   
 
@@ -722,8 +722,8 @@ class ExperimentControlStreamer(SensorStreamer):
     update_logViewer_text()
     
     # Handle quitting, via a button or closing the window.
-    self._tkinter_root.protocol("WM_DELETE_WINDOW", self.quit())
-    quit_button = ttk.Button(self._tkinter_root, text='End Experiment', command=self.quit())
+    self._tkinter_root.protocol("WM_DELETE_WINDOW", self._cleanup())
+    quit_button = ttk.Button(self._tkinter_root, text='End Experiment', command=self._cleanup())
     quit_button\
           .grid(padx=5, 
                 pady=50, 

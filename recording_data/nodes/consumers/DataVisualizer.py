@@ -18,11 +18,11 @@ from collections import OrderedDict
 
 import zmq
 
-from streamers.EyeStreamer import EyeStreamer
-from streamers.SensorStreamer import SensorStreamer
+from producers.EyeStreamer import EyeStreamer
+from producers.Producer import Producer
 from utils.msgpack_utils import deserialize
-from workers.Worker import Worker
-from streamers import STREAMERS
+from consumers.Consumer import Consumer
+from producers import PRODUCERS
 from streams.Stream import Stream
 from visualizers.Visualizer import Visualizer
 
@@ -30,6 +30,7 @@ from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
 from utils.numpy_utils import *
+from utils.zmq_utils import *
 
 ################################################
 ################################################
@@ -43,17 +44,16 @@ from utils.numpy_utils import *
 #   To not show a visualization, 'class' can map to 'none' or None.
 ################################################
 ################################################
-class DataVisualizer(Worker):
-  _log_source_tag = 'visualizer'
+class DataVisualizer(Consumer):
+  @property
+  def _log_source_tag(self) -> str:
+    return 'visualizer'
 
-  ########################
-  ###### INITIALIZE ######
-  ########################
 
   def __init__(self, 
-               port_sub: str = "42070",
-               port_sync: str = "42071",
-               port_killsig: str = "42066",
+               port_sub: str = PORT_FRONTEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                classes_to_visualize: list[str] = [],
                streamer_specs: list[dict] = None,
                is_visualize_streaming: bool = True,
@@ -65,7 +65,8 @@ class DataVisualizer(Worker):
                composite_video_layout: list[list[dict]] = None, 
                print_status: bool = True, 
                print_debug: bool = False, 
-               log_history_filepath: str = None):
+               log_history_filepath: str = None,
+               **_):
 
     super().__init__(classes=classes_to_visualize,
                      port_sub=port_sub,
@@ -98,7 +99,7 @@ class DataVisualizer(Worker):
       class_args = streamer_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[SensorStreamer] = STREAMERS[class_name]
+      class_type: type[Producer] = PRODUCERS[class_name]
       class_object: Stream = class_type.create_stream(class_type, class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
@@ -127,12 +128,12 @@ class DataVisualizer(Worker):
       
       if self._killsig in poll_res[0]:
         # Stop the visualization thread
-        self.quit()
+        self._cleanup()
 
-  def quit(self):
+  def _cleanup(self):
     self._stop_stream_visualization()
     self._close_visualizations()
-    super().quit()
+    super()._cleanup()
 
 
   ##############################

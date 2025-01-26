@@ -2,7 +2,7 @@ import queue
 
 import zmq
 from streams.TmsiStream import TmsiStream
-from streamers.SensorStreamer import SensorStreamer
+from producers.Producer import Producer
 from handlers.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
 from handlers.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
 from handlers.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as Reshape
@@ -15,21 +15,25 @@ import time
 
 from utils.print_utils import *
 
-#######################################
-#######################################
-# A class to interface TMSi SAGA device
-#######################################
-#######################################
-class TmsiStreamer(SensorStreamer):
-  _log_source_tag = 'SAGA'
+########################################
+########################################
+# A class to interface TMSi SAGA device.
+########################################
+########################################
+class TmsiStreamer(Producer):
+  @property
+  def _log_source_tag(self) -> str:
+    return 'SAGA'
+
 
   def __init__(self,
-               port_pub: str = "42069",
-               port_sync: str = "42071",
-               port_killsig: str = "42066",
+               port_pub: str = None,
+               port_sync: str = None,
+               port_killsig: str = None,
                sampling_rate_hz: int = 20,
                print_status: bool = True,
-               print_debug: bool = False,)-> None:
+               print_debug: bool = False,
+               **_)-> None:
     
     stream_info = {
       "sampling_rate_hz": sampling_rate_hz
@@ -47,7 +51,7 @@ class TmsiStreamer(SensorStreamer):
     return TmsiStream(**stream_info)
 
 
-  def connect(self) -> bool:
+  def _connect(self) -> bool:
     #from utils.tmsi_aux.TMSiSDK.tmsi_sdk import TMSiSDK
     #from utils.tmsi_aux.TMSiSDK.device.devices.saga import saga_API
     try:
@@ -119,32 +123,12 @@ class TmsiStreamer(SensorStreamer):
         self.data_sampling_server.register_consumer(self.dev.get_id(), self.data_queue)
 
         print(log_status("SAGA",'Successfully connected to the TMSi streamer.'))
+        self.dev.start_measurement(MeasurementType.SAGA_SIGNAL)
         return True
     except Exception as e:
       print(e)
     print(log_status("SAGA",'Unsuccessful connection to the TMSi streamer.'))
     return False
-
-
-  def run(self) -> None:
-    super().run()
-    try:
-      self.dev.start_measurement(MeasurementType.SAGA_SIGNAL)
-      while self._running:
-        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
-        if not poll_res: continue
-
-        if self._pub in poll_res[0]:
-          self._process_data()
-        
-        if self._killsig in poll_res[0]:
-          self._running = False
-          print("quitting %s"%self._log_source_tag, flush=True)
-          self._killsig.recv_multipart()
-          self._poller.unregister(self._killsig)
-      self.quit()
-    except Exception as _: 
-      self.quit()
 
 
   def _process_data(self) -> None:
@@ -156,9 +140,8 @@ class TmsiStreamer(SensorStreamer):
         self._data.append_data(time_s, column)
 
 
-  # Clean up and quit
-  def quit(self) -> None:
+  def _cleanup(self) -> None:
     # Set the DR-DS interface type back to docked
     self.dev.set_device_interface(DeviceInterfaceType.docked)
     self.dev.close()
-    super().quit()
+    super()._cleanup()

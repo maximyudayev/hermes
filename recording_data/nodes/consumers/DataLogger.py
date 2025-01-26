@@ -13,14 +13,15 @@ from collections import OrderedDict
 import zmq
 
 from streams.Stream import Stream
-from streamers import STREAMERS
-from streamers.SensorStreamer import SensorStreamer
+from producers import PRODUCERS
+from producers.Producer import Producer
 
 from utils.msgpack_utils import deserialize
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
-from workers.Worker import Worker
+from utils.zmq_utils import *
+from consumers.Consumer import Consumer
 
 
 ################################################
@@ -46,8 +47,11 @@ from workers.Worker import Worker
 #   See MicrophoneStreamer for an example of defining these attributes.
 ################################################
 ################################################
-class DataLogger(Worker):
-  _log_source_tag = 'logger'
+class DataLogger(Consumer):
+  @property
+  def _log_source_tag(self) -> str:
+    return 'logger'
+
 
   # Will store the class name of each sensor in HDF5 metadata,
   #   to facilitate recreating classes when replaying the logs later.
@@ -63,9 +67,9 @@ class DataLogger(Worker):
 
   def __init__(self,
                log_dir: str,
-               port_sub: str = "42070",
-               port_sync: str = "42071",
-               port_killsig: str = "42066",
+               port_sub: str = PORT_FRONTEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                classes_to_log: list[str] = [],
                streamer_specs: list[dict] = None,
                log_tag: str = None,
@@ -88,7 +92,8 @@ class DataLogger(Worker):
                clear_logged_data_from_memory: bool = True,
                print_status: bool = True,
                print_debug: bool = False,
-               log_history_filepath: str = None):
+               log_history_filepath: str = None,
+               **_):
 
     super().__init__(classes=classes_to_log,
                      port_sub=port_sub,
@@ -132,7 +137,7 @@ class DataLogger(Worker):
       class_args = streamer_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[SensorStreamer] = STREAMERS[class_name]
+      class_type: type[Producer] = PRODUCERS[class_name]
       class_object: Stream = class_type.create_stream(class_type, class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag, class_object)
@@ -200,18 +205,19 @@ class DataLogger(Worker):
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode('utf-8').split('.')
         self._streams[topic_tree[0]].append_data(**msg)
+        print(self._streams[topic_tree[0]].get_fps())
       
       if self._killsig in poll_res[0]:
         # TODO: wait until every stream receives the "last" message to save everything 
         #   and then respond to StreamBroker that we are finished and exit
-        self.quit()
+        self._cleanup()
 
 
   # Stop all data logging.
   # Will stop stream-logging if it is active.
   # Will dump all data if desired.
   # The SensorStreamers should already be stopped when this is called.
-  def quit(self):
+  def _cleanup(self):
     log_stop_time_s = time.time()
 
     # Stop stream-logging and wait for it to finish.
@@ -224,7 +230,7 @@ class DataLogger(Worker):
                          dump_video=self._dump_video, 
                          dump_audio=self._dump_audio,
                          log_time_s=log_stop_time_s)
-    super().quit()
+    super()._cleanup()
 
 
   #################################
@@ -487,7 +493,6 @@ class DataLogger(Worker):
       # Create a list of column entries to write.
       # Note that they should match the heading order in _init_writing_csv().
       to_write = []
-      to_write.append(new_data['time_str'][entry_index])
       to_write.append(new_data['time_s'][entry_index])
       data_toWrite = new_data['data'][entry_index]
       if isinstance(data_toWrite, (list, tuple)):
@@ -851,7 +856,7 @@ class DataLogger(Worker):
     # Note that this is especially important if an error occurred,
     #  to try to make sure that the files are closed so data is not lost.
     # TODO: maybe have main thread do these
-    self.quit()
+    self._cleanup()
     # Try to write the metadata at least.
     self._log_metadata()
     # And at least flush/close the main files to save any data logged so far.

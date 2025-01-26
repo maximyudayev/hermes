@@ -148,39 +148,39 @@ class DotsStream(Stream):
 
     self._data_notes['dots-imu']['acceleration-x'] = OrderedDict([
       ('Description', 'Acceleration in the X direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['acceleration-y'] = OrderedDict([
       ('Description', 'Acceleration in the Y direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['acceleration-z'] = OrderedDict([
       ('Description', 'Acceleration in the Z direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['orientation-x'] = OrderedDict([
       ('Description', 'Orientation in the Roll direction (around X axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['orientation-y'] = OrderedDict([
       ('Description', 'Orientation in the Pitch direction (around Y axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['orientation-z'] = OrderedDict([
       ('Description', 'Orientation in the Yaw direction (around Z axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-time']['timestamp'] = OrderedDict([
       ('Description', 'Time of sampling of the packet at the device'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-time']['counter'] = OrderedDict([
       ('Description', 'Packet sequence ID incrementing from 0 and wrapping at 65536, clearing on startup'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
