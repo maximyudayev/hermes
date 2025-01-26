@@ -1,13 +1,14 @@
 import os
 from utils.time_utils import *
-from handlers.StreamBroker import StreamBroker
+from nodes.Broker import Broker
+from utils.zmq_utils import *
+
 
 # Note that multiprocessing requires the __main__ check.
 if __name__ == '__main__':
   ###########################
   ###### CONFIGURATION ######
   ###########################
-  # TODO (non-critical): move all configuration into config.py file w/o __name__=='__main__'.
   # Configure printing and logging.
   print_status: bool = True
   print_debug: bool = True
@@ -16,10 +17,6 @@ if __name__ == '__main__':
   subject_id: int = 1 # UID of the subject
   trial_id: int = 1 # UID of the trial
   is_real: bool = False # Data collection from actual trials
-
-  # Configure network topology.
-  ip_wearablePC: str = "192.168.69.101"
-  ip_labPC: str = "192.168.69.100"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -107,7 +104,7 @@ if __name__ == '__main__':
      },
     # Stream from one or more cameras.
     {'class': 'CameraStreamer',
-     'cameras_to_stream': { # map camera names (usable as device names in the HDF5 file) to capture device indexes
+     'camera_mapping': { # map camera names (usable as device names in the HDF5 file) to capture device indexes
        'basler_north' : '40478064',
        'basler_east'  : '40549960',
        'basler_south' : '40549975',
@@ -137,7 +134,7 @@ if __name__ == '__main__':
   # Define local workers/consumers of data.
   workers = dict([
     ('DataLogger',        True),
-    ('DataVisualizer',    True),
+    ('DataVisualizer',    False),
   ])
   # Configure where and how to save sensor data.
   #   Adjust log_tag, and log_dir_root as desired.
@@ -174,7 +171,7 @@ if __name__ == '__main__':
     'stream_csv'  : False, # will create a CSV per stream
     'stream_video': True,
     'stream_audio': False,
-    'stream_period_s': 10, # how often to save streamed data to disk
+    'stream_period_s': 5, # how often to save streamed data to disk
     'clear_logged_data_from_memory': True, # ignored if dumping is also enabled below
     # Choose whether to write all data at the end.
     'dump_csv'  : False,
@@ -188,10 +185,10 @@ if __name__ == '__main__':
 
   # Find the camera names for future use.
   camera_streamer_index: int = ['CameraStreamer' in spec['class'] for spec in sensor_streamer_specs].index(True)
-  camera_ids: list[str] = list(sensor_streamer_specs[camera_streamer_index]['cameras_to_stream'].values())
+  camera_ids: list[str] = list(sensor_streamer_specs[camera_streamer_index]['camera_mapping'].values())
 
   # Configure visualization.
-  composite_frame_size = (1920, 1080) # screen resolution
+  composite_frame_size = (1280, 720) # screen resolution
   composite_col_width_quarter = int(composite_frame_size[0]/4)
   composite_row_height = int(composite_frame_size[1]/5)
   visualization_options = {
@@ -209,30 +206,38 @@ if __name__ == '__main__':
     'composite_video_filepath': os.path.join(log_dir, 'composite_visualization') if log_dir is not None else None,
     'composite_video_layout': [ # first 3 rows of IMU data, next 2 of video data with Pupil Core spanning 2x2 cell and 4 PoE cameras around it
       [ # row  0
-        {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
+        {'device_name':'dots-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         # {'device_name':'awinda-imu', 'stream_name':'acceleration-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         # {'device_name':'awinda-imu', 'stream_name':'orientation-x', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  1
-        {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
+        {'device_name':'dots-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         # {'device_name':'awinda-imu', 'stream_name':'acceleration-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         # {'device_name':'awinda-imu', 'stream_name':'orientation-y', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  2
-        {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'dots-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':'dots-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
+        {'device_name':'dots-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         # {'device_name':'awinda-imu', 'stream_name':'acceleration-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
         # {'device_name':'awinda-imu', 'stream_name':'orientation-z', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  3 
         {'device_name':camera_ids[0], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
-        {'device_name':'eye-tracking-video-worldGaze', 'stream_name':'frame', 'rowspan':2, 'colspan':2, 'width':2*composite_col_width_quarter, 'height':2*composite_row_height},
+        {'device_name':'eye-tracking-video-worldGaze', 'stream_name':'frame', 'rowspan':2, 'colspan':2, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         {'device_name':camera_ids[1], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
       [ # row  4
         {'device_name':camera_ids[2], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
+        {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         {'device_name':None, 'stream_name':None, 'rowspan':0, 'colspan':0, 'width':0, 'height':0},
         {'device_name':camera_ids[3], 'stream_name':'frame', 'rowspan':1, 'colspan':1, 'width':composite_col_width_quarter, 'height':composite_row_height},
       ],
@@ -252,7 +257,7 @@ if __name__ == '__main__':
      **datalogging_options,
      'streamer_specs': streamer_specs_logger,
      'log_history_filepath': log_history_filepath,
-     'print_debug': print_debug, 'print_status': print_status
+     'print_debug': print_debug, 'print_status': print_status 
      },
     {'class': 'DataVisualizer',
      **visualization_options,
@@ -269,14 +274,12 @@ if __name__ == '__main__':
   ###### PROCESS LAUNCH ######
   ############################
   # Create the broker and manage all the components of the experiment.
-  stream_broker: StreamBroker = StreamBroker(ip=ip_labPC,
-                                             streamer_specs=streamer_specs,
-                                             worker_specs=worker_specs,
-                                             print_status=print_status, 
-                                             print_debug=print_debug)
+  stream_broker: Broker = Broker(ip=IP_STATION,
+                                 streamer_specs=streamer_specs,
+                                 worker_specs=worker_specs,
+                                 print_status=print_status, 
+                                 print_debug=print_debug)
   # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
-  stream_broker.connect_to_remote_pub(addr=ip_wearablePC)
-  # Start all subprocesses
-  stream_broker.start()
+  stream_broker.connect_to_remote_pub(addr=IP_BACKPACK)
   # Run broker's main until user exits in GUI or Ctrl+C in terminal.
-  stream_broker.run(duration_s=None)
+  stream_broker(duration_s=None)

@@ -1,14 +1,15 @@
 import os
 from utils.time_utils import *
 from utils.print_utils import *
-from handlers.StreamBroker import StreamBroker
+from nodes.Broker import Broker
+from utils.zmq_utils import *
+
 
 # Note that multiprocessing requires the __main__ check.
 if __name__ == '__main__':
   ###########################
   ###### CONFIGURATION ######
   ###########################
-  # TODO (non-critical): move all configuration into config.py file w/o __name__=='__main__'.
   # Configure printing and logging.
   print_status: bool = True
   print_debug: bool = True
@@ -17,10 +18,6 @@ if __name__ == '__main__':
   subject_id: int = 1 # UID of the subject
   trial_id: int = 1 # UID of the trial
   is_real: bool = False # Data collection from actual trials
-
-  # Configure network topology.
-  ip_wearablePC: str = "192.168.69.101"
-  ip_labPC: str = "192.168.69.100"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
@@ -266,21 +263,18 @@ if __name__ == '__main__':
                     if spec['class'] in workers
                     and workers[spec['class']]]
 
-  ##################
-  # PROCESS LAUNCH #
-  ##################
+  ############################
+  ###### PROCESS LAUNCH ######
+  ############################
   # Create the broker and manage all the components of the experiment.
-  stream_broker: StreamBroker = StreamBroker(ip=ip_wearablePC,
-                                             streamer_specs=streamer_specs,
-                                             worker_specs=worker_specs,
-                                             print_status=print_status, 
-                                             print_debug=print_debug)
-
+  stream_broker: Broker = Broker(ip=IP_BACKPACK,
+                                 streamer_specs=streamer_specs,
+                                 worker_specs=worker_specs,
+                                 print_status=print_status, 
+                                 print_debug=print_debug)
   # Expose local wearable data to remote subscribers (e.g. lab PC in AidFOG project).
   stream_broker.expose_to_remote_sub()
   # Subscribe to the KILL signal of a remote machine.
-  stream_broker.subscribe_to_killsig(addr=ip_labPC)
-  # Start all subprocesses
-  stream_broker.start()
+  stream_broker.subscribe_to_killsig(addr=IP_STATION)
   # Run proxy/server's main.
-  stream_broker.run(duration_s=None)
+  stream_broker(duration_s=None)
