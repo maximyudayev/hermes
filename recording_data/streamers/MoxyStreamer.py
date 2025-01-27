@@ -101,13 +101,16 @@ class MoxyStreamer(SensorStreamer):
   def run(self) -> None:
     super().run()
     try:
+      counter = -1
       while self._running:
         poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
         if not poll_res: continue
 
         if self._pub in poll_res[0]:
+          counter += 1
           self._process_data()
-        
+          if counter % 10 == 0:
+            print("Print processed 10 Moxy packets")        
         if self._killsig in poll_res[0]:
           self._running = False
           print("quitting %s"%self._log_source_tag, flush=True)
@@ -137,6 +140,7 @@ class MoxyStreamer(SensorStreamer):
             msg = serialize(time_s=time_s, device_id=device_id, THb=THb, SmO2=SmO2, counter=counter)
             self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
             self.counter_per_sensor[device_id] = counter
+          
       else:
         print("Unknown data type '%s': %r", data_type, data)
     except Exception as _:

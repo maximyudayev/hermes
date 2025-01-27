@@ -17,7 +17,7 @@ from utils.print_utils import *
 # Structure of data and streams_info:
 #   Dict with device names as keys, each of which maps to:
 #     Dict with name of streams, each of which maps to:
-#       for data: 'data', 'time_s', 'time_str', and others if desired
+#       for data: 'data', 'time_s', and others if desired
 #       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz', 'timesteps_before_solidified', 'extra_data_info'
 # TODO: set a flag to periodically clear old data (if needed)
 ################################################
@@ -183,7 +183,7 @@ class Stream(ABC):
     data_keys = list(self._data[device_name][stream_name].keys())
     # Get the expected data keys in the stream,
     #  in case data hasn't been received for some of them yet.
-    data_keys.extend(['time_s', 'time_str', 'data'])
+    data_keys.extend(['time_s', 'data'])
     data_keys.extend(list(self._streams_info[device_name][stream_name]['extra_data_info'].keys()))
     data_keys = list(set(data_keys))
     # Clear data for each known or expected data key.

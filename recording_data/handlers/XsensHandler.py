@@ -1,10 +1,11 @@
 import queue
 from threading import Lock
 from typing import Callable
+import numpy as np
 import xsensdeviceapi as xda
 from collections import OrderedDict
 import time
-
+import copy
 
 class AwindaDataCallback(xda.XsCallback):
   def __init__(self,
@@ -35,7 +36,7 @@ class XsensFacade:
                device_mapping: dict[str, str],
                radio_channel: int,
                sampling_rate_hz: int,
-               buffer_size: int = 5) -> None:
+               buffer_size: int = 100) -> None:
     # Queue used to synchronize current main thread and callback handler thread listening 
     #   to device connections when all expected devices connected before continuing
     self._is_all_connected_queue = queue.Queue(maxsize=1)
@@ -67,17 +68,47 @@ class XsensFacade:
     def on_wireless_device_connected(dev) -> None:
       device_id: str = str(dev.deviceId())
       self._device_connection_status[device_id] = True
+      print(f"Device {device_id} connected...")
       if all(self._device_connection_status.values()): self._is_all_connected_queue.put(True)
 
     def on_all_packets_received(time_s, devices, packets) -> None:
-      self._lock.acquire()
-      while len(self._packet_buffer) >= self._buffer_size:
-        self._packet_buffer.pop()
+      #self._lock.acquire()
+      #while len(self._packet_buffer.queue) >= self._buffer_size:
+      #  self._packet_buffer.get()
+      '''  
       snapshot = OrderedDict([("time_s", time_s),
                               ("devices", devices), 
-                              ("packets", packets)])
-      self._packet_buffer.append(snapshot)
-      self._lock.release()
+                              ("packets", copy.deepcopy(packets))])
+
+      self._packet_buffer.put(snapshot)
+      '''    
+      packet_list = []
+      #print(len(packets))
+      flag_missing_data = False
+      for idx, packet in enumerate(packets):
+        if not packet.containsFreeAcceleration():
+          continue
+        
+        acc = packet.freeAcceleration()
+        euler = packet.orientationEuler()
+        # Pick which timestamp information to use (also for DOTs)
+        counter: np.uint16 = packet.packetCounter()
+        timestamp = packet.utcTime()
+        finetime: np.uint32 = packet.sampleTimeFine()
+        timestamp_estimate = packet.estimatedTimeOfSampling()
+        timestamp_arrival = packet.timeOfArrival()
+        packet_list.append((str(packet.deviceId()),{
+        "acceleration": (acc[0], acc[1], acc[2]),
+        "orientation": (euler.x(), euler.y(), euler.z()),
+        "counter": counter,
+        "timestamp": finetime
+        }))
+      snapshot = OrderedDict([("time_s", time_s),
+                              ("devices", devices), 
+                              ("packets", packet_list)])
+      
+      self._packet_buffer.put(snapshot)
+      #self._lock.release()
 
     # Register event handler on the main device
     self._conn_callback = AwindaConnectivityCallback(on_wireless_device_connected=on_wireless_device_connected)
@@ -92,6 +123,7 @@ class XsensFacade:
     
     # Will block the current thread until the Awinda onConnectivityChanged has changed to XCS_Wireless for all expected devices
     self._is_all_connected_queue.get()
+    print("All Awindas connected")
 
     # Set sample rate
     if not self._master_device.setUpdateRate(self._sampling_rate_hz):
@@ -119,13 +151,13 @@ class XsensFacade:
 
   # Must be called after `packetsAvailable()`
   def get_next_snapshot(self):
-    self._lock.acquire()
-    oldest_packet = self._packet_buffer.pop(0)
-    self._lock.release()
+    #self._lock.acquire()
+    oldest_packet = self._packet_buffer.get()
+    #self._lock.release()
     return oldest_packet
 
   def is_packets_available(self) -> bool:
-    pass
+    return self._packet_buffer.queue
 
   def cleanup(self) -> None:
     self._control.close()

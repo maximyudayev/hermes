@@ -70,14 +70,18 @@ class AwindaStreamer(SensorStreamer):
   def run(self) -> None:
     super().run()
     try:
+      counter = 0 # just some debugging code
+
       while self._running:
         poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
         if not poll_res: continue
 
         if self._pub in poll_res[0]:
-          if self._handler.is_packets_available():
-            self._process_all_data()
-        
+          counter += 1
+          #if self._handler.is_packets_available():
+          self._process_all_data()
+          if counter % 100 == 0: 
+            print("Processed 100 Awinda packets")
         if self._killsig in poll_res[0]:
           self._running = False
           print("quitting %s"%self._log_source_tag, flush=True)
@@ -85,7 +89,7 @@ class AwindaStreamer(SensorStreamer):
           self._poller.unregister(self._killsig)
       self.quit()
     # Catch keyboard interrupts and other exceptions when module testing, for a clean exit
-    except Exception as _:
+    except Exception as e:
       self.quit()
 
 
@@ -93,24 +97,11 @@ class AwindaStreamer(SensorStreamer):
     time_s = time.time()
     # TODO: validate if contents are ever array of arrays of packets (i.e. multiple timesteps for lost interpolated data)
     snapshot = self._handler.get_next_snapshot()
+    if not snapshot: return
+
     time_s = snapshot['time_s']
     for packet in snapshot['packets']:
-      acc = packet.freeAcceleration()
-      euler = packet.orientationEuler()
-
-      # Pick which timestamp information to use (also for DOTs)
-      counter: np.uint16 = packet.packetCounter()
-      timestamp = packet.utcTime()
-      finetime: np.uint32 = packet.sampleTimeFine()
-      timestamp_estimate = packet.estimatedTimeOfSampling()
-      timestamp_arrival = packet.timeOfArrival()
-
-      self._packet[str(packet.deviceId())] = {
-        "acceleration": (acc[0], acc[1], acc[2]),
-        "orientation": (euler.x(), euler.y(), euler.z()),
-        "counter": counter,
-        "timestamp": finetime
-      }
+      self._packet[packet[0]] = packet[1]
 
     acceleration = np.array([v['acceleration'] for v in self._packet.values()])
     orientation = np.array([v['orientation'] for v in self._packet.values()])
@@ -124,12 +115,11 @@ class AwindaStreamer(SensorStreamer):
     # Send the data packet on the PUB socket.
     self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
 
-
   # Clean up and quit
   def quit(self) -> None:
     # Clean up the SDK
-    self._control.close()
-    self._control.destruct()
+    self._handler._control.close()
+    self._handler._control.destruct()
     super().quit()
 
 
