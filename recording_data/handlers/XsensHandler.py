@@ -1,21 +1,23 @@
 import queue
-from threading import Lock
 from typing import Callable
+import numpy as np
 import xsensdeviceapi as xda
-from collections import OrderedDict
 import time
+
+from utils.datastructures import CircularBuffer
 
 
 class AwindaDataCallback(xda.XsCallback):
   def __init__(self,
-               on_all_packets_received: Callable[[float, list[object], list[object]], None]):
+               on_each_packet_received: Callable[[float, object, object], None]):
     super().__init__()
-    self._on_all_packets_received = on_all_packets_received
+    self._on_each_packet_received = on_each_packet_received
+
 
   # How are interpolated packets for previous time steps provided?
-  def onAllLiveDataAvailable(self, devices, packets):
+  def onLiveDataAvailable(self, device, packet):
     time_s: float = time.time()
-    self._on_all_packets_received(time_s, devices, packets)
+    self._on_each_packet_received(time_s, device, packet)
 
 
 class AwindaConnectivityCallback(xda.XsCallback):
@@ -23,7 +25,8 @@ class AwindaConnectivityCallback(xda.XsCallback):
                on_wireless_device_connected: Callable[[object], None]):
     super().__init__()
     self._on_wireless_device_connected = on_wireless_device_connected
-  
+
+
   def onConnectivityChanged(self, dev, newState):
     # TODO: add additional logic in case devices disconnect, etc.
     if newState == xda.XCS_Wireless:
@@ -42,11 +45,12 @@ class XsensFacade:
     self._device_connection_status = dict.fromkeys(list(device_mapping.values()), False)
     self._radio_channel = radio_channel
     self._sampling_rate_hz = sampling_rate_hz
-    self._lock = Lock()
-    self._buffer_size = buffer_size
-    self._packet_buffer = queue.Queue(maxsize=buffer_size) # buffer of dictionaries -> has to be dictionary of buffers for onLiveDataAvailable + on_each_packet_received
+    self._buffer = CircularBuffer(size=buffer_size,
+                                  keys=device_mapping.values())
+
 
   def initialize(self) -> bool:
+    self._is_measuring = True
     self._control = xda.XsControl.construct()
     port_info_array = xda.XsScanner.scanPorts()
 
@@ -69,47 +73,63 @@ class XsensFacade:
       self._device_connection_status[device_id] = True
       if all(self._device_connection_status.values()): self._is_all_connected_queue.put(True)
 
-    def on_all_packets_received(time_s, devices, packets) -> None:
-      self._lock.acquire()
-      while len(self._packet_buffer) >= self._buffer_size:
-        self._packet_buffer.pop()
-      snapshot = OrderedDict([("time_s", time_s),
-                              ("devices", devices), 
-                              ("packets", packets)])
-      self._packet_buffer.append(snapshot)
-      self._lock.release()
+    def on_each_packet_received(toa_s, device, packet) -> None:
+      device_id: str = str(device.deviceId())
+      acc = packet.freeAcceleration()
+      euler = packet.orientationEuler()
+      counter: np.uint16 = packet.packetCounter()
+
+      data = {
+        "device_id":            device_id,                          # str
+        "acc":                  (acc[0], acc[1], acc[2]),           #
+        "euler":                (euler.x(), euler.y(), euler.z()),  # 
+        # Pick which timestamp information to use (also for DOTs)
+        "counter":              counter,                            # uint16
+        "toa_s":                toa_s,                              # float
+        "timestamp_fine":       packet.sampleTimeFine(),            # uint32
+        "timestamp_utc":        packet.utcTime(),                   # XsTimeStamp
+        "timestamp_estimate":   packet.estimatedTimeOfSampling(),   # XsTimeStamp
+        "timestamp_arrival":    packet.timeOfArrival()              # XsTimeStamp
+      }
+      self._buffer.plop(key=device_id, data=data, counter=counter)
 
     # Register event handler on the main device
     self._conn_callback = AwindaConnectivityCallback(on_wireless_device_connected=on_wireless_device_connected)
     self._master_device.addCallbackHandler(self._conn_callback)
-    
+
     # Enable radio to accept connections from the sensors
     if self._master_device.isRadioEnabled():
       if not self._master_device.disableRadio():
         return False
     if not self._master_device.enableRadio(self._radio_channel):
       return False
-    
+
     # Will block the current thread until the Awinda onConnectivityChanged has changed to XCS_Wireless for all expected devices
     self._is_all_connected_queue.get()
 
     # Set sample rate
-    if not self._master_device.setUpdateRate(self._sampling_rate_hz):
-      return False
+    # NOTE: this is legacy way of setting it up
+    # if not self._master_device.setUpdateRate(self._sampling_rate_hz):
+    #   return False
+
+    # TODO:
+    # Reset global orientation on all the devices in the advertisement callback or here 
+    #   while the person holds the calibration pose.
 
     # TODO: figure out how to request desired output configs
-    # config_array = xda.XsOutputConfigurationArray()
-    # # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
-    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
-    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_UtcTime, 0))
-    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
-    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
-    # config_array.push_back(xda.XsOutputConfiguration(xda.XDI_EulerAngles, self._sampling_rate_hz))
-    # if not self._master_device.setOutputConfiguration(config_array):
-    #   raise RuntimeError("Could not configure the device. Aborting.")
+    config_array = xda.XsOutputConfigurationArray()
+    # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_UtcTime, 0))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_EulerAngles, self._sampling_rate_hz))
+    if not self._master_device.setOutputConfiguration(config_array):
+      print("Could not configure the Awinda master device. Aborting.")
+      return False
 
     # Listen to new data for the full kit snapshot
-    self._data_callback = AwindaDataCallback(on_all_packets_received=on_all_packets_received)
+    self._data_callback = AwindaDataCallback(on_each_packet_received=on_each_packet_received)
     self._master_device.addCallbackHandler(self._data_callback)
 
     # Put all devices connected to the Awinda station into measurement
@@ -117,15 +137,12 @@ class XsensFacade:
     self._master_device.gotoMeasurement()
     return True
 
-  # Must be called after `packetsAvailable()`
-  def get_next_snapshot(self):
-    self._lock.acquire()
-    oldest_packet = self._packet_buffer.pop(0)
-    self._lock.release()
-    return oldest_packet
 
-  def is_packets_available(self) -> bool:
-    pass
+  def get_snapshot(self) -> dict[str, dict | None] | None:
+    return self._buffer.yeet(is_running=self._is_measuring)
+
 
   def cleanup(self) -> None:
     self._control.close()
+    self._control.destruct()
+    self._is_measuring = False

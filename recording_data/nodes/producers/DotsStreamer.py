@@ -72,33 +72,49 @@ class DotsStreamer(Producer):
 
 
   def _process_data(self) -> None:
-    time_s: float = time.time()
-    # Retrieve the oldest enqueued packet for each sensor
+    # Stamps full-body snapshot with system time of start of processing, not time-of-arrival.
+    # NOTE: time-of-arrival available with each packet.
+    process_time_s: float = time.time()
+    # Retrieve the oldest enqueued packet for each sensor.
     snapshot = self._handler.get_snapshot()
     if snapshot:
-      for packet in snapshot:
-        device_id: str = str(packet.deviceId())
-        euler = packet.orientationEuler()
-        acc = packet.freeAcceleration()
-        self._packet[device_id] = {
-          'timestamp': packet.sampleTimeFine(),
-          'counter': packet.packetCounter(),
-          'acceleration': (acc[0], acc[1], acc[2]),
-          'orientation': (euler.x(), euler.y(), euler.z()),
+      for device, packet in snapshot.items():
+        if packet:
+          acc = packet["acc"]
+          euler = packet["euler"]
+
+          # Pick which timestamp information to use (also for DOTs)
+          counter: np.uint16 = packet["counter"]
+          toa_s: float = packet["toa_s"] # TODO: use the average clock of the valid samples in a snapshot
+          timestamp_fine: np.uint32 = packet["timestamp_fine"]
+          timestamp_utc = packet["timestamp_utc"]
+          timestamp_estimate = packet["timestamp_estimate"]
+          timestamp_arrival = packet["timestamp_arrival"]
+        else:
+          acc = (None, None, None)
+          euler = (None, None, None)
+          counter = None
+          timestamp_fine = None
+
+        self._packet[device] = {
+          "acceleration": acc,
+          "orientation": euler,
+          "counter": counter,
+          "timestamp": timestamp_fine
         }
 
-      acceleration = np.array([v['acceleration'] for (_,v) in self._packet.items()])
-      orientation = np.array([v['orientation'] for (_,v) in self._packet.items()])
-      timestamp = np.array([v['timestamp'] for (_,v) in self._packet.items()])
-      counter = np.array([v['counter'] for (_,v) in self._packet.items()])
+      acceleration = np.array([v['acceleration'] for v in self._packet.values()])
+      orientation = np.array([v['orientation'] for v in self._packet.values()])
+      timestamp = np.array([v['timestamp'] for v in self._packet.values()])
+      counter = np.array([v['counter'] for v in self._packet.values()])
 
-      # Store the captured data into the data structure.
-      self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+      msg = serialize(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Send the data packet on the PUB socket.
       self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
-    elif not snapshot and not self._is_continue_capture:
+      # Store the captured data into the data structure.
+      self._stream.append_data(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+    elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
 

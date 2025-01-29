@@ -71,26 +71,32 @@ class AwindaStreamer(Producer):
 
 
   def _process_data(self) -> None:
-    if self._handler.is_packets_available():
-      time_s = time.time()
-      snapshot = self._handler.get_next_snapshot()
-      time_s = snapshot['time_s']
-      for packet in snapshot['packets']:
-        acc = packet.freeAcceleration()
-        euler = packet.orientationEuler()
+    process_time_s = time.time()
+    snapshot = self._handler.get_snapshot()
+    if snapshot:
+      for device, packet in snapshot.items():
+        if packet:
+          acc = packet["acc"]
+          euler = packet["euler"]
 
-        # Pick which timestamp information to use (also for DOTs)
-        counter: np.uint16 = packet.packetCounter()
-        timestamp = packet.utcTime()
-        finetime: np.uint32 = packet.sampleTimeFine()
-        timestamp_estimate = packet.estimatedTimeOfSampling()
-        timestamp_arrival = packet.timeOfArrival()
+          # Pick which timestamp information to use (also for DOTs)
+          counter: np.uint16 = packet["counter"]
+          toa_s: float = packet["toa_s"] # TODO: use the average clock of the valid samples in a snapshot
+          timestamp_fine: np.uint32 = packet["timestamp_fine"]
+          timestamp_utc = packet["timestamp_utc"]
+          timestamp_estimate = packet["timestamp_estimate"]
+          timestamp_arrival = packet["timestamp_arrival"]
+        else:
+          acc = (None, None, None)
+          euler = (None, None, None)
+          counter = None
+          timestamp_fine = None
 
-        self._packet[str(packet.deviceId())] = {
-          "acceleration": (acc[0], acc[1], acc[2]),
-          "orientation": (euler.x(), euler.y(), euler.z()),
+        self._packet[device] = {
+          "acceleration": acc,
+          "orientation": euler,
           "counter": counter,
-          "timestamp": finetime
+          "timestamp": timestamp_fine
         }
 
       acceleration = np.array([v['acceleration'] for v in self._packet.values()])
@@ -98,12 +104,13 @@ class AwindaStreamer(Producer):
       counter = np.array([v['counter'] for v in self._packet.values()])
       timestamp = np.array([v['timestamp'] for v in self._packet.values()])
 
-      # Store the captured data into the data structure.
-      self._stream.append_data(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+      msg = serialize(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
       # Send the data packet on the PUB socket.
       self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
+      # Store the captured data into the data structure.
+      # NOTE: best to deal with data structure (threading primitives) after handing off packet to ZeroMQ
+      self._stream.append_data(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
