@@ -108,12 +108,8 @@ class DotsStreamer(Producer):
       timestamp = np.array([v['timestamp'] for v in self._packet.values()])
       counter = np.array([v['counter'] for v in self._packet.values()])
 
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
-      # Store the captured data into the data structure.
-      self._stream.append_data(time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+      tag: str = "%s.data" % self._log_source_tag
+      self._publish(tag, time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()

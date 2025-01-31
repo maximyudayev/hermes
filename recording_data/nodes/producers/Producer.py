@@ -4,6 +4,7 @@ import zmq
 
 from nodes.Node import Node
 from streams.Stream import Stream
+from utils.msgpack_utils import serialize
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
@@ -40,6 +41,17 @@ class Producer(Node):
   @abstractmethod
   def create_stream(cls, stream_info: dict) -> Stream:
     pass
+
+
+  # Common method to save and publish the captured sample
+  # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ
+  def _publish(self, tag: str, **kwargs) -> None:
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(**kwargs)
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart([tag.encode('utf-8'), msg])
+    # Store the captured data into the data structure.
+    self._stream.append_data(**kwargs)
 
 
   # Initialize backend parameters specific to Producer.
@@ -100,5 +112,4 @@ class Producer(Node):
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
-    # TODO: join the logger thread.
     super()._cleanup()

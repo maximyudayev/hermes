@@ -59,13 +59,8 @@ class InsoleStreamer(Producer):
     if self._is_continue_capture:
       data, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
       time_s: float = time.time()
-
-      # Store the captured data into the data structure.
-      self._stream.append_data(time_s=time_s, data=data)
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, data=data)
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart([("%s.data"%self._log_source_tag).encode('utf-8'), msg])
+      tag: str = "%s.data" % self._log_source_tag
+      self._publish(tag, time_s=time_s, data=data)
     else:
       self._send_end_packet()
 
@@ -79,3 +74,8 @@ class InsoleStreamer(Producer):
 
 
 # TODO: update the unit test.
+#####################
+###### TESTING ######
+#####################
+if __name__ == "__main__":
+  pass

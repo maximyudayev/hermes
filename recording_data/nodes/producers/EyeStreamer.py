@@ -89,13 +89,8 @@ class EyeStreamer(Producer):
   def _process_data(self) -> None:
     if self._is_continue_capture:
       time_s, data = self._handler.process_pupil_data()
-
-      # Store the data.
-      self._stream.append_data(time_s=time_s, data=data)
-      # Get serialized object to send over ZeroMQ.
-      msg = serialize(time_s=time_s, data=data)
-      # Send the data packet on the PUB socket.
-      self._pub.send_multipart([("%s.data" % (self._log_source_tag)).encode('utf-8'), msg])
+      tag: str = "%s.data" % self._log_source_tag
+      self._publish(tag, time_s=time_s, data=data)
     else:
       self._send_end_packet()
 
