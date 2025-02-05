@@ -12,6 +12,7 @@ from handlers.TMSiSDK.device.tmsi_channel import ChannelType
 
 import numpy as np
 import time
+from utils.msgpack_utils import serialize
 
 from utils.print_utils import *
 
@@ -99,8 +100,8 @@ class TmsiStreamer(SensorStreamer):
         # Close the connection to the device (with the original interface type)
         self.dev.close()
         
-      print("Remove saga from the dock")
-      time.sleep(3)
+      time.sleep(3) # sleep a bit to allow system to set up corretly
+      print('wifi setup starting')
       # connection over wifi
       TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.wifi, ds_interface = DeviceInterfaceType.usb, num_retries = 10)
       discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
@@ -153,7 +154,10 @@ class TmsiStreamer(SensorStreamer):
       reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
       time_s = time.time()
       for column in reshaped.T:
-        self._data.append_data(time_s, column)
+        self._stream.append_data(time_s, column)
+        msg = serialize(time_s=time_s, column=column)
+        # Send the data packet on the PUB socket.
+        self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), msg])
 
 
   # Clean up and quit

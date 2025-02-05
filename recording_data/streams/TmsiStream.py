@@ -31,12 +31,17 @@ class TmsiStream(Stream):
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
     self.add_stream(device_name=self._device_name,
-                    stream_name='BIP-01',
+                    stream_name='BIP01',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
     self.add_stream(device_name=self._device_name,
-                    stream_name='BIP-02',
+                    stream_name='BIP02',
+                    data_type='float32',
+                    sample_size=[1],
+                    sampling_rate_hz=sampling_rate_hz)
+    self.add_stream(device_name=self._device_name,
+                    stream_name='counter',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
@@ -49,11 +54,12 @@ class TmsiStream(Stream):
   def append_data(self,
                   time_s: float, 
                   column: ndarray) -> None:
-    self._append_data(self._device_name, 'BIP-01', time_s, column[0])
-    self._append_data(self._device_name, 'BIP-02', time_s, column[1])
+    self._append_data(self._device_name, 'BIP01', time_s, column[0])
+    self._append_data(self._device_name, 'BIP02', time_s, column[1])
     self._append_data(self._device_name, 'breath', time_s, column[2])
     self._append_data(self._device_name, 'GSR',    time_s, column[3])
     self._append_data(self._device_name, 'SPO2',   time_s, column[4])
+    self._append_data(self._device_name, 'counter',   time_s, column[-1])
 
 
   def get_default_visualization_options(self) -> dict:

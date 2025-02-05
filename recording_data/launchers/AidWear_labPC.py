@@ -19,21 +19,21 @@ if __name__ == '__main__':
 
   # Configure network topology.
   ip_wearablePC: str = "192.168.1.101"
-  ip_labPC: str = "192.168.69.101"
+  ip_labPC: str = "10.46.215.10"
 
   # Define locally connected streamers.
   sensor_streamers = dict([
     # Use one of the following to control the experiment (enter notes, quit, etc)
     ('ExperimentControlStreamer', False),  # A GUI to label activities/calibrations and enter notes
     # Sensors!
-    ('AwindaStreamer',     True),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
+    ('AwindaStreamer',     False),  # The Awinda body tracking system (includes the Manus finger-tracking gloves if connected to Xsens)
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
     ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
-    ('TmsiStreamer',       False),
-    ('MoxyStreamer',       True)
+    ('TmsiStreamer',       True),
+    ('MoxyStreamer',       False)
 
   ])
   # Configure settings for each streamer.
@@ -168,8 +168,9 @@ if __name__ == '__main__':
 
   datalogging_options = {
     'classes_to_log': [
-      'AwindaStreamer',
-      'MoxyStreamer',
+      #'AwindaStreamer',
+      #'MoxyStreamer',
+      'TmsiStreamer',
       ],
     'log_dir': log_dir, 'log_tag': log_tag,
     'use_external_recording_sources': False,

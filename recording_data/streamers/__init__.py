@@ -5,6 +5,7 @@ from streamers.EyeStreamer import EyeStreamer
 from streamers.InsoleStreamer import InsoleStreamer
 from streamers.ExperimentControlStreamer import ExperimentControlStreamer
 from streamers.MoxyStreamer import MoxyStreamer
+from streamers.TmsiStreamer import TmsiStreamer 
 STREAMERS = {
   "AwindaStreamer": AwindaStreamer,
   "DotsStreamer": DotsStreamer,
@@ -12,6 +13,6 @@ STREAMERS = {
   "EyeStreamer": EyeStreamer,
   "InsoleStreamer": InsoleStreamer,
   "ExperimentControlStreamer": ExperimentControlStreamer,
-  "MoxyStreamer": MoxyStreamer
-
+  "MoxyStreamer": MoxyStreamer,
+  "TmsiStreamer": TmsiStreamer
 }
