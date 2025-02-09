@@ -1,7 +1,9 @@
 from abc import abstractmethod
 
 import zmq
+import threading
 
+from handlers.LoggingHandler import Logger
 from nodes.Node import Node
 from streams.Stream import Stream
 from utils.msgpack_utils import serialize
@@ -15,16 +17,16 @@ from utils.zmq_utils import *
 ###########################################################
 # An abstract class to interface with a particular sensor.
 #   I.e. a superclass for DOTs, PupilCore, or Camera class.
-# TODO: add logger thread.
 # TODO: add propagation delay thread.
 ###########################################################
 ###########################################################
 class Producer(Node):
   def __init__(self, 
+               stream_info: dict,
+               logging_spec: dict,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
-               stream_info: dict = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     super().__init__(port_sync, port_killsig, print_status, print_debug)
@@ -33,6 +35,13 @@ class Producer(Node):
 
     # Data structure for keeping track of data
     self._stream: Stream = self.create_stream(stream_info)
+
+    # Create the DataLogger object
+    self._logger = Logger(**logging_spec)
+
+    # Launch datalogging thread with reference to the Stream object.
+    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag, self._stream)]),))
+    self._logger_thread.start()
 
 
   # Instantiate Stream datastructure object specific to this Streamer.
@@ -109,7 +118,11 @@ class Producer(Node):
   # Cleanup sensor specific resources, then Producer generics, then Node generics.
   @abstractmethod
   def _cleanup(self) -> None:
+    # Indicate to Logger to wrap up and exit.
+    self._logger.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
+    # Join on the logging background thread last, so that all things can finish in parallel.
+    self._logger_thread.join()
     super()._cleanup()
