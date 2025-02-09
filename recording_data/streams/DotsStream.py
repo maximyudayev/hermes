@@ -4,11 +4,12 @@ from streams import Stream
 from visualizers import LinePlotVisualizer
 from streams.Stream import Stream
 
-#########################################
-#########################################
-# A structure to store DOTs stream's data
-#########################################
-#########################################
+
+##########################################
+##########################################
+# A structure to store DOTs stream's data.
+##########################################
+##########################################
 class DotsStream(Stream):
   def __init__(self, 
                num_joints: int = 5,
@@ -81,20 +82,21 @@ class DotsStream(Stream):
     return {self._device_name: super()._get_fps(self._device_name, 'counter')}
 
 
-  def append_data(self,
-                  time_s: float, 
-                  acceleration: ndarray, 
-                  orientation: ndarray, 
-                  timestamp: ndarray,
-                  counter: ndarray) -> None:
-    self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
-    self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
-    self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
-    self._append_data(self._device_name, 'orientation-x', time_s, orientation[:,0])
-    self._append_data(self._device_name, 'orientation-y', time_s, orientation[:,1])
-    self._append_data(self._device_name, 'orientation-z', time_s, orientation[:,2])
-    self._append_data(self._device_name, 'timestamp', time_s, timestamp)
-    self._append_data(self._device_name, 'counter', time_s, counter)
+  def _append_data(self,
+                   time_s: float, 
+                   acceleration: ndarray, 
+                   orientation: ndarray, 
+                   timestamp: ndarray,
+                   counter: ndarray) -> None:
+    self._append(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
+    self._append(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
+    self._append(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
+    self._append(self._device_name, 'orientation-w', time_s, orientation[:,0])
+    self._append(self._device_name, 'orientation-x', time_s, orientation[:,1])
+    self._append(self._device_name, 'orientation-y', time_s, orientation[:,2])
+    self._append(self._device_name, 'orientation-z', time_s, orientation[:,3])
+    self._append(self._device_name, 'timestamp', time_s, timestamp)
+    self._append(self._device_name, 'counter', time_s, counter)
 
 
   def get_default_visualization_options(self) -> dict:

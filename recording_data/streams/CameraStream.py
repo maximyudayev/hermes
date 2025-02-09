@@ -1,14 +1,14 @@
 from collections import OrderedDict
-import cv2
 import numpy as np
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
-###########################################
-###########################################
-# A structure to store Camera stream's data
-###########################################
-###########################################
+
+############################################
+############################################
+# A structure to store Camera stream's data.
+############################################
+############################################
 class CameraStream(Stream):
   def __init__(self, 
                camera_mapping: dict,
@@ -52,15 +52,15 @@ class CameraStream(Stream):
     return {camera_name: super(CameraStream, self)._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
 
 
-  def append_data(self,
-                  device_id: str,
-                  time_s: float, 
-                  frame: np.ndarray, 
-                  timestamp: np.uint64,
-                  sequence_id: np.int64):
-    self._append_data(self._camera_mapping[device_id], 'frame', time_s, frame)
-    self._append_data(self._camera_mapping[device_id], 'timestamp', time_s, timestamp)
-    self._append_data(self._camera_mapping[device_id], 'frame_sequence', time_s, sequence_id)
+  def _append_data(self,
+                   device_id: str,
+                   time_s: float, 
+                   frame: np.ndarray, 
+                   timestamp: np.uint64,
+                   sequence_id: np.int64):
+    self._append(self._camera_mapping[device_id], 'frame', time_s, frame)
+    self._append(self._camera_mapping[device_id], 'timestamp', time_s, timestamp)
+    self._append(self._camera_mapping[device_id], 'frame_sequence', time_s, sequence_id)
 
 
   def get_default_visualization_options(self):

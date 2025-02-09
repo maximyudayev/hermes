@@ -3,11 +3,12 @@ import numpy as np
 from streams.Stream import Stream
 from visualizers import LinePlotVisualizer
 
-#################################################
-#################################################
-# A structure to store Awinda MTws' stream's data
-#################################################
-#################################################
+
+##################################################
+##################################################
+# A structure to store Awinda MTws' stream's data.
+##################################################
+##################################################
 class AwindaStream(Stream):
   def __init__(self, 
                device_mapping: dict[str, str],
@@ -85,20 +86,21 @@ class AwindaStream(Stream):
     return {self._device_name: super()._get_fps(self._device_name, 'counter')}
 
 
-  def append_data(self,
-                  time_s: float,
-                  acceleration: np.ndarray,
-                  orientation: np.ndarray,
-                  timestamp: np.ndarray,
-                  counter: np.ndarray) -> None:
-    self._append_data(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
-    self._append_data(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
-    self._append_data(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
-    self._append_data(self._device_name, 'orientation-x', time_s, orientation[:,0])
-    self._append_data(self._device_name, 'orientation-y', time_s, orientation[:,1])
-    self._append_data(self._device_name, 'orientation-z', time_s, orientation[:,2])
-    self._append_data(self._device_name, 'timestamp', time_s, timestamp)
-    self._append_data(self._device_name, 'counter', time_s, counter)
+  def _append_data(self,
+                   time_s: float,
+                   acceleration: np.ndarray,
+                   orientation: np.ndarray,
+                   timestamp: np.ndarray,
+                   counter: np.ndarray) -> None:
+    self._append(self._device_name, 'acceleration-x', time_s, acceleration[:,0])
+    self._append(self._device_name, 'acceleration-y', time_s, acceleration[:,1])
+    self._append(self._device_name, 'acceleration-z', time_s, acceleration[:,2])
+    self._append(self._device_name, 'orientation-w', time_s, orientation[:,0])
+    self._append(self._device_name, 'orientation-x', time_s, orientation[:,1])
+    self._append(self._device_name, 'orientation-y', time_s, orientation[:,2])
+    self._append(self._device_name, 'orientation-z', time_s, orientation[:,3])
+    self._append(self._device_name, 'timestamp', time_s, timestamp)
+    self._append(self._device_name, 'counter', time_s, counter)
 
 
   def get_default_visualization_options(self) -> dict:
@@ -153,41 +155,41 @@ class AwindaStream(Stream):
 
     self._data_notes['awinda-imu']['acceleration-x'] = OrderedDict([
       ('Description', 'Acceleration in the X direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['acceleration-y'] = OrderedDict([
       ('Description', 'Acceleration in the Y direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['acceleration-z'] = OrderedDict([
       ('Description', 'Acceleration in the Z direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['orientation-x'] = OrderedDict([
       ('Description', 'Orientation in the Roll direction (around X axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['orientation-y'] = OrderedDict([
       ('Description', 'Orientation in the Pitch direction (around Y axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['orientation-z'] = OrderedDict([
       ('Description', 'Orientation in the Yaw direction (around Z axis)'),
       ('Units', 'degrees'),
       ('Range', '[-180, 180]'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-counter']['counter'] = OrderedDict([
       ('Description', 'Index of the sampled packet per device, starting from 0 on turn-on and wrapping around after 65535.'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-timestamp']['timestamp'] = OrderedDict([
       ('Description', 'Time of sampling of the packet at the device. \
                       If one of the device measurement is missed for timestep `i`, \
                       data will be interpolated on the next timestep.Acceleration in the X direction'),
-      (Stream.metadata_data_headings_key, self._device_mapping.values()),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])

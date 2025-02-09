@@ -5,11 +5,12 @@ import cv2
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 
-###############################################
-###############################################
-# A structure to store Pupil Core stream's data
-###############################################
-###############################################
+
+################################################
+################################################
+# A structure to store Pupil Core stream's data.
+################################################
+################################################
 class EyeStream(Stream):
   def __init__(self,
                stream_video_world: bool,
@@ -284,12 +285,12 @@ class EyeStream(Stream):
     return fps
 
 
-  def append_data(self, time_s: float, data: dict) -> None:
+  def _append_data(self, time_s: float, data: dict) -> None:
     for (device_name_key, streams_data) in data.items():
       device_name = 'eye-tracking-%s' % device_name_key
       if streams_data is not None:
         for (stream_name, data) in streams_data.items():
-          self._append_data(device_name, stream_name, time_s, data)
+          self._append(device_name, stream_name, time_s, data)
 
 
   def get_default_visualization_options(self) -> dict:

@@ -10,18 +10,20 @@ from utils.dict_utils import *
 from utils.print_utils import *
 
 
-################################################
-################################################
-# An abstract class to store data of a SensorStreamer.
-#   May contain multiple streams from the sensor, such as acceleration and gyroscope from the DOTs.
+#########################################################################
+#########################################################################
+# An abstract class to store data of a Producer.
+#   May contain multiple streams from the sensor, 
+#     such as acceleration and gyroscope from the DOTs.
 # Structure of data and streams_info:
 #   Dict with device names as keys, each of which maps to:
 #     Dict with name of streams, each of which maps to:
 #       for data: 'data', 'time_s', 'time_str', and others if desired
-#       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz', 'timesteps_before_solidified', 'extra_data_info'
-# Can periodically clear old data (if needed)
-################################################
-################################################
+#       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz',
+#         'timesteps_before_solidified', 'extra_data_info'
+# Can periodically clear old data (if needed).
+#########################################################################
+#########################################################################
 class Stream(ABC):
   # Will store the class name of each sensor in HDF5 metadata,
   #   to facilitate recreating classes when replaying the logs later.
@@ -37,13 +39,17 @@ class Stream(ABC):
     self._streams_info = OrderedDict()
     self._replaying_data_logs = False
 
+
   ############################
   ###### INTERFACE FLOW ######
   ############################
-  # Business logic of concrete Stream implementation, must specify `time_s` parameter and any custom data thereafter
+
+  # Business logic of concrete Stream implementation, 
+  #   must specify `time_s` parameter and any custom data thereafterю
   @abstractmethod
-  def append_data(self, time_s: float) -> None:
+  def _append_data(self, time_s: float, **kwargs) -> None:
     pass
+
 
   # Get how each stream should be visualized.
   # Should be overridden by subclasses if desired.
@@ -59,6 +65,7 @@ class Stream(ABC):
         visualization_options[device_name].setdefault(stream_name, {'class': None})
     return visualization_options
 
+
   # Get actual frame rate, subject to expected transmission delay and throughput limitation,
   #   to confidently judge the performance of the system.
   # Computed based on how fast data becomes available to the data structure, hence suitable
@@ -67,9 +74,15 @@ class Stream(ABC):
   def get_fps(self) -> dict[str, float]:
     pass
 
+
   #############################
   ###### GETTERS/SETTERS ######
   #############################
+  # Public thread-safe method calling concrete implementation of Producer's append logic.
+  def append_data(self, **kwargs) -> None:
+    self._append_data(**kwargs)
+
+
   # Retrieve actual frame rate of a stream if it was set to measure.
   # Records and refreshes statistics on each data structure append
   #   call, making actual frame rate estimate if data sampled remotely and
@@ -80,6 +93,7 @@ class Stream(ABC):
     else:
       return None
 
+
   # Add a new device stream.
   # @param timesteps_before_solidified allows indication that data/timestamps for
   #   previous timesteps may be altered when a new sample is received.
@@ -87,7 +101,7 @@ class Stream(ABC):
   #     streamer class may infer a timestamp for the previous reading when
   #     a new pair of readings arrive.  A timestamp is thus not 'final' until the next timestep.
   # @param extra_data_info is used to specify additional data keys that will be streamed
-  #   along with the default 'data', 'time_s', and 'time_str'.
+  #   along with the default 'data' and 'time_s'.
   #   It should be a dict, where each extra data key maps to a dict with at least 'data_type' and 'sample_size'.
   # @param data_notes can be a string or a dict of relevant info.
   #   If it's a dict, the key 'Data headings' is recommended and will be used by DataLogger for headers.
@@ -99,24 +113,24 @@ class Stream(ABC):
                  sample_size: list[int] | tuple[int], 
                  sampling_rate_hz: float, 
                  is_measure_rate_hz: bool = False,
-                 data_notes: str | dict = None,
+                 data_notes: str | dict = {},
                  is_video: bool = False,
                  is_audio: bool = False, 
                  timesteps_before_solidified: int = 0,
-                 extra_data_info: dict[str, dict] = None) -> None:
+                 extra_data_info: dict[str, dict] = {}) -> None:
     self._streams_info.setdefault(device_name, OrderedDict())
     if not isinstance(sample_size, (list, tuple)):
       sample_size = [sample_size]
     self._streams_info[device_name][stream_name] = OrderedDict([
                                                     ('data_type', data_type),
                                                     ('sample_size', sample_size),
-                                                    ('data_notes', data_notes or {}),
+                                                    ('data_notes', data_notes),
                                                     ('sampling_rate_hz', sampling_rate_hz),
                                                     ('is_measure_rate_hz', is_measure_rate_hz),
                                                     ('is_video', is_video),
                                                     ('is_audio', is_audio),
                                                     ('timesteps_before_solidified', timesteps_before_solidified),
-                                                    ('extra_data_info', extra_data_info or {}),
+                                                    ('extra_data_info', extra_data_info),
                                                     ])
     if is_measure_rate_hz:
       # Set at start actual rate equal to desired sample rate
@@ -130,16 +144,17 @@ class Stream(ABC):
 
     self.clear_data(device_name, stream_name)
 
+
   # Add a single timestep of data to the data log.
   # @param time_s and @param data should each be a single value.
   # @param extra_data should be a dict mapping each extra data key to a single value.
   #   The extra data keys should match what was specified in add_stream() or set_streams_info().
-  def _append_data(self, 
-                   device_name: str, 
-                   stream_name: str, 
-                   time_s: float, 
-                   data, 
-                   extra_data: dict[str, dict] = None) -> None:
+  def _append(self, 
+              device_name: str, 
+              stream_name: str, 
+              time_s: float, 
+              data, 
+              extra_data: dict[str, dict] = None) -> None:
     self._data[device_name][stream_name]['time_s'].append(time_s)
     self._data[device_name][stream_name]['data'].append(data)
     if extra_data is not None:
@@ -169,6 +184,7 @@ class Stream(ABC):
         len(self._streams_info[device_name][stream_name]['dt_circular_buffer']) / \
         self._streams_info[device_name][stream_name]['dt_running_sum']
 
+
   # Clear data for a stream (and add the stream if it doesn't exist).
   # Optionally, can clear only data before a specified index.
   def clear_data(self, 
@@ -194,10 +210,12 @@ class Stream(ABC):
         self._data[device_name][stream_name][data_key] = \
           self._data[device_name][stream_name][data_key][first_index_to_keep:]
 
+
   def clear_data_all(self) -> None:
     for (device_name, device_info) in self._streams_info.items():
       for (stream_name, stream_info) in device_info.items():
         self.clear_data(device_name, stream_name)
+
 
   # Get the number of timesteps recorded so far.
   def get_num_timesteps(self, device_name: str, stream_name: str) -> int:
@@ -206,6 +224,7 @@ class Stream(ABC):
       return times_s.shape[0]
     except:
       return len(times_s)
+
 
   # Get the start time of data recorded so far.
   def get_start_time_s(self, device_name: str, stream_name: str) -> float:
@@ -217,6 +236,7 @@ class Stream(ABC):
     except IndexError:
       return None
 
+
   # Get the end time of data recorded so far.
   def get_end_time_s(self, device_name: str, stream_name: str) -> float:
     try:
@@ -226,7 +246,8 @@ class Stream(ABC):
       return end_time_s
     except IndexError:
       return None
-  
+
+
   # Get the duration of data recorded so far.
   def get_duration_s(self, device_name: str, stream_name: str) -> float:
     start_time_s = self.get_start_time_s(device_name, stream_name)
@@ -234,6 +255,7 @@ class Stream(ABC):
     if end_time_s is not None and start_time_s is not None:
       return end_time_s - start_time_s
     return None
+
 
   # Get data.
   # Can get all data, or only data to/from a specified timestep.
@@ -283,14 +305,16 @@ class Stream(ABC):
       return copy.deepcopy(res)
     else:
       return res
-        
+
+
   # Helper to get the time array for a specified stream.
   # Will use the streaming data or the loaded log data as applicable.
   def _get_times_s(self, 
                    device_name: str, 
                    stream_name: str) -> np.ndarray:
     return self._data[device_name][stream_name]['time_s']
-    
+
+
   # Helper to get the sample index that best corresponds to the specified time.
   # Will return the index of the last sample that is <= the specified time
   #  or the index of the first sample that is >= the specified time.
@@ -309,6 +333,7 @@ class Stream(ABC):
     else:
       indexes = np.argwhere(times_s >= target_time_s)
       return np.min(indexes) if indexes.size > 0 else None
+
 
   # Get/set metadata
   def get_metadata(self, 
@@ -335,15 +360,19 @@ class Stream(ABC):
       metadata = convert_dict_values_to_str(metadata)
     return metadata
 
+
   def set_metadata(self, new_metadata: OrderedDict) -> None:
     self._metadata = new_metadata
+
 
   def get_num_devices(self) -> int:
     return len(self._streams_info)
 
+
   # Get the names of streaming devices
   def get_device_names(self) -> list[str]:
     return list(self._streams_info.keys())
+
 
   # Rename a device (and keep the device indexing order the same).
   # If the name already exists, will not do anything.
@@ -352,6 +381,7 @@ class Stream(ABC):
     self._metadata = rename_dict_key(self._metadata, old_device_name, new_device_name)
     self._data = rename_dict_key(self._data, old_device_name, new_device_name)
 
+
   # Get the names of streams.
   # If device_name is None, will assume streams are the same for every device.
   def get_stream_names(self, device_name: str = None) -> list[str]:
@@ -359,14 +389,17 @@ class Stream(ABC):
       device_name = self.get_device_names()[0]
     return list(self._streams_info[device_name].keys())
 
+
   # Get information about a stream.
   # Returned dict will have keys data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
   def get_stream_info(self, device_name: str, stream_name: str) -> OrderedDict:
     return self._streams_info[device_name][stream_name]
 
+
   # Get all information about all streams.
   def get_all_stream_infos(self) -> OrderedDict:
     return copy.deepcopy(self._streams_info)
+
 
   # Get a list of values for a particular type of stream info (decoupled from device/stream names).
   # info_key can be data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
@@ -376,6 +409,7 @@ class Stream(ABC):
       for (stream_name, stream_info) in device_info.items():
         infos.append(stream_info[stream_attribute])
     return infos
+
 
   # Get a list of data keys associated with a stream.
   # Will include 'data', 'time_s', 'time_str', and any extra ones defined.
