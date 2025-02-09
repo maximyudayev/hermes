@@ -4,31 +4,12 @@ from typing import Callable
 
 import zmq
 
-from nodes import NODES
-from nodes.Node import Node 
+from utils.mp_utils import launch
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
 from utils.zmq_utils import *
 
-
-def proc(spec: dict, 
-         port_backend: str, 
-         port_frontend: str, 
-         port_sync: str, 
-         port_killsig: str):
-  # Create all desired consumers and connect them to the PUB broker socket.
-  class_name: str = spec['class']
-  class_args = spec.copy()
-  del (class_args['class'])
-  class_args['port_pub'] = port_backend
-  class_args['port_sub'] = port_frontend
-  class_args['port_sync'] = port_sync
-  class_args['port_killsig'] = port_killsig
-  # Create the class object.
-  class_type: type[Node] = NODES[class_name]
-  class_object: Node = class_type(**class_args)
-  class_object()
 
 ################################################################################
 ################################################################################
@@ -218,12 +199,14 @@ class JoinState(BrokerState):
 
 
 class Broker(BrokerInterface):
-  _log_source_tag = 'manager'
+  @property
+  def _log_source_tag(self) -> str:
+    return 'manager'
 
   # Initializes all broker logic and launches nodes
   def __init__(self,
                ip: str,
-               node_specs: list[dict] = [],
+               node_specs: list[dict],
                port_backend: str = PORT_BACKEND,
                port_frontend: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
@@ -377,7 +360,7 @@ class Broker(BrokerInterface):
     # Make sure that the child processes are spawned and not forked.
     set_start_method('spawn')
     # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
-    self._processes: list[Process] = [Process(target=proc,
+    self._processes: list[Process] = [Process(target=launch,
                                               args=(spec,
                                                     self._port_backend,
                                                     self._port_frontend,
