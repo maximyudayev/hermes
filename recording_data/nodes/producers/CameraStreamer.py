@@ -26,6 +26,7 @@ class CameraStreamer(Producer):
   def __init__(self,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
+               color_format: int,
                resolution: tuple[int],
                port_pub: str = None,
                port_sync: str = None,
@@ -44,7 +45,8 @@ class CameraStreamer(Producer):
     stream_info = {
       "camera_mapping": camera_mapping,
       "fps": fps,
-      "resolution": resolution
+      "resolution": resolution,
+      "color_format": color_format,
     }
 
     super().__init__(port_pub=port_pub,

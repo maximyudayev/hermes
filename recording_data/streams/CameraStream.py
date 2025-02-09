@@ -11,14 +11,16 @@ from visualizers import VideoVisualizer
 ############################################
 class CameraStream(Stream):
   def __init__(self, 
-               camera_mapping: dict,
+               camera_mapping: dict[str, str],
                fps: float,
                resolution: tuple[int],
+               color_format: int,
                **_) -> None:
     super().__init__()
 
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
+    self._format = color_format
 
     self._define_data_notes()
 
@@ -69,7 +71,7 @@ class CameraStream(Stream):
     # Show frames from each camera as a video.
     for camera_id in self._camera_mapping.values():
       visualization_options[camera_id]['frame'] = {'class': VideoVisualizer,
-                                                   'format': cv2.COLOR_BAYER_RG2RGB}
+                                                   'format': self._format}
     
     return visualization_options
 
@@ -82,6 +84,7 @@ class CameraStream(Stream):
       self._data_notes[camera_name]["frame"] = OrderedDict([
         ('Serial Number', camera_id),
         (Stream.metadata_data_headings_key, camera_name),
+        ('color_format', self._format)
       ])
       self._data_notes[camera_name]["timestamp"] = OrderedDict([
         ('Notes', 'Time of sampling of the frame w.r.t the camera onboard PTP clock')
