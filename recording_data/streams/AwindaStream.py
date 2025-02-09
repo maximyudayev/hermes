@@ -50,6 +50,12 @@ class AwindaStream(Stream):
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['awinda-imu']['acceleration-z'])
     self.add_stream(device_name=self._device_name,
+                    stream_name='orientation-w',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz, 
+                    data_notes=self._data_notes['awinda-imu']['orientation-w'])
+    self.add_stream(device_name=self._device_name,
                     stream_name='orientation-x',
                     data_type='float32',
                     sample_size=(self._num_joints),
@@ -125,6 +131,13 @@ class AwindaStream(Stream):
       'plot_duration_s': 15,
       'downsample_factor': 1,
       }
+    # TODO: update orientation visualization to represent quaternion data (transform to Euler or plot as skeleton).
+    visualization_options[self._device_name]['orientation-w'] = \
+      {'class': LinePlotVisualizer,
+      'single_graph': True,
+      'plot_duration_s': 15,
+      'downsample_factor': 1,
+      }
     visualization_options[self._device_name]['orientation-x'] = \
       {'class': LinePlotVisualizer,
       'single_graph': True,
@@ -163,6 +176,13 @@ class AwindaStream(Stream):
     ])
     self._data_notes['awinda-imu']['acceleration-z'] = OrderedDict([
       ('Description', 'Acceleration in the Z direction'),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+    ])
+    # TODO: update orientation description to quaternion components.
+    self._data_notes['awinda-imu']['orientation-w'] = OrderedDict([
+      ('Description', 'Orientation in the Roll direction (around X axis)'),
+      ('Units', 'degrees'),
+      ('Range', '[-180, 180]'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['awinda-imu']['orientation-x'] = OrderedDict([

@@ -6,7 +6,6 @@ import time
 from collections import OrderedDict
 import zmq
 
-from utils.msgpack_utils import serialize
 from handlers.XsensHandler import XsensFacade
 from utils.zmq_utils import *
 
@@ -77,24 +76,24 @@ class AwindaStreamer(Producer):
       for device, packet in snapshot.items():
         if packet:
           acc = packet["acc"]
-          euler = packet["euler"]
+          quaternion = packet["quaternion"]
 
           # Pick which timestamp information to use (also for DOTs)
           counter: np.uint16 = packet["counter"]
           toa_s: float = packet["toa_s"] # TODO: use the average clock of the valid samples in a snapshot
           timestamp_fine: np.uint32 = packet["timestamp_fine"]
-          timestamp_utc = packet["timestamp_utc"]
-          timestamp_estimate = packet["timestamp_estimate"]
-          timestamp_arrival = packet["timestamp_arrival"]
+          # timestamp_utc = packet["timestamp_utc"]
+          # timestamp_estimate = packet["timestamp_estimate"]
+          # timestamp_arrival = packet["timestamp_arrival"]
         else:
           acc = (None, None, None)
-          euler = (None, None, None)
+          quaternion = (None, None, None)
           counter = None
           timestamp_fine = None
 
         self._packet[device] = {
           "acceleration": acc,
-          "orientation": euler,
+          "orientation": quaternion,
           "counter": counter,
           "timestamp": timestamp_fine
         }

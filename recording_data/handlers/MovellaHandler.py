@@ -72,19 +72,19 @@ class MovellaFacade:
     def on_packet_received(toa_s, device, packet):
       device_id: str = str(device.deviceId())
       acc = packet.freeAcceleration()
-      euler = packet.orientationEuler()
+      quaternion = packet.orientationQuaternion()
       counter: np.uint16 = packet.packetCounter()
       data = {
         "device_id":            device_id,                          # str
         "acc":                  (acc[0], acc[1], acc[2]),           #
-        "euler":                (euler.x(), euler.y(), euler.z()),  # 
+        "quaternion":           (quaternion.w(), quaternion.x(), quaternion.y(), quaternion.z()),  # 
         # Pick which timestamp information to use (also for DOTs)
         "counter":              counter,                            # uint16
         "toa_s":                toa_s,                              # float
         "timestamp_fine":       packet.sampleTimeFine(),            # uint32
-        "timestamp_utc":        packet.utcTime(),                   # XsTimeStamp
-        "timestamp_estimate":   packet.estimatedTimeOfSampling(),   # XsTimeStamp
-        "timestamp_arrival":    packet.timeOfArrival()              # XsTimeStamp
+        # "timestamp_utc":        packet.utcTime(),                   # XsTimeStamp
+        # "timestamp_estimate":   packet.estimatedTimeOfSampling(),   # XsTimeStamp
+        # "timestamp_arrival":    packet.timeOfArrival()              # XsTimeStamp
       }
       self._buffer.plop(key=device_id, data=data, counter=counter)
 
@@ -142,7 +142,7 @@ class MovellaFacade:
      (self._master_device_id, self._connected_devices[self._master_device_id])]
 
     for (joint, device) in ordered_device_list:
-      if not device.startMeasurement(mdda.XsPayloadMode_ExtendedEuler):
+      if not device.startMeasurement(mdda.XsPayloadMode_CompleteQuaternion):
         return False
     for (joint, device) in ordered_device_list:
       if not device.resetOrientation(mdda.XRM_Heading):
