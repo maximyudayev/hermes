@@ -8,32 +8,23 @@ if not use_opencv_for_composite:
   import numpy as np
   from PyQt6 import QtWidgets, QtGui
 
-
-from threading import Thread
+import threading
 import cv2
 import numpy as np
 import os
 import time
 from collections import OrderedDict
 
-import zmq
-
-from producers.EyeStreamer import EyeStreamer
-from producers.Producer import Producer
-from utils.msgpack_utils import deserialize
+from handlers.LoggingHandler import Logger
 from consumers.Consumer import Consumer
-from producers import PRODUCERS
-from streams.Stream import Stream
 from visualizers.Visualizer import Visualizer
 
-from utils.time_utils import *
-from utils.dict_utils import *
 from utils.print_utils import *
-from utils.numpy_utils import *
 from utils.zmq_utils import *
 
-################################################
-################################################
+
+###########################################################################
+###########################################################################
 # A class to visualize streaming data.
 # SensorStreamer instances are passed to the class, and the data
 #  that they stream can be visualized periodically or all at once.
@@ -42,8 +33,8 @@ from utils.zmq_utils import *
 #   which returns a dict with 'class' and any additional options.
 #  The specified class should inherit from visualizers.Visualizer.
 #   To not show a visualization, 'class' can map to 'none' or None.
-################################################
-################################################
+###########################################################################
+###########################################################################
 class DataVisualizer(Consumer):
   @property
   def _log_source_tag(self) -> str:
@@ -51,11 +42,11 @@ class DataVisualizer(Consumer):
 
 
   def __init__(self, 
+               streamer_specs: list[dict],
+               logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
-               classes_to_visualize: list[str] = [],
-               streamer_specs: list[dict] = None,
                is_visualize_streaming: bool = True,
                is_visualize_all_when_stopped: bool = False,
                is_wait_while_windows_open: bool = False,
@@ -63,15 +54,18 @@ class DataVisualizer(Consumer):
                use_composite_video: bool = True, 
                composite_video_filepath: str = None,
                composite_video_layout: list[list[dict]] = None, 
+               log_history_filepath: str = None,
                print_status: bool = True, 
                print_debug: bool = False, 
-               log_history_filepath: str = None,
                **_):
 
-    super().__init__(classes=classes_to_visualize,
+    super().__init__(streamer_specs=streamer_specs,
                      port_sub=port_sub,
                      port_sync=port_sync,
-                     port_killsig=port_killsig)
+                     port_killsig=port_killsig,
+                     log_history_filepath=log_history_filepath,
+                     print_status=print_status,
+                     print_debug=print_debug)
 
     # Record the configuration options.
     self._update_period_s = update_period_s
@@ -83,74 +77,34 @@ class DataVisualizer(Consumer):
     self._composite_frame_width = None # will be computed from the layout
     self._composite_frame_height = None # will be computed from the layout
     self._composite_frame_height_withTimestamp = None # will be computed from the layout and the timestamp height
-    self._print_status = print_status
-    self._print_debug = print_debug
-    self._log_history_filepath = log_history_filepath
     self._is_visualize_streaming = is_visualize_streaming
     self._is_visualize_all_when_stopped = is_visualize_all_when_stopped
     self._is_wait_while_windows_open = is_wait_while_windows_open
     self._print_debug_extra = False # Print debugging information for visualizers that probably isn't needed during normal experiment logging
     self._last_debug_updateTime_print_s = 0
 
-    # Create Stream objects for all desired sensors we are to subscribe to from classes_to_visualize
-    self._streams: OrderedDict[str, Stream] = OrderedDict()
-    for streamer_spec in streamer_specs:
-      class_name: str = streamer_spec['class']
-      class_args = streamer_spec.copy()
-      del(class_args['class'])
-      # Create the class object.
-      class_type: type[Producer] = PRODUCERS[class_name]
-      class_object: Stream = class_type.create_stream(class_type, class_args)
-      # Store the streamer object.
-      self._streams.setdefault(class_type._log_source_tag, class_object)
+    # Inherits the datalogging functionality.
+    self._logger = Logger(**logging_spec)
 
-  def run(self):
-    super().run()
+    # Launch datalogging thread with reference to the Stream object.
+    self._logger_thread = threading.Thread(target=self._logger, args=(self._streams,))
+    self._logger_thread.start()
+    self._is_visualize = True
+    self._visualize_streaming_data()
 
-    self._start_stream_visualization()
-
-    # TODO: Send SYNC acknowledgement that this consumer is ready to get real data
-
-
-    # Main thread polls sockets for updates and stores data into Stream objects
-    while True:
-      #################
-      ###### SUB ######
-      #################
-      poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self._poller.poll())))
-      if self._sub in poll_res[0]:
-        topic, msg = self._sub.recv_multipart()
-        data = deserialize(msg)
-        # Put data into the corresponding Stream object
-        topic_tree: list[str] = topic.decode('utf-8').split(".")
-        streamer_name: str = topic_tree[0]
-        self._streams[streamer_name].append_data(**data)
-      
-      if self._killsig in poll_res[0]:
-        # Stop the visualization thread
-        self._cleanup()
 
   def _cleanup(self):
-    self._stop_stream_visualization()
+    self._logger.cleanup()
+    self._is_visualize = False
     self._close_visualizations()
+    # Finish up the file saving before exitting.
+    self._logger_thread.join()
     super()._cleanup()
 
 
   ##############################
   ###### VISUALIZING DATA ######
   ##############################
-
-  # Launch thread that will visualize things
-  def _start_stream_visualization(self):
-    self._streamVis_thread = Thread(target=self._visualize_streaming_data)
-    self._streamVis = True
-    self._streamVis_thread.start()
-
-  def _stop_stream_visualization(self):
-    self._streamVis = False
-    if self._streamVis_thread is not None and self._streamVis_thread.is_alive():
-      self._streamVis_thread.join()
-
   # Initialize visualizers.
   # Will use the visualizer specified by each streamer,
   #  which may be a default visualizer defined in this file or a custom one.
@@ -313,6 +267,7 @@ class DataVisualizer(Consumer):
     # Initialize state for visualization control.
     self._last_update_time_s = None
 
+
   # Close line plot figures, video windows, and custom visualizers.
   def _close_visualizations(self):
     for visualizers_streamer in self._visualizers:
@@ -335,15 +290,17 @@ class DataVisualizer(Consumer):
     except:
       pass
 
+
   # Periodically update the visualizations until a stopping criteria is met.
   def _visualize_streaming_data(self):
     # Initialize visualizations.
     self._init_visualizations()
 
     # Visualize the streaming data.
-    while self._streamVis:
+    while self._is_visualize:
       self._update_visualizations(wait_for_next_update_time=True)
-  
+
+
   # Visualize data that is already logged, either from streaming or from replaying logs.
   # Periodically update the visualizations until a stopping criteria is met.
   # This function is blocking.
@@ -382,7 +339,8 @@ class DataVisualizer(Consumer):
         next_update_time_s = start_viz_time_s + current_frame_index * self._update_period_s
         time.sleep(max(0, next_update_time_s - time.time()))
     # self._log_status('DataVisualizer finished visualizing logged data')
-    
+
+
   # Determine reasonable start and end times for visualizing logged data.
   def _get_loggedData_start_end_times_s(self, 
                                         start_offset_s: float = None, 
@@ -429,7 +387,8 @@ class DataVisualizer(Consumer):
     
     # Return the results.
     return (start_time_s, end_time_s)
-    
+
+
   # Fetch recent data from each streamer and visualize it.
   # If a poll period is set by self._visualize_period_s, can opt to check whether
   #  the next update time has been reached before proceeding by setting verify_next_update_time.
@@ -542,6 +501,7 @@ class DataVisualizer(Consumer):
       # self._log_debug('Time to update visualizers and composite: %0.4f' % (time.time() - start_update_time_s))
       self._last_debug_updateTime_print_s = time.time()
 
+
   # Visualize all data currently in the streamers' memory.
   # This is meant to be called at the end of an experiment.
   # This may interfere with windows/figures created by update_visualizations()
@@ -573,6 +533,7 @@ class DataVisualizer(Consumer):
               visualizer.update(new_data, visualizing_all_data=True)
             if self._print_debug_extra: pass
               # self._log_debug('Visualized %d new entries for stream %s.%s' % (len(new_data['data']), device_name, stream_name))
+
 
   # Create a composite video from all streamers that are creating visualizations.
   def _update_composite_video_opencv(self, 
@@ -740,7 +701,8 @@ class DataVisualizer(Consumer):
     # Write the composite image to a video if desired.
     if self._composite_video_writer is not None:
       self._composite_video_writer.write(composite_img)
-      
+
+
   def _update_composite_video_pyqtgraph(self, 
                                         hidden: bool = False, 
                                         time_s: float = None):
@@ -760,6 +722,7 @@ class DataVisualizer(Consumer):
       composite_img = cv2.resize(composite_img, (0,0), None, scale_factor_width, scale_factor_height)
       self._composite_video_writer.write(composite_img)
 
+
   # Convert a QImage to a numpy ndarray in BGR format.
   def _convertQImageToMat(self, qimg):
     img = qimg.convertToFormat(QtGui.QImage.Format.Format_RGB32)
@@ -767,7 +730,8 @@ class DataVisualizer(Consumer):
     ptr.setsize(img.sizeInBytes())
     arr = np.array(ptr).reshape(img.height(), img.width(), 4)  #  Copies the data
     return arr
-  
+
+
   # Keep line plot figures responsive if any are active.
   # Wait for user to press a key or close the windows if any videos are active.
   # Note that this will only work if called on the main thread.
@@ -796,6 +760,9 @@ class DataVisualizer(Consumer):
 ###### TESTING ######
 #####################
 if __name__ == "__main__":
+  from producers.EyeStreamer import EyeStreamer
+  import zmq
+
   stream_info = {
     'pupil_capture_ip'      : 'localhost',
     'pupil_capture_port'    : '50020',
