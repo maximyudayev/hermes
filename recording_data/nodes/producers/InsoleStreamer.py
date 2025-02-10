@@ -1,12 +1,11 @@
 from producers.Producer import Producer
 from streams.InsoleStream import InsoleStream
 
-from utils.msgpack_utils import serialize
 from utils.print_utils import *
 from utils.zmq_utils import *
 import socket
 import time
-import zmq
+
 
 ##################################################
 ##################################################
@@ -48,11 +47,12 @@ class InsoleStreamer(Producer):
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
       self._sock.settimeout(0.5)
-      self._sock.bind((IP_LOOPBACK, 8888))
+      self._sock.bind((IP_LOOPBACK, PORT_MOTICON))
       self._sock.recv(1024)
+      self._sock.settimeout(None)
+      return True
     except socket.timeout:
-      time.sleep(1)
-    return True
+      return False
 
 
   def _process_data(self) -> None:
