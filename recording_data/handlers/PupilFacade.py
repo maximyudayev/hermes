@@ -63,7 +63,7 @@ class PupilFacade:
   def process_data(self) -> tuple[float, OrderedDict]:
     data = self._receiver.recv_multipart()
     time_s = time.time()
-    pupilCore_time_s = self._get_device_time()
+    device_time_s = self._get_device_time()
 
     gaze_items = None
     pupil_items = None
@@ -71,7 +71,7 @@ class PupilFacade:
     video_worldGaze_items = None
     video_eye_items = None
     time_items = [
-      ('pupilCore_time_s', pupilCore_time_s)
+      ('device_time_s', device_time_s)
     ]
 
     topic = data[0].decode('utf-8')
@@ -144,7 +144,7 @@ class PupilFacade:
       try:
         world_img = img
         # Get the most recent gaze data
-        gaze_norm_pos, gaze_timestamp = self._get_latest_stream_data_fn(device_name='eye-tracking-gaze', 
+        gaze_norm_pos, gaze_timestamp = self._get_latest_stream_data_fn(device_name='eye-gaze', 
                                                                         stream_names=['position','timestamp'], 
                                                                         starting_index=-1)
         if gaze_norm_pos is not None and gaze_timestamp is not None:
@@ -200,13 +200,13 @@ class PupilFacade:
     # Create a data dictionary.
     # The keys should correspond to device names after the 'eye-tracking-' prefix.
     data = OrderedDict([
-      ('gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
-      ('pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
-      ('video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
-      ('video-worldGaze', OrderedDict(video_worldGaze_items) if video_worldGaze_items is not None else None),
-      ('video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
-      ('video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
-      ('time', OrderedDict(time_items) if time_items is not None else None),
+      ('eye-gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
+      ('eye-pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
+      ('eye-video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
+      ('eye-video-world-gaze', OrderedDict(video_worldGaze_items) if video_worldGaze_items is not None else None),
+      ('eye-video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
+      ('eye-video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
+      ('eye-time', OrderedDict(time_items) if time_items is not None else None),
     ])
 
     return time_s, data
