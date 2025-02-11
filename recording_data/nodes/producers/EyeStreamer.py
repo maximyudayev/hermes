@@ -2,8 +2,8 @@ import zmq
 from handlers.PupilFacade import PupilFacade
 from producers.Producer import Producer
 from streams.EyeStream import EyeStream
-from utils.msgpack_utils import serialize
 from utils.zmq_utils import *
+
 
 #######################################################
 #######################################################
@@ -73,6 +73,10 @@ class EyeStreamer(Producer):
     return EyeStream(**stream_info)
 
 
+  def toggle_capturing(self) -> bool:
+    return self._handler.toggle_capturing()
+
+
   def _connect(self) -> bool:
     self._handler: PupilFacade = PupilFacade(stream_video_world=self._stream_video_world,
                                              stream_video_worldGaze=self._stream_video_worldGaze,
@@ -82,13 +86,13 @@ class EyeStreamer(Producer):
                                              pupil_capture_port=self._pupil_capture_port,
                                              video_image_format=self._video_image_format,
                                              gaze_estimate_stale_s=self._gaze_estimate_stale_s)
-    self._handler.set_stream_data_getter(fn=self._stream.get_data)
+    self._handler.set_stream_data_getter(fn=self._stream.get_data_multiple_streams)
     return True
 
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      time_s, data = self._handler.process_pupil_data()
+      time_s, data = self._handler.process_data()
       tag: str = "%s.data" % self._log_source_tag
       self._publish(tag, time_s=time_s, data=data)
     else:
