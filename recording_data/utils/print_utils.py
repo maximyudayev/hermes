@@ -30,9 +30,11 @@ except:
   pass
 from utils.time_utils import *
 
+
 # Print a dictionary (recursively as appropriate).
 def print_dict(d):
   print(get_dict_str(d))
+
 
 # Get a string to display a dictionary (recursively as appropriate).
 def get_dict_str(d, level=0):
@@ -49,9 +51,11 @@ def get_dict_str(d, level=0):
   msg += '%s}\n' % indent_root
   return msg
 
+
 # Print a variable and its type.
 def print_var(var, name=None):
   print(get_var_str(var, name=name))
+
 
 # Get a string to display a variable and its type.
 def get_var_str(var, name=None):
@@ -134,6 +138,7 @@ def format_log_message(msg: str,
     msg += ' %s' % extra_msg
   # Return the formatted message.
   return msg
+
 
 # Format, optionally print, and optionally write to file a timestamped log message.
 def write_log_message(msg: str, 

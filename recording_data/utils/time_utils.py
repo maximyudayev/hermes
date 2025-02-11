@@ -40,6 +40,7 @@ def get_time_str(time_s: float | None = None, format: str = '%Y-%m-%d_%H-%M-%S',
   else:
     return time_str
 
+
 # Given a UTC time string in the format %H:%M:%S.%f,
 #  add the current UTC date then convert it to local time and return seconds since epoch.
 def get_time_s_from_utc_timeNoDate_str(time_utc_str, input_time_format='%H:%M:%S.%f',
@@ -60,6 +61,7 @@ def get_time_s_from_utc_timeNoDate_str(time_utc_str, input_time_format='%H:%M:%S
   utc_datetime = utc_datetime.replace(tzinfo=from_zone)
   local_datetime = utc_datetime.astimezone(to_zone)
   return local_datetime.timestamp()
+
 
 # Given a local time string in the format %H:%M:%S.%f,
 #  add the current local date then return seconds since epoch.

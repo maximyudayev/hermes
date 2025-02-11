@@ -29,7 +29,9 @@ from collections import OrderedDict
 
 # Rename a key of a dictionary.
 # If it's an OrderedDict, keep the order the same.
-def rename_dict_key(d, old_key, new_key):
+def rename_dict_key(d: dict | OrderedDict, 
+                    old_key,
+                    new_key) -> dict | OrderedDict:
   # Check if the rename operation makes sense.
   if old_key not in d:
     raise KeyError('Cannot rename key %s -> %s since the old key does not exist' % (old_key, new_key))
@@ -48,11 +50,13 @@ def rename_dict_key(d, old_key, new_key):
   keys[keys.index(old_key)] = new_key
   return OrderedDict(zip(keys, d.values()))
 
+
 # Cast all values in a (possibly nested) dictionary to strings.
 # Will remove key-value pairs for values that cannot be easily converted to a string.
 # If preserve_nested_dicts is True, will preserve nested structure but recursively convert their values.
 #   Otherwise, will simply stringify the whole nested dictionary.
-def convert_dict_values_to_str(d, preserve_nested_dicts=True):
+def convert_dict_values_to_str(d: dict | OrderedDict, 
+                               preserve_nested_dicts: bool = True) -> dict | OrderedDict:
   # Create a new dictionary that will be populated
   if isinstance(d, OrderedDict):
     d_converted = OrderedDict()
@@ -71,17 +75,22 @@ def convert_dict_values_to_str(d, preserve_nested_dicts=True):
         pass
   return d_converted
 
+
 # Flatten a dictionary.
 # Will bring items of nested dictionaries up to the root level.
 # Keys from nested dictionaries will have the parent key prepended to it.
-def flatten_dict(d):
+def flatten_dict(d: dict | OrderedDict) -> dict | OrderedDict:
   d_flattened_items = _get_flattened_dict_items(d)
   if isinstance(d, OrderedDict):
     return OrderedDict(d_flattened_items)
   else:
     return dict(d_flattened_items)
+
+
 # Worker method for the above, which will return a list of items for the flattened dictionary.
-def _get_flattened_dict_items(d, parent_key=None, parent_key_joiner='|'):
+def _get_flattened_dict_items(d: dict | OrderedDict, 
+                              parent_key: str = None, 
+                              parent_key_joiner: str = '|') -> list:
   d_items = []
   for (key, value) in d.items():
     if parent_key is not None:

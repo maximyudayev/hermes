@@ -3,6 +3,7 @@ from threading import Lock
 from typing import Any, Iterable
 
 
+# TODO (non-critical): simplify using modulo of pos/neg difference between tips?
 class CircularBuffer:
   def __init__(self,
                size: int,
@@ -211,4 +212,3 @@ if __name__ == "__main__":
   print(buffer)
   print(buffer.yeet(False))
   print(buffer)
-

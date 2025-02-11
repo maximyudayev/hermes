@@ -28,7 +28,8 @@ try:
   import pyperclip
 except ModuleNotFoundError:
   pass
-  
+
+
 # A helper to insert new entries into the end of an array,
 #  shifting back and deleting earlier entries.
 # Do it in-place instead of using append() and then trimming,
@@ -46,10 +47,12 @@ def add_to_rolling_array(arr, new_entries):
   arr[-num_new_elements:] = new_entries[new_entries_start_index:(new_entries_end_index+1)]
   return arr
 
+
 # Get a matrix as a string that can be printed/copied.
 def get_matrix_str(matrix, column_delim='\t', row_delim='\n'):
   return row_delim.join([column_delim.join([str(x) for x in matrix[row_index,:]])
                          for row_index in range(matrix.shape[0])])
+
 
 # Copy a matrix as a string so it can be pasted into Excel or a similar program.
 def copy_matrix(matrix, column_delim='\t', row_delim='\n'):
