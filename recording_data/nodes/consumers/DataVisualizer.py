@@ -233,7 +233,7 @@ class DataVisualizer(Consumer):
     self._next_data_indexes = [OrderedDict() for i in range(len(self._streams.items()))]
     self._timesteps_before_solidified = [OrderedDict() for i in range(len(self._streams.items()))]
     for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         self._next_data_indexes[stream_index][device_name] = OrderedDict()
         self._timesteps_before_solidified[stream_index][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
@@ -243,7 +243,7 @@ class DataVisualizer(Consumer):
     # Instantiate and initialize the visualizers.
     self._visualizers = [OrderedDict() for i in range(len(self._streams.items()))]
     for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         self._visualizers[stream_index][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
           visualizer_options = stream.get_default_visualization_options()[device_name][stream_name]
@@ -353,10 +353,10 @@ class DataVisualizer(Consumer):
     for streamer_index, (stream_type, stream) in enumerate(self._streams.items()):
       streamer_start_times_s = []
       streamer_end_times_s = []
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
-          streamer_start_time_s = stream.get_start_time_s(device_name, stream_name)
-          streamer_end_time_s = stream.get_end_time_s(device_name, stream_name)
+          streamer_start_time_s = stream._get_start_time_s(device_name, stream_name)
+          streamer_end_time_s = stream._get_end_time_s(device_name, stream_name)
           if streamer_start_time_s is not None:
             streamer_start_times_s.append(streamer_start_time_s)
           if streamer_end_time_s is not None:
@@ -424,7 +424,7 @@ class DataVisualizer(Consumer):
     # Visualize new data for each stream of each device of each streamer.
     start_update_time_s = time.time()
     for stream_index, (stream_type, stream) in enumerate(self._streams.items()):
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         if self._print_debug_extra: pass
           # self._log_debug('Visualizing streams for streamer %d device %s' % (stream_index, device_name))
         for (stream_name, stream_info) in device_info.items():
@@ -452,7 +452,7 @@ class DataVisualizer(Consumer):
               else:
                 starting_index = ending_index - 1
             else:
-              ending_index_forTime = stream._get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
+              ending_index_forTime = stream.get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
               if ending_index_forTime is not None:
                 ending_index_forTime += 1 # since will use as a list index and thus exclude the specified index
                 starting_index = ending_index_forTime - 1
@@ -655,7 +655,7 @@ class DataVisualizer(Consumer):
     if self._experimentControl_stream is not None:
       device_name = 'experiment-activities'
       stream_name = 'activities'
-      index_forTime = self._experimentControl_stream._get_index_for_time_s(device_name, stream_name, time_s, target_before=True)
+      index_forTime = self._experimentControl_stream.get_index_for_time_s(device_name, stream_name, time_s, target_before=True)
       if index_forTime is not None:
         # Get the most recent label entry.
         label_data = self._experimentControl_stream.get_data(device_name, 

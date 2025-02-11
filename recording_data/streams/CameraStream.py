@@ -51,7 +51,7 @@ class CameraStream(Stream):
 
 
   def get_fps(self) -> dict[str, float]:
-    return {camera_name: super(CameraStream, self)._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
+    return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
 
 
   def _append_data(self,

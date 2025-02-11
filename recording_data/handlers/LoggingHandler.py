@@ -176,7 +176,7 @@ class Logger:
   #  and the number of timesteps that each streamer needs before data is solidified.
   def _init_log_indexes(self):
     for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         self._next_data_indexes[streamer_name][device_name] = OrderedDict()
         self._timesteps_before_solidified[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
@@ -196,7 +196,7 @@ class Logger:
     # Open a writer for each CSV data file.
     csv_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, streamer) in self._streams.items():
-      for (device_name, device_info) in streamer.get_all_stream_infos().items():
+      for (device_name, device_info) in streamer.get_stream_info_all().items():
         csv_writers[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
           # Skip saving videos in a CSV.
@@ -224,7 +224,7 @@ class Logger:
         for (stream_name, stream_writer) in stream_writers.items():
           stream_writer.write(','.join(csv_headers))
           # First check if custom header titles have been specified.
-          stream_info = streamer.get_all_stream_infos()[device_name][stream_name]
+          stream_info = streamer.get_stream_info_all()[device_name][stream_name]
           sample_size = stream_info['sample_size']
           if isinstance(stream_info['data_notes'], dict) and Stream.metadata_data_headings_key in stream_info['data_notes']:
             data_headers = stream_info['data_notes'][Stream.metadata_data_headings_key]
@@ -287,7 +287,7 @@ class Logger:
     hdf5_file = h5py.File(filepath_hdf5, 'w')
     # Create a dataset for each data key of each stream of each device.
     for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         device_group = hdf5_file.create_group(device_name)
         self._next_data_indexes_hdf5[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
@@ -338,7 +338,7 @@ class Logger:
     # Create a video writer for each video stream of each device.
     self._video_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, streamer) in self._streams.items():
-      for (device_name, device_info) in streamer.get_all_stream_infos().items():
+      for (device_name, device_info) in streamer.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
           # Skip non-video streams.
           if not stream_info['is_video']:
@@ -376,7 +376,7 @@ class Logger:
     # Create an audio writer for each audio stream of each device.
     self._audio_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, stream) in self._streams.items():
-      for (device_name, streams_info) in stream.get_all_stream_infos().items():
+      for (device_name, streams_info) in stream.get_stream_info_all().items():
         for (stream_name, stream_info) in streams_info.items():
           # Skip non-audio streams.
           if not stream_info['is_audio']:
@@ -528,7 +528,7 @@ class Logger:
   # Will include device-level metadata and any lower-level data notes.
   def _log_metadata(self):
     for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_all_stream_infos().items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
         # Get metadata for this device.
         # To make it HDF5 compatible,
         #  flatten the dictionary and then
@@ -587,7 +587,7 @@ class Logger:
     # Also resize datasets to remove extra empty rows.
     if self._hdf5_file is not None:
       for (streamer_name, stream) in self._streams.items():
-        for (device_name, device_info) in stream.get_all_stream_infos().items():
+        for (device_name, device_info) in stream.get_stream_info_all().items():
           for (stream_name, stream_info) in device_info.items():
             try:
               stream_group = self._hdf5_file['/'.join([device_name, stream_name])]
@@ -716,7 +716,7 @@ class Logger:
         flushing_log = True
       # Write new data for each stream of each device of each streamer.
       for (streamer_name, stream) in self._streams.items():
-        for (device_name, device_info) in stream.get_all_stream_infos().items():
+        for (device_name, device_info) in stream.get_stream_info_all().items():
           # self._log_debug('Logging streams for streamer %d device %s' % (streamer_index, device_name))
           for (stream_name, stream_info) in device_info.items():
             # Fetch data starting with the first timestep that hasn't been logged yet,
@@ -729,10 +729,10 @@ class Logger:
             if ending_index == 0: # no time is needed to solidify, so fetch up to the most recent data
               ending_index = None
             new_data = stream.get_data(device_name, 
-                                        stream_name, 
-                                        return_deepcopy=False,
-                                        starting_index=starting_index, 
-                                        ending_index=ending_index)
+                                       stream_name, 
+                                       return_deepcopy=False,
+                                       starting_index=starting_index, 
+                                       ending_index=ending_index)
             # Write any new data to files.
             if new_data is not None:
               if self._stream_csv:
