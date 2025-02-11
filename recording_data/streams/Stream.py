@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import copy
 from collections import OrderedDict
-from queue import Queue
+from threading import Lock
 import numpy as np
 
 from utils.time_utils import *
@@ -37,17 +37,25 @@ class Stream(ABC):
     self._data = OrderedDict()
     self._metadata = OrderedDict()
     self._streams_info = OrderedDict()
-    self._replaying_data_logs = False
+    self._lock = Lock()
 
 
   ############################
   ###### INTERFACE FLOW ######
   ############################
-
   # Business logic of concrete Stream implementation, 
-  #   must specify `time_s` parameter and any custom data thereafterю
+  #   must specify `time_s` parameter and any custom data thereafter.
   @abstractmethod
   def _append_data(self, time_s: float, **kwargs) -> None:
+    pass
+
+
+  # Get actual frame rate, subject to expected transmission delay and throughput limitation,
+  #   to confidently judge the performance of the system.
+  # Computed based on how fast data becomes available to the data structure, hence suitable
+  #   to measure frame rate on the subscriber, local or remote.
+  @abstractmethod
+  def get_fps(self) -> dict[str, float]:
     pass
 
 
@@ -66,32 +74,90 @@ class Stream(ABC):
     return visualization_options
 
 
-  # Get actual frame rate, subject to expected transmission delay and throughput limitation,
-  #   to confidently judge the performance of the system.
-  # Computed based on how fast data becomes available to the data structure, hence suitable
-  #   to measure frame rate on the subscriber, local or remote.
-  @abstractmethod
-  def get_fps(self) -> dict[str, float]:
-    pass
-
-
   #############################
   ###### GETTERS/SETTERS ######
   #############################
-  # Public thread-safe method calling concrete implementation of Producer's append logic.
+  # Public thread-safe method calling concrete implementation of a Stream's append logic.
   def append_data(self, **kwargs) -> None:
+    self._lock.acquire()
     self._append_data(**kwargs)
+    self._lock.release()
 
 
-  # Retrieve actual frame rate of a stream if it was set to measure.
-  # Records and refreshes statistics on each data structure append
-  #   call, making actual frame rate estimate if data sampled remotely and
-  #   sent over LAN to collection device.
-  def _get_fps(self, device_name: str, stream_name: str) -> float | None:
-    if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
-      return self._streams_info[device_name][stream_name]['actual_rate_hz']
-    else:
-      return None
+  def get_data(self, 
+               device_name: str, 
+               stream_name: str,
+               starting_index: int = None, 
+               ending_index: int = None,
+               starting_time_s: float = None, 
+               ending_time_s: float = None,
+               return_deepcopy: bool = True) -> dict[str, np.ndarray]:
+    self._lock.acquire()
+    res = self._get_data(device_name=device_name,
+                         stream_name=stream_name,
+                         starting_index=starting_index,
+                         ending_index=ending_index,
+                         starting_time_s=starting_time_s,
+                         ending_time_s=ending_time_s,
+                         return_deepcopy=return_deepcopy)
+    self._lock.release()
+    return res
+
+
+  def get_data_multiple_streams(self,
+                                device_name: str, 
+                                stream_names: list[str],
+                                starting_index: int = None, 
+                                ending_index: int = None,
+                                starting_time_s: float = None, 
+                                ending_time_s: float = None,
+                                return_deepcopy: bool = True) -> list[dict[str, np.ndarray]]:
+    self._lock.acquire()
+    res = self._get_data_multiple_streams(device_name=device_name,
+                                          stream_names=stream_names,
+                                          starting_index=starting_index,
+                                          ending_index=ending_index,
+                                          starting_time_s=starting_time_s,
+                                          ending_time_s=ending_time_s,
+                                          return_deepcopy=return_deepcopy)
+    self._lock.release()
+    return res
+
+
+  def get_num_timesteps(self, device_name: str, stream_name: str) -> int:
+    self._lock.acquire()
+    res = self._get_num_timesteps(device_name=device_name, stream_name=stream_name) 
+    self._lock.release()
+    return res
+
+
+  def get_index_for_time_s(self, 
+                           device_name: str, 
+                           stream_name: str, 
+                           target_time_s: float, 
+                           target_before: bool = True) -> np.ndarray:
+    self._lock.acquire()
+    res = self._get_index_for_time_s(device_name=device_name,
+                                     stream_name=stream_name,
+                                     target_time_s=target_time_s,
+                                     target_before=target_before)
+    self._lock.release()
+    return res
+
+
+  def clear_data_all(self) -> None:
+    self._lock.acquire()
+    self._clear_data_all()
+    self._lock.release()
+
+
+  def clear_data(self,
+                 device_name: str,
+                 stream_name: str,
+                 first_index_to_keep: int = None) -> None:
+    self._lock.acquire()
+    self._clear_data(device_name=device_name, stream_name=stream_name, first_index_to_keep=first_index_to_keep)
+    self._lock.release()
 
 
   # Add a new device stream.
@@ -141,8 +207,92 @@ class Stream(ABC):
       self._streams_info[device_name][stream_name]['dt_circular_index'] = 0
       self._streams_info[device_name][stream_name]['dt_running_sum'] = 1.0
       self._streams_info[device_name][stream_name]['old_toa'] = time.time()
+    self._clear_data(device_name, stream_name)
 
-    self.clear_data(device_name, stream_name)
+
+  def rename_device(self, 
+                    old_device_name: str, 
+                    new_device_name: str) -> None:
+    self._lock.acquire()
+    self._rename_device(old_device_name=old_device_name, new_device_name=new_device_name)
+    self._lock.release()
+
+
+  # Get/set metadata
+  def get_metadata(self, 
+                   device_name: str = None, 
+                   only_str_values: bool = False) -> OrderedDict:
+    # Get metadata for all devices or for the specified device.
+    if device_name is None:
+      metadata = self._metadata
+    elif device_name in self._metadata:
+      metadata = self._metadata[device_name]
+    else:
+      metadata = OrderedDict()
+
+    # Add the class name.
+    class_name = type(self).__name__
+    if device_name is None:
+      for device_name_toUpdate in metadata:
+        metadata[device_name_toUpdate][self.metadata_class_name_key] = class_name
+    else:
+      metadata[self.metadata_class_name_key] = class_name
+
+    # Convert values to strings if desired.
+    if only_str_values:
+      metadata = convert_dict_values_to_str(metadata)
+    return metadata
+
+
+  def set_metadata(self, new_metadata: OrderedDict) -> None:
+    self._metadata = new_metadata
+
+
+  def get_num_devices(self) -> int:
+    return len(self._streams_info)
+
+
+  # Get the names of streaming devices
+  def get_device_names(self) -> list[str]:
+    return list(self._streams_info.keys())
+
+
+  # Get the names of streams.
+  # If device_name is None, will assume streams are the same for every device.
+  def get_stream_names(self, device_name: str = None) -> list[str]:
+    if device_name is None:
+      device_name = self.get_device_names()[0]
+    return list(self._streams_info[device_name].keys())
+
+
+  # Get information about a stream.
+  # Returned dict will have keys:
+  #   data_type, sample_size, 
+  #   sampling_rate_hz, actual_rate_hz,
+  #   timesteps_before_solidified, extra_data_info
+  def get_stream_info(self, device_name: str, stream_name: str) -> OrderedDict:
+    return self._streams_info[device_name][stream_name]
+
+
+  # Get all information about all streams.
+  def get_stream_info_all(self) -> OrderedDict:
+    return copy.deepcopy(self._streams_info)
+
+
+  # Get a list of values for a particular type of stream info (decoupled from device/stream names).
+  # info_key can be data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
+  def get_stream_info_by_attribute(self, stream_attribute) -> list[np.ndarray]:
+    infos = []
+    for (device_name, device_info) in self._streams_info.items():
+      for (stream_name, stream_info) in device_info.items():
+        infos.append(stream_info[stream_attribute])
+    return infos
+
+
+  # Get a list of data keys associated with a stream.
+  # Will include 'data', 'time_s', and any extra ones defined.
+  def get_stream_data_keys(self, device_name: str, stream_name: str) -> list[str]:
+    return list(self._data[device_name][stream_name].keys())
 
 
   # Add a single timestep of data to the data log.
@@ -185,12 +335,108 @@ class Stream(ABC):
         self._streams_info[device_name][stream_name]['dt_running_sum']
 
 
+  # Get data.
+  # Can get all data, or only data to/from a specified timestep.
+  # @starting_index the desired first index to return, or None to start at the beginning.
+  # @ending_index the desired ending index to return, or None to go until the end.
+  #   If provided, will be used with standard Python list indexing,
+  #    so the provided index will be *excluded* from the returned data.
+  #   Note that it can also be negative, in accordance with standard Python list indexing.
+  # @starting_time_s and @ending_time_s are alternatives to starting_index and ending_index.
+  #   If not None, will be used instead of the corresponding index argument.
+  # If no data exists based on the specified timesteps, will return None.
+  # @param return_deepcopy Whether to return a deep copy of the data (safer)
+  #   or to potentially include pointers to the data record (faster).
+  def _get_data(self, 
+                device_name: str, 
+                stream_name: str,
+                starting_index: int = None, 
+                ending_index: int = None,
+                starting_time_s: float = None, 
+                ending_time_s: float = None,
+                return_deepcopy: bool = True) -> dict[str, np.ndarray]:
+    # Convert desired times to indexes if applicable.
+    if starting_time_s is not None:
+      starting_index = self._get_index_for_time_s(device_name, stream_name, starting_time_s, target_before=False)
+      if starting_index is None:
+        return None
+    if ending_time_s is not None:
+      ending_index = self._get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
+      if ending_index is None:
+        return None
+      else:
+        ending_index += 1 # since will use as a list index and thus exclude the specified index
+    # Update default starting/ending indexes.
+    if starting_index is None:
+      starting_index = 0
+    if ending_index is None:
+      ending_index = self._get_num_timesteps(device_name, stream_name)
+
+    # Get the desired subset of data.
+    # Note that this also creates a copy of each array, so the returned data remains static as new data is collected.
+    res = dict([(key, values[starting_index:ending_index]) for (key, values) in self._data[device_name][stream_name].items()])
+
+    # Return the result
+    if len(list(res.values())[0]) == 0:
+      return None
+    elif return_deepcopy:
+      return copy.deepcopy(res)
+    else:
+      return res
+
+
+  def _get_data_multiple_streams(self, 
+                                 device_name: str, 
+                                 stream_names: list[str],
+                                 starting_index: int = None, 
+                                 ending_index: int = None,
+                                 starting_time_s: float = None, 
+                                 ending_time_s: float = None,
+                                 return_deepcopy: bool = True) -> list[dict[str, np.ndarray]]:
+    # Convert desired times to indexes if applicable.
+    if starting_time_s is not None:
+      starting_index = self._get_index_for_time_s(device_name, stream_names[0], starting_time_s, target_before=False)
+      if starting_index is None:
+        return None
+    if ending_time_s is not None:
+      ending_index = self._get_index_for_time_s(device_name, stream_names[0], ending_time_s, target_before=True)
+      if ending_index is None:
+        return None
+      else:
+        ending_index += 1 # since will use as a list index and thus exclude the specified index
+    # Update default starting/ending indexes.
+    if starting_index is None:
+      starting_index = 0
+    if ending_index is None:
+      ending_index = self._get_num_timesteps(device_name, stream_names[0])
+
+    # Get the desired subset of data.
+    # Note that this also creates a copy of each array, so the returned data remains static as new data is collected.
+    res = [dict([(key, values[starting_index:ending_index]) for (key, values)
+                 in self._data[device_name][stream_name].items()])
+                 for stream_name in stream_names]
+
+    # Return the result
+    if len(list(res[0].values())[0]) == 0:
+      return None
+    elif return_deepcopy:
+      return copy.deepcopy(res)
+    else:
+      return res
+
+
+  def _clear_data_all(self) -> None:
+    for (device_name, device_info) in self._streams_info.items():
+      for (stream_name, stream_info) in device_info.items():
+        self._clear_data(device_name, stream_name)
+
+
   # Clear data for a stream (and add the stream if it doesn't exist).
   # Optionally, can clear only data before a specified index.
-  def clear_data(self, 
-                 device_name: str, 
-                 stream_name: str, 
-                 first_index_to_keep: int = None) -> None:
+  def _clear_data(self, 
+                  device_name: str, 
+                  stream_name: str, 
+                  first_index_to_keep: int = None) -> None:
     # Create the device/stream entry if it doesn't exist
     self._data.setdefault(device_name, OrderedDict())
     self._data[device_name].setdefault(stream_name, OrderedDict())
@@ -211,14 +457,8 @@ class Stream(ABC):
           self._data[device_name][stream_name][data_key][first_index_to_keep:]
 
 
-  def clear_data_all(self) -> None:
-    for (device_name, device_info) in self._streams_info.items():
-      for (stream_name, stream_info) in device_info.items():
-        self.clear_data(device_name, stream_name)
-
-
   # Get the number of timesteps recorded so far.
-  def get_num_timesteps(self, device_name: str, stream_name: str) -> int:
+  def _get_num_timesteps(self, device_name: str, stream_name: str) -> int:
     times_s = self._get_times_s(device_name, stream_name)
     try: # If reading from a stored HDF5 file, avoid loading the array into memory
       return times_s.shape[0]
@@ -227,7 +467,7 @@ class Stream(ABC):
 
 
   # Get the start time of data recorded so far.
-  def get_start_time_s(self, device_name: str, stream_name: str) -> float:
+  def _get_start_time_s(self, device_name: str, stream_name: str) -> float:
     try:
       start_time_s = self._get_times_s(device_name, stream_name)[0]
       if isinstance(start_time_s, np.ndarray):
@@ -238,7 +478,7 @@ class Stream(ABC):
 
 
   # Get the end time of data recorded so far.
-  def get_end_time_s(self, device_name: str, stream_name: str) -> float:
+  def _get_end_time_s(self, device_name: str, stream_name: str) -> float:
     try:
       end_time_s = self._get_times_s(device_name, stream_name)[-1]
       if isinstance(end_time_s, np.ndarray):
@@ -249,62 +489,23 @@ class Stream(ABC):
 
 
   # Get the duration of data recorded so far.
-  def get_duration_s(self, device_name: str, stream_name: str) -> float:
-    start_time_s = self.get_start_time_s(device_name, stream_name)
-    end_time_s = self.get_end_time_s(device_name, stream_name)
+  def _get_duration_s(self, device_name: str, stream_name: str) -> float:
+    start_time_s = self._get_start_time_s(device_name, stream_name)
+    end_time_s = self._get_end_time_s(device_name, stream_name)
     if end_time_s is not None and start_time_s is not None:
       return end_time_s - start_time_s
     return None
 
 
-  # Get data.
-  # Can get all data, or only data to/from a specified timestep.
-  # @starting_index the desired first index to return, or None to start at the beginning.
-  # @ending_index the desired ending index to return, or None to go until the end.
-  #   If provided, will be used with standard Python list indexing,
-  #    so the provided index will be *excluded* from the returned data.
-  #   Note that it can also be negative, in accordance with standard Python list indexing.
-  # @starting_time_s and @ending_time_s are alternatives to starting_index and ending_index.
-  #   If not None, will be used instead of the corresponding index argument.
-  # If no data exists based on the specified timesteps, will return None.
-  # @param return_deepcopy Whether to return a deep copy of the data (safer)
-  #   or to potentially include pointers to the data record (faster).
-  def get_data(self, 
-               device_name: str, 
-               stream_name: str,
-               starting_index: int = None, 
-               ending_index: int = None,
-               starting_time_s: float = None, 
-               ending_time_s: float = None,
-               return_deepcopy: bool = True) -> dict[str, np.ndarray]:
-    # Convert desired times to indexes if applicable.
-    if starting_time_s is not None:
-      starting_index = self._get_index_for_time_s(device_name, stream_name, starting_time_s, target_before=False)
-      if starting_index is None:
-        return None
-    if ending_time_s is not None:
-      ending_index = self._get_index_for_time_s(device_name, stream_name, ending_time_s, target_before=True)
-      if ending_index is None:
-        return None
-      else:
-        ending_index += 1 # since will use as a list index and thus exclude the specified index
-    # Update default starting/ending indexes.
-    if starting_index is None:
-      starting_index = 0
-    if ending_index is None:
-      ending_index = self.get_num_timesteps(device_name, stream_name)
-
-    # Get the desired subset of data.
-    # Note that this also creates a copy of each array, so the returned data remains static as new data is collected.
-    res = dict([(key, values[starting_index:ending_index]) for (key, values) in self._data[device_name][stream_name].items()])
-
-    # Return the result
-    if len(list(res.values())[0]) == 0:
-      return None
-    elif return_deepcopy:
-      return copy.deepcopy(res)
+  # Retrieve actual frame rate of a stream if it was set to measure.
+  # Records and refreshes statistics on each data structure append
+  #   call, making actual frame rate estimate if data sampled remotely and
+  #   sent over LAN to collection device.
+  def _get_fps(self, device_name: str, stream_name: str) -> float | None:
+    if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
+      return self._streams_info[device_name][stream_name]['actual_rate_hz']
     else:
-      return res
+      return None
 
 
   # Helper to get the time array for a specified stream.
@@ -335,83 +536,11 @@ class Stream(ABC):
       return np.min(indexes) if indexes.size > 0 else None
 
 
-  # Get/set metadata
-  def get_metadata(self, 
-                   device_name: str = None, 
-                   only_str_values: bool = False) -> OrderedDict:
-    # Get metadata for all devices or for the specified device.
-    if device_name is None:
-      metadata = self._metadata
-    elif device_name in self._metadata:
-      metadata = self._metadata[device_name]
-    else:
-      metadata = OrderedDict()
-
-    # Add the class name.
-    class_name = type(self).__name__
-    if device_name is None:
-      for device_name_toUpdate in metadata:
-        metadata[device_name_toUpdate][self.metadata_class_name_key] = class_name
-    else:
-      metadata[self.metadata_class_name_key] = class_name
-
-    # Convert values to strings if desired.
-    if only_str_values:
-      metadata = convert_dict_values_to_str(metadata)
-    return metadata
-
-
-  def set_metadata(self, new_metadata: OrderedDict) -> None:
-    self._metadata = new_metadata
-
-
-  def get_num_devices(self) -> int:
-    return len(self._streams_info)
-
-
-  # Get the names of streaming devices
-  def get_device_names(self) -> list[str]:
-    return list(self._streams_info.keys())
-
-
   # Rename a device (and keep the device indexing order the same).
   # If the name already exists, will not do anything.
-  def rename_device(self, old_device_name, new_device_name) -> None:
+  def _rename_device(self, 
+                     old_device_name: str, 
+                     new_device_name: str) -> None:
     self._streams_info = rename_dict_key(self._streams_info, old_device_name, new_device_name)
     self._metadata = rename_dict_key(self._metadata, old_device_name, new_device_name)
     self._data = rename_dict_key(self._data, old_device_name, new_device_name)
-
-
-  # Get the names of streams.
-  # If device_name is None, will assume streams are the same for every device.
-  def get_stream_names(self, device_name: str = None) -> list[str]:
-    if device_name is None:
-      device_name = self.get_device_names()[0]
-    return list(self._streams_info[device_name].keys())
-
-
-  # Get information about a stream.
-  # Returned dict will have keys data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
-  def get_stream_info(self, device_name: str, stream_name: str) -> OrderedDict:
-    return self._streams_info[device_name][stream_name]
-
-
-  # Get all information about all streams.
-  def get_all_stream_infos(self) -> OrderedDict:
-    return copy.deepcopy(self._streams_info)
-
-
-  # Get a list of values for a particular type of stream info (decoupled from device/stream names).
-  # info_key can be data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
-  def get_stream_attribute_allStreams(self, stream_attribute) -> list[np.ndarray]:
-    infos = []
-    for (device_name, device_info) in self._streams_info.items():
-      for (stream_name, stream_info) in device_info.items():
-        infos.append(stream_info[stream_attribute])
-    return infos
-
-
-  # Get a list of data keys associated with a stream.
-  # Will include 'data', 'time_s', 'time_str', and any extra ones defined.
-  def get_stream_data_keys(self, device_name: str, stream_name: str) -> list[str]:
-    return list(self._data[device_name][stream_name].keys())
