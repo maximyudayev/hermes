@@ -15,12 +15,12 @@ if __name__ == '__main__':
     ('DotsStreamer',       False),  # The Dots lower limb tracking system
     ('EyeStreamer',        False),  # The Pupil Labs eye-tracking headset
     ('MicrophoneStreamer', False),  # One or more microphones
-    ('CameraStreamer',     True),  # One or more cameras
+    ('CameraStreamer',     False),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
     ('MoxyStreamer',       False),
     ('DummyProducer',      False),
-    ('ViconStreamer',      False),
+    ('ViconStreamer',      True),
 
   ])
   # Remove disabled streamers.
@@ -35,23 +35,12 @@ if __name__ == '__main__':
   ])
 
   classes_to_log = [
-    'DotsStreamer', 
-    'EyeStreamer', 
-    'InsoleStreamer', 
-    'CameraStreamer',
-    ]
-  classes_to_visualize = [
-    'DotsStreamer',
-    'EyeStreamer',
-    'InsoleStreamer',
-    'CameraStreamer',
+    'ViconStreamer', 
     ]
 
   # For now pass streamer specs (local and remote) to subscribers manually.
   producer_specs_logger = [spec for spec in producer_specs 
                             if spec['class'] in classes_to_log]
-  producer_specs_visualizer = [spec for spec in producer_specs 
-                                if spec['class'] in classes_to_visualize]
 
   # Configure settings for each worker/consumer of data.
   local_consumer_specs = [
@@ -61,30 +50,18 @@ if __name__ == '__main__':
      'log_history_filepath': log_history_filepath,
      'print_debug': print_debug, 'print_status': print_status 
      },
-    {'class': 'DataVisualizer',
-     'streamer_specs': producer_specs_visualizer,
-     'logging_spec': logging_spec,
-     **visualization_spec,
-     'log_history_filepath': log_history_filepath,
-     'print_debug': print_debug, 'print_status': print_status
-     },
   ]
   local_consumer_specs = [spec for spec in local_consumer_specs
                           if spec['class'] in consumers
                           and consumers[spec['class']]]
-
-  # TODO: add Pipeline nodes (e.g. AI worker).
-  local_pipeline_specs = []
 
   ############################
   ###### PROCESS LAUNCH ######
   ############################
   # Create the broker and manage all the components of the experiment.
   stream_broker: Broker = Broker(ip=IP_STATION,
-                                 node_specs=local_producer_specs+local_consumer_specs+local_pipeline_specs,
+                                 node_specs=local_producer_specs+local_consumer_specs,
                                  print_status=print_status, 
                                  print_debug=print_debug)
-  # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
-  stream_broker.connect_to_remote_pub(addr=IP_BACKPACK)
   # Run broker's main until user exits in GUI or Ctrl+C in terminal.
   stream_broker(duration_s=None)

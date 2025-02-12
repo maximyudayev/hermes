@@ -109,6 +109,10 @@ producer_specs = [
     'sampling_rate_hz': 20,
     'print_debug': print_debug, 'print_status': print_status
     },
+  # Vicon capture system.
+  {'class': 'ViconStreamer',
+    'print_debug': print_debug, 'print_status': print_status
+    },
   # Stream from one or more microphones.
   {'class': 'MicrophoneStreamer',
     'device_names_withAudioKeywords': {'microphone_conference': 'USB audio CODEC'},
