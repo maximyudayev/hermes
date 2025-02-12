@@ -45,7 +45,7 @@ class DummyProducer(Producer):
     if self._is_continue_capture:
       time_s: float = time.time()
       tag: str = "%s.data" % self._log_source_tag
-      self._publish(tag, time_s=time_s, data=time_s)
+      self._publish(tag, time_s=time_s, data={'dummy-data': time_s})
     else:
       self._send_end_packet()
 

@@ -15,7 +15,8 @@ import time
 class CyberlegStreamer(Producer):
   @property
   def _log_source_tag(self) -> str:
-    return 'insole'
+    return 'cyberleg'
+
 
   def __init__(self,
                port_pub: str = None,
@@ -55,10 +56,16 @@ class CyberlegStreamer(Producer):
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      data, address = self._sock.recv(1024)
+      payload, address = self._sock.recv(1024)
       time_s: float = time.time()
+      # TODO: interpret smartphone bytes correctly from the prosthesis
+      payload = [float(word) for word in payload.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
+      data = {
+        'activity': data[0],
+        'timestamp': data[1],
+      }
       tag: str = "%s.data" % self._log_source_tag
-      self._publish(tag, time_s=time_s, data=data)
+      self._publish(tag, time_s=time_s, data={'cyberleg-data': data})
     else:
       self._send_end_packet()
 

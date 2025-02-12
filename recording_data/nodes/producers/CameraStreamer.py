@@ -113,7 +113,12 @@ class CameraStreamer(Producer):
       time_s = time.time()
       for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
         tag: str = "%s.%s.data" % (self._log_source_tag, self._camera_mapping[camera_id])
-        self._publish(tag=tag, time_s=time_s, device_id=camera_id, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+        data = {
+          'frame': frame,
+          'timestamp': timestamp,
+          'frame_sequence': sequence_id
+        }
+        self._publish(tag=tag, time_s=time_s, data={camera_id: data})
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()

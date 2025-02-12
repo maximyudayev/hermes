@@ -82,9 +82,6 @@ class AwindaStreamer(Producer):
           counter: np.uint16 = packet["counter"]
           toa_s: float = packet["toa_s"] # TODO: use the average clock of the valid samples in a snapshot
           timestamp_fine: np.uint32 = packet["timestamp_fine"]
-          # timestamp_utc = packet["timestamp_utc"]
-          # timestamp_estimate = packet["timestamp_estimate"]
-          # timestamp_arrival = packet["timestamp_arrival"]
         else:
           acc = (None, None, None)
           quaternion = (None, None, None)
@@ -103,8 +100,17 @@ class AwindaStreamer(Producer):
       counter = np.array([v['counter'] for v in self._packet.values()])
       timestamp = np.array([v['timestamp'] for v in self._packet.values()])
 
+      data = {
+        'acceleration-x': acceleration[:,0],
+        'acceleration-y': acceleration[:,1],
+        'acceleration-z': acceleration[:,2],
+        'orientation': orientation,
+        'timestamp': timestamp,
+        'counter': counter
+      }
+
       tag: str = "%s.data" % self._log_source_tag
-      self._publish(tag, time_s=process_time_s, acceleration=acceleration, orientation=orientation, timestamp=timestamp, counter=counter)
+      self._publish(tag, time_s=process_time_s, data={'awinda-imu': data})
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()

@@ -1,6 +1,5 @@
 import queue
 
-import zmq
 from streams.TmsiStream import TmsiStream
 from producers.Producer import Producer
 from handlers.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
@@ -9,11 +8,8 @@ from handlers.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as
 from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
 from handlers.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
 from handlers.TMSiSDK.device.tmsi_channel import ChannelType
-
-import numpy as np
-import time
-
 from utils.print_utils import *
+
 
 ########################################
 ########################################
@@ -23,7 +19,7 @@ from utils.print_utils import *
 class TmsiStreamer(Producer):
   @property
   def _log_source_tag(self) -> str:
-    return 'SAGA'
+    return 'tmsi'
 
 
   def __init__(self,
@@ -136,8 +132,23 @@ class TmsiStreamer(Producer):
       sample_data = self.data_queue.get(0)
       reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
       time_s = time.time()
+      tag: str = "%s.data" % self._log_source_tag
       for column in reshaped.T:
-        self._data.append_data(time_s, column)
+        data = {
+          'BIP-01': column[0],
+          'BIP-02': column[1],
+          'breath': column[2],
+          'GSR': column[3],
+          'SPO2': column[4],
+        }
+        self._publish(tag=tag, time_s=time_s, data={'tmsi-data': data})
+    elif not self._is_continue_capture:
+      self._send_end_packet()
+
+
+  # TODO: stop receiving new data from the device.
+  def _stop_new_data(self):
+    pass
 
 
   def _cleanup(self) -> None:

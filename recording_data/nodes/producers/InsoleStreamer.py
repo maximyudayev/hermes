@@ -15,7 +15,7 @@ import time
 class InsoleStreamer(Producer):
   @property
   def _log_source_tag(self) -> str:
-    return 'insole'
+    return 'insoles'
 
 
   def __init__(self,
@@ -57,10 +57,26 @@ class InsoleStreamer(Producer):
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      data, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
+      payload, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
       time_s: float = time.time()
+      payload = [float(word) for word in payload.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
+
+      data = {
+        'timestamp': payload[0],
+        'foot_pressure_left': payload[9:25],
+        'foot_pressure_right': payload[34:50],
+        'acc_left': payload[1:4],
+        'acc_right': payload[26:29],
+        'gyro_left': payload[4:7],
+        'gyro_right': payload[29:32],
+        'total_force_left': payload[25],
+        'total_force_right': payload[50],
+        'center_of_pressure_left': payload[7:9],
+        'center_of_pressure_right': payload[32:34],
+      }
+
       tag: str = "%s.data" % self._log_source_tag
-      self._publish(tag, time_s=time_s, data=data)
+      self._publish(tag, time_s=time_s, data={'insoles-data': data})
     else:
       self._send_end_packet()
 
