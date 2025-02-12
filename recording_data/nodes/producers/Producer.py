@@ -4,6 +4,7 @@ import zmq
 import threading
 
 from handlers.LoggingHandler import Logger
+from handlers.TransmissionDelayHandler import DelayEstimator
 from nodes.Node import Node
 from streams.Stream import Stream
 from utils.msgpack_utils import serialize
@@ -17,7 +18,6 @@ from utils.zmq_utils import *
 ###########################################################
 # An abstract class to interface with a particular sensor.
 #   I.e. a superclass for DOTs, PupilCore, or Camera class.
-# TODO: add propagation delay thread.
 ###########################################################
 ###########################################################
 class Producer(Node):
@@ -43,6 +43,21 @@ class Producer(Node):
     self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag, self._stream)]),))
     self._logger_thread.start()
 
+    # Conditional creation of the transmission delay estimate thread.
+    self._transmit_delay_sample_period_s = stream_info['transmit_delay_sample_period_s']
+    if self._transmit_delay_sample_period_s:
+      self._delay_estimator = DelayEstimator(self._transmit_delay_sample_period_s)
+      self._delay_thread = threading.Thread(target=self._delay_estimator, 
+                                            kwargs={
+                                              'ping_fn': self._ping_device,
+                                              'publish_fn': lambda time_s, delay_s: self._publish(tag="%s.connection"%self._log_source_tag,
+                                                                                                  time_s=time_s,
+                                                                                                  data={"%s-connection"%self._log_source_tag: {
+                                                                                                    'transmission_delay': delay_s
+                                                                                                  }})
+                                            })
+      self._delay_thread.start()
+
 
   # Instantiate Stream datastructure object specific to this Streamer.
   #   Should also be a class method to create Stream objects on consumers. 
@@ -52,8 +67,17 @@ class Producer(Node):
     pass
 
 
+  # Blocking ping of the sensor.
+  # Concrete implementation of Producer must override the method if required to measure transmission delay
+  #   for realtime/post-processing alignment of modalities that don't support system clock sync.
+  @abstractmethod
+  def _ping_device(self) -> None:
+    pass
+
+
   # Common method to save and publish the captured sample
-  # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ
+  # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ.
+  #   That way network threadcan alradystart processing the packet.
   def _publish(self, tag: str, **kwargs) -> None:
     # Get serialized object to send over ZeroMQ.
     msg = serialize(**kwargs)
@@ -120,9 +144,13 @@ class Producer(Node):
   def _cleanup(self) -> None:
     # Indicate to Logger to wrap up and exit.
     self._logger.cleanup()
+    if self._transmit_delay_sample_period_s:
+      self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.
     self._logger_thread.join()
+    if self._transmit_delay_sample_period_s:
+      self._delay_thread.join()
     super()._cleanup()
