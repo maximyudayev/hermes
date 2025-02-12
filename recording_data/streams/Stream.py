@@ -43,13 +43,6 @@ class Stream(ABC):
   ############################
   ###### INTERFACE FLOW ######
   ############################
-  # Business logic of concrete Stream implementation, 
-  #   must specify `time_s` parameter and any custom data thereafter.
-  @abstractmethod
-  def _append_data(self, time_s: float, **kwargs) -> None:
-    pass
-
-
   # Get actual frame rate, subject to expected transmission delay and throughput limitation,
   #   to confidently judge the performance of the system.
   # Computed based on how fast data becomes available to the data structure, hence suitable
@@ -77,10 +70,10 @@ class Stream(ABC):
   #############################
   ###### GETTERS/SETTERS ######
   #############################
-  # Public thread-safe method calling concrete implementation of a Stream's append logic.
-  def append_data(self, **kwargs) -> None:
+  # Public thread-safe method to append data to the datastructure.
+  def append_data(self, time_s: float, data: dict) -> None:
     self._lock.acquire()
-    self._append_data(**kwargs)
+    self._append_data(time_s=time_s, data=data)
     self._lock.release()
 
 
@@ -293,6 +286,14 @@ class Stream(ABC):
   # Will include 'data', 'time_s', and any extra ones defined.
   def get_stream_data_keys(self, device_name: str, stream_name: str) -> list[str]:
     return list(self._data[device_name][stream_name].keys())
+
+
+  # Public thread-safe method to append data to the datastructure.
+  def _append_data(self, time_s: float, data: dict) -> None:
+    for (device_name_key, streams_data) in data.items():
+      if streams_data is not None:
+        for (stream_name, stream_data) in streams_data.items():
+          self._append(device_name_key, stream_name, time_s, stream_data)
 
 
   # Add a single timestep of data to the data log.

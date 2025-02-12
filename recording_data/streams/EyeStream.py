@@ -285,14 +285,6 @@ class EyeStream(Stream):
     return fps
 
 
-  def _append_data(self, time_s: float, data: dict) -> None:
-    for (device_name_key, streams_data) in data.items():
-      device_name = 'eye-tracking-%s' % device_name_key
-      if streams_data is not None:
-        for (stream_name, data) in streams_data.items():
-          self._append(device_name, stream_name, time_s, data)
-
-
   def get_default_visualization_options(self) -> dict:
     visualization_options = super().get_default_visualization_options()
 

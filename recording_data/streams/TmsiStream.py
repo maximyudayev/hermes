@@ -1,4 +1,3 @@
-from numpy import ndarray
 from streams.Stream import Stream
 
 
@@ -10,51 +9,48 @@ from streams.Stream import Stream
 class TmsiStream(Stream):
   def __init__(self, 
                sampling_rate_hz: int = 20,
+               transmission_delay_period_s: int = 10,
                **_) -> None:
     super().__init__()
+    self._sampling_rate_hz = sampling_rate_hz
+    self._transmission_delay_period_s = transmission_delay_period_s
 
-    self._device_name = 'tmsi'
-
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='tmsi-data',
                     stream_name='breath',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz,
                     is_measure_rate_hz=True)
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='tmsi-data',
                     stream_name='GSR',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='tmsi-data',
                     stream_name='SPO2',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='tmsi-data',
                     stream_name='BIP-01',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='tmsi-data',
                     stream_name='BIP-02',
                     data_type='float32',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
 
+    self.add_stream(device_name='tmsi-connection',
+                    stream_name='transmission_delay',
+                    data_type='float32',
+                    sample_size=(1),
+                    sampling_rate_hz=1.0/self._transmission_delay_period_s)
+
 
   def get_fps(self) -> dict[str, float]:
-    return {self._device_name: super()._get_fps(self._device_name, 'breath')}
-
-
-  def _append_data(self,
-                   time_s: float, 
-                   column: ndarray) -> None:
-    self._append(self._device_name, 'BIP-01', time_s, column[0])
-    self._append(self._device_name, 'BIP-02', time_s, column[1])
-    self._append(self._device_name, 'breath', time_s, column[2])
-    self._append(self._device_name, 'GSR',    time_s, column[3])
-    self._append(self._device_name, 'SPO2',   time_s, column[4])
+    return {'tmsi-data': super()._get_fps('tmsi-data', 'breath')}
 
 
   def get_default_visualization_options(self) -> dict:

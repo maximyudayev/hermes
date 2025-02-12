@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from streams.Stream import Stream
 from visualizers import HeatmapVisualizer
 
@@ -10,89 +11,81 @@ from visualizers import HeatmapVisualizer
 class InsoleStream(Stream):
   def __init__(self, 
                sampling_rate_hz: int = 100,
+               transmission_delay_period_s: int = 10,
                **_) -> None:
     super().__init__()
+    self._sampling_rate_hz = sampling_rate_hz
+    self._transmission_delay_period_s = transmission_delay_period_s
 
-    self._device_name = 'moticon'
+    self._define_data_notes()
 
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='insoles-data',
                     stream_name='timestamp',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
+                    sampling_rate_hz=self._sampling_rate_hz,
                     is_measure_rate_hz=True)
-    self.add_stream(device_name=self._device_name,
+    self.add_stream(device_name='insoles-data',
                     stream_name='foot_pressure_left',
                     data_type='float32',
                     sample_size=[16],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='foot_pressure_right',
                     data_type='float32',
                     sample_size=[16],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='acc_left',
                     data_type='float32',
                     sample_size=[3],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='acc_right',
                     data_type='float32',
                     sample_size=[3],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='gyro_left',
                     data_type='float32',
                     sample_size=[3],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='gyro_right',
                     data_type='float32',
                     sample_size=[3],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='total_force_left',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='total_force_right',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='center_of_pressure_left',
                     data_type='float32',
                     sample_size=[2],
-                    sampling_rate_hz=sampling_rate_hz)
-    self.add_stream(device_name=self._device_name,
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='insoles-data',
                     stream_name='center_of_pressure_right',
                     data_type='float32',
                     sample_size=[2],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz)
+    
+    self.add_stream(device_name='insoles-connection',
+                    stream_name='transmission_delay',
+                    data_type='float32',
+                    sample_size=(1),
+                    sampling_rate_hz=1.0/self._transmission_delay_period_s,
+                    data_notes=self._data_notes['insoles-connection']['transmission_delay'])
 
 
   def get_fps(self) -> dict[str, float]:
-    return {self._device_name: super()._get_fps(self._device_name, 'timestamp')}
-
-
-  def _append_data(self,
-                   time_s: float, 
-                   data: bytes) -> None:
-    # unpacked_tuple = struct.unpack('fx3fx3fx3fx16fxfx3fx3fx3fx16f', data)
-    data = [float(word) for word in data.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
-    self._append(self._device_name, 'timestamp',                 time_s, data[0])
-    self._append(self._device_name, 'foot_pressure_left',        time_s, data[9:25])
-    self._append(self._device_name, 'foot_pressure_right',       time_s, data[34:50])
-    self._append(self._device_name, 'acc_left',                  time_s, data[1:4])
-    self._append(self._device_name, 'acc_right',                 time_s, data[26:29])
-    self._append(self._device_name, 'gyro_left',                 time_s, data[4:7])
-    self._append(self._device_name, 'gyro_right',                time_s, data[29:32])
-    self._append(self._device_name, 'total_force_left',          time_s, data[25])
-    self._append(self._device_name, 'total_force_right',         time_s, data[50])
-    self._append(self._device_name, 'center_of_pressure_left',   time_s, data[7:9])
-    self._append(self._device_name, 'center_of_pressure_right',  time_s, data[32:34])
+    return {'insoles-data': super()._get_fps('insoles-data', 'timestamp')}
 
 
   def get_default_visualization_options(self) -> dict:
@@ -114,3 +107,54 @@ class InsoleStream(Stream):
     #    }
 
     return visualization_options
+
+
+  def _define_data_notes(self) -> None:
+    self._data_notes = {}
+    self._data_notes.setdefault('insoles-data', {})
+    self._data_notes.setdefault('insoles-connection', {})
+
+    self._data_notes['insoles-data']['timestamp'] = OrderedDict([
+      ('Description', 'Device time of sampling of the insole data'),
+    ])
+    self._data_notes['insoles-data']['foot_pressure_left'] = OrderedDict([
+      ('Description', 'Pressure across the 16 strain gauge grid across the left insole'),
+    ])
+    self._data_notes['insoles-data']['foot_pressure_right'] = OrderedDict([
+      ('Description', 'Pressure across the 16 strain gauge grid across the right insole'),
+    ])
+    self._data_notes['insoles-data']['acc_left'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, ['x','y','z']),
+    ])
+    self._data_notes['insoles-data']['acc_right'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, ['x','y','z']),
+    ])
+    self._data_notes['insoles-data']['gyro_left'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, ['x','y','z']),
+    ])
+    self._data_notes['insoles-data']['gyro_right'] = OrderedDict([
+      ('Description', 'Acceleration in the X direction'),
+      (Stream.metadata_data_headings_key, ['x','y','z']),
+    ])
+    self._data_notes['insoles-data']['total_force_left'] = OrderedDict([
+      ('Description', 'Total force on the left insole'),
+    ])
+    self._data_notes['insoles-data']['total_force_right'] = OrderedDict([
+      ('Description', 'Total force on the right insole'),
+    ])
+    self._data_notes['insoles-data']['center_of_pressure_left'] = OrderedDict([
+      ('Description', 'Point of pressure concentration on the left insole'),
+      (Stream.metadata_data_headings_key, ['x','y']),
+    ])
+    self._data_notes['insoles-data']['center_of_pressure_right'] = OrderedDict([
+      ('Description', 'Point of pressure concentration on the right insole'),
+      (Stream.metadata_data_headings_key, ['x','y']),
+    ])
+    self._data_notes['insoles-connection']['transmission_delay'] = OrderedDict([
+      ('Description', 'Periodic transmission delay estimate of the connection link to the sensor'),
+      ('Units', 'seconds'),
+      ('Sample period', self._transmission_delay_period_s),
+    ])

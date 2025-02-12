@@ -1,4 +1,3 @@
-from numpy import ndarray
 from streams.Stream import Stream
 
 
@@ -25,12 +24,6 @@ class DummyStream(Stream):
 
   def get_fps(self) -> dict[str, float]:
     return {self._device_name: super()._get_fps(self._device_name, 'toa')}
-
-
-  def _append_data(self,
-                   time_s: float, 
-                   data: ndarray) -> None:
-    self._append(self._device_name, 'toa', time_s, data)
 
 
   def get_default_visualization_options(self) -> dict:
