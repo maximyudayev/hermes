@@ -50,7 +50,7 @@ import numpy as np
 # Assumes that the stream's data['data'] field contains
 #  a matrix of segment positions (each row is xyz).
 ################################################
-class XsensSkeletonVisualizer(Visualizer):
+class SkeletonVisualizer(Visualizer):
 
   def __init__(self, 
                visualizer_options = None, 
