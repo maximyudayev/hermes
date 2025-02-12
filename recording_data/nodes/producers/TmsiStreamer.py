@@ -50,8 +50,6 @@ class TmsiStreamer(Producer):
 
 
   def _connect(self) -> bool:
-    #from utils.tmsi_aux.TMSiSDK.tmsi_sdk import TMSiSDK
-    #from utils.tmsi_aux.TMSiSDK.device.devices.saga import saga_API
     try:
       TMSiSDK().discover(dev_type=DeviceType.saga, 
                          dr_interface=DeviceInterfaceType.docked, 
@@ -125,8 +123,8 @@ class TmsiStreamer(Producer):
         return True
     except Exception as e:
       print(e)
-    print(log_status("SAGA",'Unsuccessful connection to the TMSi streamer.'))
-    return False
+      print(log_status("SAGA",'Unsuccessful connection to the TMSi streamer.'))
+      return False
 
 
   def _process_data(self) -> None:
