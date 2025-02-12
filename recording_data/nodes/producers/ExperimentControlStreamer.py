@@ -24,6 +24,7 @@ class ExperimentControlStreamer(Producer):
 
   
   def __init__(self,
+               logging_spec: dict,
                activities: list[str] = ['Balance beam',
                                         'Stairs',
                                         'Step over',
@@ -45,10 +46,11 @@ class ExperimentControlStreamer(Producer):
       "activities": activities
     }
 
-    super().__init__(port_pub=port_pub,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     stream_info=stream_info,
                      print_status=print_status, 
                      print_debug=print_debug)
 

@@ -22,13 +22,14 @@ class DotsStreamer(Producer):
 
 
   def __init__(self,
+               logging_spec: dict,
                device_mapping: dict[str, str],
                master_device: str,
+               sampling_rate_hz: int = 20,
+               num_joints: int = 5,
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
-               sampling_rate_hz: int = 20,
-               num_joints: int = 5,
                print_status: bool = True,
                print_debug: bool = False,
                **_):
@@ -48,10 +49,11 @@ class DotsStreamer(Producer):
 
     # Abstract class will call concrete implementation's creation methods
     #   to build the data structure of the sensor
-    super().__init__(port_pub=port_pub,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     stream_info=stream_info,
                      print_status=print_status, 
                      print_debug=print_debug)
 

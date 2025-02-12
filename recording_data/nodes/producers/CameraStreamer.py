@@ -24,14 +24,15 @@ class CameraStreamer(Producer):
 
 
   def __init__(self,
+               logging_spec: dict,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
                color_format: int,
                resolution: tuple[int],
+               camera_config_filepath: str = None, # path to the pylon .pfs config file to reproduce desired camera setup
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
-               camera_config_filepath: str = None, # path to the pylon .pfs config file to reproduce desired camera setup
                print_status: bool = True,
                print_debug: bool = False,
                **_):
@@ -49,10 +50,11 @@ class CameraStreamer(Producer):
       "color_format": color_format,
     }
 
-    super().__init__(port_pub=port_pub,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     stream_info=stream_info,
                      print_status=print_status,
                      print_debug=print_debug)
 

@@ -19,28 +19,33 @@ class TmsiStream(Stream):
                     stream_name='breath',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
-                    is_measure_rate_hz=True)
+                    sampling_rate_hz=self._sampling_rate_hz)
     self.add_stream(device_name='tmsi-data',
                     stream_name='GSR',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz)
     self.add_stream(device_name='tmsi-data',
                     stream_name='SPO2',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz)
     self.add_stream(device_name='tmsi-data',
                     stream_name='BIP-01',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz)
     self.add_stream(device_name='tmsi-data',
                     stream_name='BIP-02',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz)
+    self.add_stream(device_name='tmsi-data',
+                    stream_name='counter',
+                    data_type='float32', # TODO: specify the right data format
+                    sample_size=[1],
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    is_measure_rate_hz=True)
 
     self.add_stream(device_name='tmsi-connection',
                     stream_name='transmission_delay',
@@ -50,7 +55,7 @@ class TmsiStream(Stream):
 
 
   def get_fps(self) -> dict[str, float]:
-    return {'tmsi-data': super()._get_fps('tmsi-data', 'breath')}
+    return {'tmsi-data': super()._get_fps('tmsi-data', 'counter')}
 
 
   def get_default_visualization_options(self) -> dict:

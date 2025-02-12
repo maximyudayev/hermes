@@ -1,7 +1,5 @@
 from collections import OrderedDict
-
 import cv2
-
 from streams.Stream import Stream
 from visualizers import VideoVisualizer
 

@@ -18,6 +18,9 @@ if __name__ == '__main__':
     ('CameraStreamer',     True),  # One or more cameras
     ('InsoleStreamer',     False),  # The Moticon pressure insoles
     ('TmsiStreamer',       False),
+    ('MoxyStreamer',       False),
+    ('DummyProducer',      False),
+
   ])
   # Remove disabled streamers.
   local_producer_specs = [spec for spec in producer_specs 

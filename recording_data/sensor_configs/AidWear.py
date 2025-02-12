@@ -45,12 +45,7 @@ producer_specs = [
     'radio_channel'     : 15,
     'print_debug': print_debug, 'print_status': print_status
     },
-    # TMSi SAGA stream
-  {'class': 'TmsiStreamer',
-    'sampling_rate_hz': 20,
-    'print_debug': print_debug, 'print_status': print_status
-    },
-  # Stream from the Dots lower limb tracking.
+  # Stream from the DOTs lower limb tracking.
   {'class': 'DotsStreamer',
     'device_mapping': {
       'knee_right'  : '40195BFC800B01F2',
@@ -96,9 +91,22 @@ producer_specs = [
     'camera_config_filepath': 'resources/pylon_20fps_maxres.pfs',
     'print_debug': print_debug, 'print_status': print_status
     },
-    # Insole pressure sensor.
+  # Moticon insole pressure.
   {'class': 'InsoleStreamer',
     'sampling_rate_hz': 100,
+    'print_debug': print_debug, 'print_status': print_status
+    },
+  # Moxy blood oxygenation.
+  {'class': 'MoxyStreamer',
+    'devices': ["8523",
+                "8524",
+                "8525"],
+    'sampling_rate_hz': 0.5,
+    'print_debug': print_debug, 'print_status': print_status
+    },
+  # TMSi SAGA device.
+  {'class': 'TmsiStreamer',
+    'sampling_rate_hz': 20,
     'print_debug': print_debug, 'print_status': print_status
     },
   # Stream from one or more microphones.

@@ -7,6 +7,8 @@ from producers.CameraStreamer import CameraStreamer
 from producers.EyeStreamer import EyeStreamer
 from producers.InsoleStreamer import InsoleStreamer
 from producers.ExperimentControlStreamer import ExperimentControlStreamer
+from producers.MoxyStreamer import MoxyStreamer
+from producers.TmsiStreamer import TmsiStreamer
 
 PRODUCERS: dict[str, Node] = {
   "AwindaStreamer": AwindaStreamer,
@@ -17,4 +19,6 @@ PRODUCERS: dict[str, Node] = {
   "CyberlegStreamer": CyberlegStreamer,
   "ExperimentControlStreamer": ExperimentControlStreamer,
   "DummyStreamer": DummyProducer,
+  "MoxyStreamer": MoxyStreamer,
+  "TmsiStreamer": TmsiStreamer
 }

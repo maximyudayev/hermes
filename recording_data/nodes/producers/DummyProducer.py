@@ -13,6 +13,7 @@ class DummyProducer(Producer):
 
 
   def __init__(self,
+               logging_spec: dict,
                sampling_rate_hz: int = 100,
                port_pub: str = None,
                port_sync: str = None,
@@ -26,6 +27,7 @@ class DummyProducer(Producer):
     }
 
     super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,

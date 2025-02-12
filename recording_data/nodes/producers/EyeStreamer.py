@@ -17,9 +17,7 @@ class EyeStreamer(Producer):
 
 
   def __init__(self,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               logging_spec: dict,
                pupil_capture_ip: str = "localhost",
                pupil_capture_port: str = "50020",
                video_image_format: str = "bgr", # bgr or jpeg
@@ -34,6 +32,9 @@ class EyeStreamer(Producer):
                fps_video_world: float = 30.0,
                fps_video_eye0: float = 120.0,
                fps_video_eye1: float = 120.0,
+               port_pub: str = None,
+               port_sync: str = None,
+               port_killsig: str = None,
                print_status: bool = True,
                print_debug: bool = False,
                **_) -> None:
@@ -61,10 +62,11 @@ class EyeStreamer(Producer):
       "fps_video_eye1": fps_video_eye1
     }
 
-    super().__init__(port_pub=port_pub,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     stream_info=stream_info,
                      print_status=print_status,
                      print_debug=print_debug)
 

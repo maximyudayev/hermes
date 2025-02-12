@@ -22,13 +22,14 @@ class AwindaStreamer(Producer):
 
 
   def __init__(self, 
+               logging_spec: dict,
                device_mapping: dict[str, str],
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
                sampling_rate_hz: int = 100,
                num_joints: int = 7,
                radio_channel: int = 15,
+               port_pub: str = None,
+               port_sync: str = None,
+               port_killsig: str = None,
                print_status: bool = True, 
                print_debug: bool = False,
                **_):
@@ -47,10 +48,11 @@ class AwindaStreamer(Producer):
       "device_mapping": self._device_mapping
     }
 
-    super().__init__(port_pub=port_pub,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     stream_info=stream_info,
                      print_status=print_status, 
                      print_debug=print_debug)
 

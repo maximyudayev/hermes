@@ -23,10 +23,11 @@ class TmsiStreamer(Producer):
 
 
   def __init__(self,
+               logging_spec: dict,
+               sampling_rate_hz: int = 20,
                port_pub: str = None,
                port_sync: str = None,
                port_killsig: str = None,
-               sampling_rate_hz: int = 20,
                print_status: bool = True,
                print_debug: bool = False,
                **_)-> None:
@@ -35,10 +36,11 @@ class TmsiStreamer(Producer):
       "sampling_rate_hz": sampling_rate_hz
     }
 
-    super().__init__(port_pub=port_pub,
-                     port_sync = port_sync,
-                     port_killsig = port_killsig,
-                     stream_info = stream_info,
+    super().__init__(stream_info=stream_info,
+                     logging_spec=logging_spec,
+                     port_pub=port_pub,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
                      print_status=print_status, 
                      print_debug=print_debug)
 
@@ -99,8 +101,8 @@ class TmsiStreamer(Producer):
         # Close the connection to the device (with the original interface type)
         self.dev.close()
         
-      print("Remove saga from the dock")
-      time.sleep(3)
+      time.sleep(3) # sleep a bit to allow system to set up corretly
+      print('wifi setup starting')
       # connection over wifi
       TMSiSDK().discover(dev_type = DeviceType.saga, dr_interface = DeviceInterfaceType.wifi, ds_interface = DeviceInterfaceType.usb, num_retries = 10)
       discoveryList = TMSiSDK().get_device_list(DeviceType.saga)
@@ -140,6 +142,7 @@ class TmsiStreamer(Producer):
           'breath': column[2],
           'GSR': column[3],
           'SPO2': column[4],
+          'counter': column[-1],
         }
         self._publish(tag=tag, time_s=time_s, data={'tmsi-data': data})
     elif not self._is_continue_capture:
