@@ -75,21 +75,21 @@ class XsensFacade:
 
     def on_each_packet_received(toa_s, device, packet) -> None:
       device_id: str = str(device.deviceId())
-      acc = packet.freeAcceleration()
+      acc = packet.calibratedAcceleration()
+      gyr = packet.calibratedGyroscopeData()
+      mag = packet.calibratedMagneticField()
       quaternion = packet.orientationQuaternion()
-      counter: np.uint16 = packet.packetCounter()
-
+      timestamp_fine = packet.sampleTimeFine()
+      counter = packet.packetCounter()
       data = {
         "device_id":            device_id,                          # str
-        "acc":                  (acc[0], acc[1], acc[2]),           #
-        "quaternion":           (quaternion.w(), quaternion.x(), quaternion.y(), quaternion.z()),  # 
-        # Pick which timestamp information to use (also for DOTs)
-        "counter":              counter,                            # uint16
+        "acc":                  acc,
+        "gyr":                  gyr,
+        "mag":                  mag,
+        "quaternion":           quaternion, 
         "toa_s":                toa_s,                              # float
-        "timestamp_fine":       packet.sampleTimeFine(),            # uint32
-        # "timestamp_utc":        packet.utcTime(),                   # XsTimeStamp
-        # "timestamp_estimate":   packet.estimatedTimeOfSampling(),   # XsTimeStamp
-        # "timestamp_arrival":    packet.timeOfArrival()              # XsTimeStamp
+        "timestamp_fine":       timestamp_fine,                     # uint32
+        "counter":              counter,                            # uint16
       }
       self._buffer.plop(key=device_id, data=data, counter=counter)
 
@@ -107,34 +107,28 @@ class XsensFacade:
     # Will block the current thread until the Awinda onConnectivityChanged has changed to XCS_Wireless for all expected devices
     self._is_all_connected_queue.get()
 
-    # Set sample rate
-    # NOTE: this is legacy way of setting it up
-    # if not self._master_device.setUpdateRate(self._sampling_rate_hz):
-    #   return False
-
-    # TODO:
-    # Reset global orientation on all the devices in the advertisement callback or here 
-    #   while the person holds the calibration pose.
-
-    # TODO: figure out how to request desired output configs
+    # Put devices in Config Mode and request desired data and rate
+    self._master_device.gotoConfig()
     config_array = xda.XsOutputConfigurationArray()
     # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_EulerAngles, self._sampling_rate_hz))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, self._sampling_rate_hz))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, self._sampling_rate_hz)) # NOTE: also has XDI_MagneticFieldCorrected
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, self._sampling_rate_hz))
+    
     if not self._master_device.setOutputConfiguration(config_array):
       print("Could not configure the Awinda master device. Aborting.")
       return False
 
-    # Listen to new data for the full kit snapshot
+    # Register listener of new data
     self._data_callback = AwindaDataCallback(on_each_packet_received=on_each_packet_received)
     self._master_device.addCallbackHandler(self._data_callback)
 
-    # Put all devices connected to the Awinda station into measurement
+    # Put all devices connected to the Awinda station into Measurement Mode
     # NOTE: Will begin trigerring the callback and saving data, while awaiting the SYNC signal from the Broker
-    self._master_device.gotoMeasurement()
-    return True
+    return self._master_device.gotoMeasurement()
 
 
   def get_snapshot(self) -> dict[str, dict | None] | None:

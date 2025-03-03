@@ -1,10 +1,8 @@
 import queue
-from threading import Lock
 from typing import Callable
 import movelladot_pc_sdk as mdda
 from collections import OrderedDict
 
-import numpy as np
 from utils.datastructures import CircularBuffer
 from utils.user_settings import *
 import time
@@ -71,20 +69,21 @@ class MovellaFacade:
 
     def on_packet_received(toa_s, device, packet):
       device_id: str = str(device.deviceId())
-      acc = packet.freeAcceleration()
+      acc = packet.calibratedAcceleration()
+      gyr = packet.calibratedGyroscopeData()
+      mag = packet.calibratedMagneticField()
       quaternion = packet.orientationQuaternion()
-      counter: np.uint16 = packet.packetCounter()
+      timestamp_fine = packet.sampleTimeFine()
+      counter = packet.packetCounter()
       data = {
         "device_id":            device_id,                          # str
-        "acc":                  (acc[0], acc[1], acc[2]),           #
-        "quaternion":           (quaternion.w(), quaternion.x(), quaternion.y(), quaternion.z()),  # 
-        # Pick which timestamp information to use (also for DOTs)
-        "counter":              counter,                            # uint16
+        "acc":                  acc,
+        "gyr":                  gyr,
+        "mag":                  mag,
+        "quaternion":           quaternion, 
         "toa_s":                toa_s,                              # float
-        "timestamp_fine":       packet.sampleTimeFine(),            # uint32
-        # "timestamp_utc":        packet.utcTime(),                   # XsTimeStamp
-        # "timestamp_estimate":   packet.estimatedTimeOfSampling(),   # XsTimeStamp
-        # "timestamp_arrival":    packet.timeOfArrival()              # XsTimeStamp
+        "timestamp_fine":       timestamp_fine,                     # uint32
+        "counter":              counter,                            # uint16
       }
       self._buffer.plop(key=device_id, data=data, counter=counter)
 
@@ -113,6 +112,9 @@ class MovellaFacade:
 
     # Make sure all connected devices have the same filter profile and output rate
     for device_id, device in self._connected_devices.items():
+      # NOTE: getAvailableFilterProfiles suggests different low-pass setup for different activities:
+      #         'General' - general human daily activities.
+      #         'Dynamic' - high-pace activities (e.g. sprints).
       if not device.setOnboardFilterProfile("General"):
         return False
       if not device.setOutputRate(self._sampling_rate_hz):
@@ -127,26 +129,36 @@ class MovellaFacade:
 
 
   def _sync(self, attempts=1) -> bool:
+    # TODO: check if individually stopping sync on each device helps sync devices on the LattePanda
+    for device in self._connected_devices:
+      device.stopSync()
+    # Works on the NUC
     while attempts > 0:
       if self._manager.startSync(self._connected_devices[self._master_device_id].bluetoothAddress()):
         return True
       else:
         attempts -= 1
+        # self._manager.getSyncStatus()
         self._manager.stopSync()
     return False
 
 
   def _stream(self) -> bool:
     # Start live data output. Make sure root node is last to go to measurement.
-    ordered_device_list: list[tuple[str, object]] = [*[(device_id, device) for device_id, device in self._connected_devices.items() if device_id != self._master_device_id], 
-     (self._master_device_id, self._connected_devices[self._master_device_id])]
+    ordered_device_list: list[tuple[str, object]] = [*[(device_id, device) for device_id, device in self._connected_devices.items() 
+                                                        if device_id != self._master_device_id], 
+                                                    (self._master_device_id, self._connected_devices[self._master_device_id])]
 
     for (joint, device) in ordered_device_list:
-      if not device.startMeasurement(mdda.XsPayloadMode_CompleteQuaternion):
+      # XsPayloadMode_CustomMode5         - Quaternion, Acceleration, Angular velocity, Timestamp
+      # XsPayloadMode_CustomMode4         - Quaternion, 9DOF IMU data, Status, Timestamp
+      # XsPayloadMode_CompleteQuaternion  - Quaternion, Free acceleration, Timestamp
+      if not device.startMeasurement(mdda.XsPayloadMode_CustomMode4):
         return False
-    for (joint, device) in ordered_device_list:
-      if not device.resetOrientation(mdda.XRM_Heading):
-        return False
+    # NOTE: orientation reset works only in 'yaw' direction on DOTs -> no reason to use, turn on flat on the table, then attach to body and start program.
+    # for (joint, device) in ordered_device_list:
+    #   if not device.resetOrientation(mdda.XRM_Heading):
+    #     return False
     return True
 
 
