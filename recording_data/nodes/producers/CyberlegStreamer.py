@@ -1,15 +1,20 @@
-from producers.Producer import Producer
-from streams.CyberlegStream import CyberlegStream
+from producers import Producer
+from streams import CyberlegStream
 
 from utils.print_utils import *
 from utils.zmq_utils import *
 import socket
 import time
+import struct
 
 
 ##########################################################################################
 ##########################################################################################
 # A class to inteface with AidWear Cyberleg to receive smartphone activity selection data.
+#   At the moment consists of 3 bytes:
+#     - 0-9 - main task
+#     - 0-9 - subtask
+#     - o/f - boolean for both motors ON
 ##########################################################################################
 ##########################################################################################
 class CyberlegStreamer(Producer):
@@ -20,13 +25,14 @@ class CyberlegStreamer(Producer):
 
   def __init__(self,
                logging_spec: dict,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,
                **_):
-    
+
+    self._num_packet_bytes = 3
     stream_info = {
     }
 
@@ -46,11 +52,8 @@ class CyberlegStreamer(Producer):
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      self._sock.settimeout(0.5)
       self._sock.connect((IP_PROSTHESIS, PORT_PROSTHESIS))
-      # TODO: Receive `HELLO` message to acknowledge proper conneciton.
-      self._sock.recv(1024)
-      self._sock.settimeout(None)
+      self._sock.recv(self._num_packet_bytes)
       return True
     except socket.timeout:
       return False
@@ -58,13 +61,15 @@ class CyberlegStreamer(Producer):
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      payload, address = self._sock.recv(1024)
+      payload = self._sock.recv(self._num_packet_bytes) 
       time_s: float = time.time()
-      # TODO: interpret smartphone bytes correctly from the prosthesis
-      payload = [float(word) for word in payload.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
+      # Interpret smartphone bytes correctly from the prosthesis.
+      msg = struct.unpack('ccc', payload) # TODO: unpack the packet.
       data = {
-        'activity': data[0],
-        'timestamp': data[1],
+        'activity':     msg[0],
+        'subactivity':  msg[1],
+        'motor_state':  msg[2], 
+        # 'timestamp':    msg[3],
       }
       tag: str = "%s.data" % self._log_source_tag
       self._publish(tag, time_s=time_s, data={'cyberleg-data': data})
