@@ -1,8 +1,7 @@
-import threading
-
+from consumers import Consumer
 from handlers.LoggingHandler import Logger
 
-from consumers.Consumer import Consumer
+import threading
 from utils.zmq_utils import *
 
 
@@ -10,6 +9,7 @@ class DummyConsumer(Consumer):
   @property
   def _log_source_tag(self) -> str:
     return 'dummy-consumer'
+
 
   def __init__(self,
                streamer_specs: list[dict],

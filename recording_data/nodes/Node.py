@@ -135,7 +135,6 @@ class Node(NodeInterface):
 
     self._state = StartState(self)
 
-    # Connect local subscriber to the Broker's XPUB socket
     self._ctx: zmq.Context = zmq.Context.instance()
     self._poller: zmq.Poller = zmq.Poller()
 

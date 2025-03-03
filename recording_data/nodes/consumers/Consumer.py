@@ -1,13 +1,13 @@
-from abc import abstractmethod
-from collections import OrderedDict
-
-import zmq
-
-from nodes.Node import Node
-from producers.Producer import Producer
+from nodes import Node
+from producers import Producer
 from pipelines import PIPELINES
 from producers import PRODUCERS
-from streams.Stream import Stream
+from streams import Stream
+
+from abc import abstractmethod
+from collections import OrderedDict
+import zmq
+
 from utils.msgpack_utils import deserialize
 from utils.zmq_utils import *
 

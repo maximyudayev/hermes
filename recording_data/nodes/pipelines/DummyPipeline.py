@@ -1,10 +1,9 @@
-import threading
+from pipelines import Pipeline
+from streams import DummyStream
 from handlers.LoggingHandler import Logger
-from pipelines.Pipeline import Pipeline
 
+import threading
 import time
-
-from streams.DummyStream import DummyStream
 from utils.zmq_utils import *
 
 
@@ -13,14 +12,15 @@ class DummyPipeline(Pipeline):
   def _log_source_tag(self) -> str:
     return 'dummy-pipeline'
 
+
   def __init__(self,
                stream_info: dict,
                logging_spec: dict,
                streamer_specs: list[dict],
-               port_pub: str = None,
-               port_sub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sub: str = PORT_FRONTEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False,
                **_):

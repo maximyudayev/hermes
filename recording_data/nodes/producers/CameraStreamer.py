@@ -1,15 +1,14 @@
-from collections import OrderedDict
-import os
+from producers import Producer
+from streams import CameraStream
 
-import zmq
 from handlers.BaslerHandler import ImageEventHandler
-from producers.Producer import Producer
-from streams.CameraStream import CameraStream
-
 import pypylon.pylon as pylon
-
 from utils.print_utils import *
 from utils.zmq_utils import *
+
+from collections import OrderedDict
+import os
+import zmq
 
 
 #######################################################
@@ -30,9 +29,9 @@ class CameraStreamer(Producer):
                color_format: int,
                resolution: tuple[int],
                camera_config_filepath: str = None, # path to the pylon .pfs config file to reproduce desired camera setup
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False,
                **_):

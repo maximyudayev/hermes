@@ -5,8 +5,8 @@ import threading
 
 from handlers.LoggingHandler import Logger
 from handlers.TransmissionDelayHandler import DelayEstimator
-from nodes.Node import Node
-from streams.Stream import Stream
+from nodes import Node
+from streams import Stream
 from utils.msgpack_utils import serialize
 from utils.time_utils import *
 from utils.dict_utils import *

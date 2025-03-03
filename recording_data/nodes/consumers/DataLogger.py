@@ -1,8 +1,7 @@
-import threading
-
+from consumers import Consumer
 from handlers.LoggingHandler import Logger
 
-from consumers.Consumer import Consumer
+import threading
 from utils.zmq_utils import *
 
 

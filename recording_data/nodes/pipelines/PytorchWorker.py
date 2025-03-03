@@ -1,4 +1,4 @@
-from pipelines.Pipeline import Pipeline
+from pipelines import Pipeline
 
 import numpy as np
 import time
@@ -65,4 +65,3 @@ class PytorchWorker(Pipeline):
 
   def _cleanup(self) -> None:
     super()._cleanup()
-

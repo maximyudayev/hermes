@@ -1,17 +1,17 @@
-from abc import abstractmethod
-import threading
-
-import zmq
-
-from nodes.Node import Node
+from nodes import Node
 from pipelines import PIPELINES
-from producers.Producer import Producer
+from producers import Producer
 from producers import PRODUCERS
 from handlers.LoggingHandler import Logger
-from streams.Stream import Stream
+from streams import Stream
+
 from utils.msgpack_utils import deserialize, serialize
 from utils.dict_utils import *
 from utils.zmq_utils import *
+
+from abc import abstractmethod
+import threading
+import zmq
 
 
 ##############################################################

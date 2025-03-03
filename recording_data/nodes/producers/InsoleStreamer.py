@@ -1,5 +1,5 @@
-from producers.Producer import Producer
-from streams.InsoleStream import InsoleStream
+from producers import Producer
+from streams import InsoleStream
 
 from utils.print_utils import *
 from utils.zmq_utils import *
@@ -21,9 +21,9 @@ class InsoleStreamer(Producer):
   def __init__(self,
                logging_spec: dict,
                sampling_rate_hz: int = 100,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,
                **_):
