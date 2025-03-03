@@ -65,8 +65,7 @@ producer_specs = [
     'pupil_capture_port'    : '50020',
     'video_image_format'    : 'bgr',
     'gaze_estimate_stale_s' : 0.2,
-    'stream_video_world'    : False, # the world video
-    'stream_video_worldGaze': True, # the world video with gaze indication overlayed
+    'stream_video_world'    : True, # the world video
     'stream_video_eye'      : False, # video of the eye
     'is_binocular'          : True, # uses both eyes for gaze data and for video
     'shape_video_world'     : (720,1280,3),
