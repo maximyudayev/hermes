@@ -1,15 +1,14 @@
-from collections import defaultdict
-import queue
-from producers.Producer import Producer
-from streams.MoxyStream import MoxyStream
-
-from utils.print_utils import *
+from producers import Producer
+from streams import MoxyStream
 
 from openant.easy.node import Node as AntNode
-from openant.devices.common import DeviceType, AntPlusDevice
 from openant.devices.scanner import Scanner
-from openant.devices.utilities import auto_create_device
 from openant.devices import ANTPLUS_NETWORK_KEY
+
+from collections import defaultdict
+import queue
+from utils.print_utils import *
+from utils.zmq_utils import *
 
 
 class CustomAntNode(AntNode):
@@ -51,9 +50,9 @@ class MoxyStreamer(Producer):
                logging_spec: dict,
                devices: list[str],
                sampling_rate_hz: float = 0.5,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,
                **_):
@@ -79,7 +78,7 @@ class MoxyStreamer(Producer):
     return MoxyStream(**stream_info)
 
 
-  def connect(self) -> bool:   
+  def _connect(self) -> bool:   
     self.node = CustomAntNode()
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
 
@@ -88,7 +87,7 @@ class MoxyStreamer(Producer):
       device_id = device_tuple[0]
       print(f"Device #{device_id} common data update: {common}")
 
-    # local function to call when device update device speific page data
+    # local function to call when device update device specific page data
     def on_device_data(device, page_name, data):
       print(f"Device: {device}, broadcast: {page_name}, data: {data}")
 
@@ -103,37 +102,44 @@ class MoxyStreamer(Producer):
   
 
   def _process_data(self):
-    try:
-      data_type, channel, data = self.node._datas.get(True, 1.0)
-      time_s = time.time()
-      self.node._datas.task_done()
-      if data_type == "broadcast":
-        byte_data = bytes(data)
-        if data[0] == 1:
-          counter = data[1]
-          THb = ((int(data[4] >> 4) << 4) + (int(data[4] % 2**4)) + (int(data[5] % 2**4) << 8)) * 0.01
-          SmO2 = ((int(data[7] >> 4) << 6) + (int(data[7] % 2**4) << 2) + int(data[6] % 2**4)) * 0.1
-          device_id = str(byte_data[9] + (byte_data[10] << 8))
-          if self.counter_per_sensor[device_id] != counter:
-            tag: str = "%s.%s.data" % (self._log_source_tag, device_id)
-            data = {
-              'THb': THb,
-              'SmO2': SmO2,
-              'counter': counter,
-            }
-            self._publish(tag=tag, time_s=time_s, data={'moxy-%s-data'%device_id: data})
-            self.counter_per_sensor[device_id] = counter
-      else:
-        print("Unknown data type '%s': %r", data_type, data)
-    except Exception as _:
-      pass        
+    if self._is_continue_capture:
+      try:
+        data_type, channel, data = self.node._datas.get(True, 1.0)
+        time_s = time.time()
+        self.node._datas.task_done()
+        if data_type == "broadcast":
+          byte_data = bytes(data)
+          if data[0] == 1:
+            counter = data[1]
+            THb = ((int(data[4] >> 4) << 4) + (int(data[4] % 2**4)) + (int(data[5] % 2**4) << 8)) * 0.01
+            SmO2 = ((int(data[7] >> 4) << 6) + (int(data[7] % 2**4) << 2) + int(data[6] % 2**4)) * 0.1
+            device_id = str(byte_data[9] + (byte_data[10] << 8))
+            if self.counter_per_sensor[device_id] != counter:
+              tag: str = "%s.%s.data" % (self._log_source_tag, device_id)
+              data = {
+                'THb': THb,
+                'SmO2': SmO2,
+                'counter': counter,
+              }
+              self._publish(tag=tag, time_s=time_s, data={'moxy-%s-data'%device_id: data})
+              self.counter_per_sensor[device_id] = counter
+        else:
+          print("Unknown data type '%s': %r", data_type, data)
+      except Exception as _:
+        pass
+    else:
+      self._send_end_packet()
+
+
+  def _stop_new_data(self):
+    pass
 
   
-  # Clean up and quit
-  def quit(self) -> None:
-    super().quit()
+  def _cleanup(self) -> None:
+    super()._cleanup()
 
 
+# TODO:
 #####################
 ###### TESTING ######
 #####################

@@ -1,7 +1,8 @@
-from producers.Producer import Producer
+from producers import Producer
+from streams import ViconStream
 from vicon_dssdk import ViconDataStream
-from streams.ViconStream import ViconStream
 from utils.print_utils import *
+from utils.zmq_utils import *
 
 
 ###############################################
@@ -17,9 +18,9 @@ class ViconStreamer(Producer):
 
   def __init__(self,
                logging_spec: dict,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False):
 
@@ -41,9 +42,9 @@ class ViconStreamer(Producer):
 
   def _connect(self) -> bool:
     self._client = ViconDataStream.Client()
-    print( 'Connecting' )
+    print('Connecting')
     while not self._client.IsConnected():
-      self._client.Connect('localhost:801')
+      self._client.Connect('%s:%s'%(DNS_LOCALHOST, PORT_VICON))
 
     # Check setting the buffer size works
     self._client.SetBufferSize(1)
@@ -75,8 +76,7 @@ class ViconStreamer(Producer):
           print('Failed to get frame')
           return False
       except ViconDataStream.DataStreamException as e:
-        # TODO: does this mean it connected successfully? @CarlonJuha
-        self._client.GetFrame()
+        pass
     
     devices = self._client.GetDeviceNames()
     # Keep only EMG. This device was renamed in the Nexus SDK
@@ -86,8 +86,7 @@ class ViconStreamer(Producer):
 
   # Acquire data from the sensors until signalled externally to quit
   def _process_data(self) -> None:
-    if self._is_continue_capture:
-      self._client.GetFrame()
+    if self._is_continue_capture or self._client.GetFrame():
       time_s = time.time()
       frame_number = self._client.GetFrameNumber()
 
@@ -96,6 +95,7 @@ class ViconStreamer(Producer):
         deviceOutputDetails = self._client.GetDeviceOutputDetails(deviceName)
         all_results = []
         for outputName, componentName, unit in deviceOutputDetails:
+          # NOTE: must set this ID in the Vicon software first.
           if outputName != "EMG Channels": continue # only record EMG
           values, occluded = self._client.GetDeviceOutputValues(deviceName, outputName, componentName)
           all_results.append(values)
@@ -115,12 +115,17 @@ class ViconStreamer(Producer):
       self._send_end_packet()
 
 
-  # TODO: stop capture of new data
   def _stop_new_data(self):
-    pass
+    # Disable all the data types
+    self._client.DisableSegmentData()
+    self._client.DisableMarkerData()
+    self._client.DisableUnlabeledMarkerData()
+    self._client.DisableMarkerRayData()
+    self._client.DisableDeviceData()
+    self._client.DisableCentroidData()
 
 
   def _cleanup(self) -> None:
     # Clean up the SDK
-    self._client.close()
+    self._client.Disconnect()
     super()._cleanup()

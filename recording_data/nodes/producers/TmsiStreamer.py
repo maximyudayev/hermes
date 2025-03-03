@@ -1,14 +1,16 @@
-import queue
+from producers import Producer
+from streams import TmsiStream
 
-from streams.TmsiStream import TmsiStream
-from producers.Producer import Producer
+from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
 from handlers.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
 from handlers.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
 from handlers.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix as Reshape
-from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
 from handlers.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
 from handlers.TMSiSDK.device.tmsi_channel import ChannelType
+
+import queue
 from utils.print_utils import *
+from utils.zmq_utils import *
 
 
 ########################################
@@ -25,9 +27,9 @@ class TmsiStreamer(Producer):
   def __init__(self,
                logging_spec: dict,
                sampling_rate_hz: int = 20,
-               port_pub: str = None,
-               port_sync: str = None,
-               port_killsig: str = None,
+               port_pub: str = PORT_BACKEND,
+               port_sync: str = PORT_SYNC,
+               port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False,
                **_)-> None:
@@ -73,7 +75,7 @@ class TmsiStreamer(Producer):
         self.dev.set_device_sampling_config(base_sample_rate=SagaBaseSampleRate.Decimal,  
                                             channel_type=ChannelType.all_types, 
                                             channel_divider=4)
-
+        # NOTE: must match the hardcoded specs else wrong sensors will be read out.
         # channels
         # oxy goes to digi
         # breath to aux 1
@@ -147,9 +149,8 @@ class TmsiStreamer(Producer):
       self._send_end_packet()
 
 
-  # TODO: stop receiving new data from the device.
   def _stop_new_data(self):
-    pass
+    self.dev.stop_measurement()
 
 
   def _cleanup(self) -> None:
