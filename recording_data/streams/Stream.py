@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 import copy
 from collections import OrderedDict
+from typing import Any
+import dash_bootstrap_components as dbc
 from threading import Lock
 import numpy as np
 
@@ -54,17 +56,10 @@ class Stream(ABC):
 
   # Get how each stream should be visualized.
   # Should be overridden by subclasses if desired.
-  # Returns a dictionary mapping [device_name][stream_name] to a dict of visualizer options.
-  # See DataVisualizer for options of default visualizers, such as line plots and videos.
+  # Returns a Dash `Row`.
   @abstractmethod
-  def get_default_visualization_options(self) -> dict:
-    # By default no streams are visualized
-    visualization_options = {}
-    for (device_name, device_info) in self._streams_info.items():
-      visualization_options.setdefault(device_name, {})
-      for (stream_name, stream_info) in device_info.items():
-        visualization_options[device_name].setdefault(stream_name, {'class': None})
-    return visualization_options
+  def build_visulizer(self) -> dbc.Row | None:
+    return None
 
 
   #############################
@@ -84,7 +79,7 @@ class Stream(ABC):
                ending_index: int = None,
                starting_time_s: float = None, 
                ending_time_s: float = None,
-               return_deepcopy: bool = True) -> dict[str, np.ndarray]:
+               return_deepcopy: bool = True) -> dict[str, list[Any]]:
     self._lock.acquire()
     res = self._get_data(device_name=device_name,
                          stream_name=stream_name,
@@ -104,7 +99,7 @@ class Stream(ABC):
                                 ending_index: int = None,
                                 starting_time_s: float = None, 
                                 ending_time_s: float = None,
-                                return_deepcopy: bool = True) -> list[dict[str, np.ndarray]]:
+                                return_deepcopy: bool = True) -> list[dict[str, list[Any]]]:
     self._lock.acquire()
     res = self._get_data_multiple_streams(device_name=device_name,
                                           stream_names=stream_names,
@@ -128,7 +123,7 @@ class Stream(ABC):
                            device_name: str, 
                            stream_name: str, 
                            target_time_s: float, 
-                           target_before: bool = True) -> np.ndarray:
+                           target_before: bool = True) -> np.ndarray | None:
     self._lock.acquire()
     res = self._get_index_for_time_s(device_name=device_name,
                                      stream_name=stream_name,
@@ -149,7 +144,9 @@ class Stream(ABC):
                  stream_name: str,
                  first_index_to_keep: int = None) -> None:
     self._lock.acquire()
-    self._clear_data(device_name=device_name, stream_name=stream_name, first_index_to_keep=first_index_to_keep)
+    self._clear_data(device_name=device_name, 
+                     stream_name=stream_name, 
+                     first_index_to_keep=first_index_to_keep)
     self._lock.release()
 
 
@@ -260,9 +257,20 @@ class Stream(ABC):
 
   # Get information about a stream.
   # Returned dict will have keys:
-  #   data_type, sample_size, 
-  #   sampling_rate_hz, actual_rate_hz,
-  #   timesteps_before_solidified, extra_data_info
+  #   data_type, 
+  #   is_video,
+  #   is_audio,
+  #   sample_size, 
+  #   sampling_rate_hz,
+  #   timesteps_before_solidified, 
+  #   extra_data_info,
+  #   data_notes,
+  #   is_measure_rate_hz, (if True)
+  #     actual_rate_hz,
+  #     dt_circular_buffer,
+  #     dt_circular_index,
+  #     dt_running_sum,
+  #     old_toa
   def get_stream_info(self, device_name: str, stream_name: str) -> OrderedDict:
     return self._streams_info[device_name][stream_name]
 
@@ -273,8 +281,22 @@ class Stream(ABC):
 
 
   # Get a list of values for a particular type of stream info (decoupled from device/stream names).
-  # info_key can be data_type, sample_size, sampling_rate_hz, timesteps_before_solidified, extra_data_info
-  def get_stream_info_by_attribute(self, stream_attribute) -> list[np.ndarray]:
+  # `stream_attribute` can be: 
+  #   data_type, 
+  #   is_video,
+  #   is_audio,
+  #   sample_size, 
+  #   sampling_rate_hz,
+  #   timesteps_before_solidified, 
+  #   extra_data_info,
+  #   data_notes,
+  #   is_measure_rate_hz, (if True)
+  #     actual_rate_hz,
+  #     dt_circular_buffer,
+  #     dt_circular_index,
+  #     dt_running_sum,
+  #     old_toa
+  def get_stream_info_by_attribute(self, stream_attribute: str) -> list[Any]:
     infos = []
     for (device_name, device_info) in self._streams_info.items():
       for (stream_name, stream_info) in device_info.items():
@@ -355,7 +377,7 @@ class Stream(ABC):
                 ending_index: int = None,
                 starting_time_s: float = None, 
                 ending_time_s: float = None,
-                return_deepcopy: bool = True) -> dict[str, np.ndarray]:
+                return_deepcopy: bool = True) -> dict[str, list[Any]]:
     # Convert desired times to indexes if applicable.
     if starting_time_s is not None:
       starting_index = self._get_index_for_time_s(device_name, stream_name, starting_time_s, target_before=False)
@@ -393,7 +415,7 @@ class Stream(ABC):
                                  ending_index: int = None,
                                  starting_time_s: float = None, 
                                  ending_time_s: float = None,
-                                 return_deepcopy: bool = True) -> list[dict[str, np.ndarray]]:
+                                 return_deepcopy: bool = True) -> list[dict[str, list[Any]]]:
     # Convert desired times to indexes if applicable.
     if starting_time_s is not None:
       starting_index = self._get_index_for_time_s(device_name, stream_names[0], starting_time_s, target_before=False)
@@ -513,7 +535,7 @@ class Stream(ABC):
   # Will use the streaming data or the loaded log data as applicable.
   def _get_times_s(self, 
                    device_name: str, 
-                   stream_name: str) -> np.ndarray:
+                   stream_name: str) -> list[float]:
     return self._data[device_name][stream_name]['time_s']
 
 
@@ -524,7 +546,7 @@ class Stream(ABC):
                             device_name: str, 
                             stream_name: str, 
                             target_time_s: float, 
-                            target_before: bool = True) -> np.ndarray:
+                            target_before: bool = True) -> np.ndarray | None:
     # Get the sample times streamed so far, or loaded from existing logs.
     times_s = np.array(self._get_times_s(device_name, stream_name))
     # Get the last sample before the specified time.

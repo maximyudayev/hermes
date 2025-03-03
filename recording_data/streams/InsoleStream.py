@@ -1,6 +1,7 @@
 from collections import OrderedDict
-from streams.Stream import Stream
-from visualizers import HeatmapVisualizer
+from streams import Stream
+#from visualizers import InsolePressureVisualizer
+import dash_bootstrap_components as dbc
 
 
 ####################################################
@@ -11,11 +12,15 @@ from visualizers import HeatmapVisualizer
 class InsoleStream(Stream):
   def __init__(self, 
                sampling_rate_hz: int = 100,
-               transmission_delay_period_s: int = 10,
+               timesteps_before_solidified: int = 0,
+               update_interval_ms: int = 100,
+               transmission_delay_period_s: int = None,
                **_) -> None:
     super().__init__()
     self._sampling_rate_hz = sampling_rate_hz
     self._transmission_delay_period_s = transmission_delay_period_s
+    self._timesteps_before_solidified = timesteps_before_solidified
+    self._update_interval_ms = update_interval_ms
 
     self._define_data_notes()
 
@@ -29,12 +34,14 @@ class InsoleStream(Stream):
                     stream_name='foot_pressure_left',
                     data_type='float32',
                     sample_size=[16],
-                    sampling_rate_hz=self._sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    timesteps_before_solidified=self._timesteps_before_solidified)
     self.add_stream(device_name='insoles-data',
                     stream_name='foot_pressure_right',
                     data_type='float32',
                     sample_size=[16],
-                    sampling_rate_hz=self._sampling_rate_hz)
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    timesteps_before_solidified=self._timesteps_before_solidified)
     self.add_stream(device_name='insoles-data',
                     stream_name='acc_left',
                     data_type='float32',
@@ -76,37 +83,33 @@ class InsoleStream(Stream):
                     sample_size=[2],
                     sampling_rate_hz=self._sampling_rate_hz)
     
-    self.add_stream(device_name='insoles-connection',
-                    stream_name='transmission_delay',
-                    data_type='float32',
-                    sample_size=(1),
-                    sampling_rate_hz=1.0/self._transmission_delay_period_s,
-                    data_notes=self._data_notes['insoles-connection']['transmission_delay'])
+    if self._transmission_delay_period_s:
+      self.add_stream(device_name='insoles-connection',
+                      stream_name='transmission_delay',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=1.0/self._transmission_delay_period_s,
+                      data_notes=self._data_notes['insoles-connection']['transmission_delay'])
 
 
   def get_fps(self) -> dict[str, float]:
     return {'insoles-data': super()._get_fps('insoles-data', 'timestamp')}
 
 
-  def get_default_visualization_options(self) -> dict:
-    visualization_options = super().get_default_visualization_options()
-
-    # TODO: visualize the foot pressure data from the 16 sensors per side
-    # https://moticon.com/wp-content/uploads/2021/09/OpenGo-Sensor-Insole-Specification-A4-RGB-EN-03.03.pdf (p.4)
-    # visualization_options[self._device_name]['foot_pressure_left'] = \
-    #   {'class': HeatmapVisualizer,
-    #    'colorbar_levels': 'auto',  # The range of the colorbar.
-    #    # Can be a 2-element list [min, max] to use hard-coded bounds,
-    #    # or 'auto' to determine them dynamically based on a buffer of the data.
-    #    }
-    # visualization_options[self._device_name]['foot_pressure_right'] = \
-    #   {'class': HeatmapVisualizer,
-    #    'colorbar_levels': 'auto',  # The range of the colorbar.
-    #    # Can be a 2-element list [min, max] to use hard-coded bounds,
-    #    # or 'auto' to determine them dynamically based on a buffer of the data.
-    #    }
-
-    return visualization_options
+  # Visualize the foot pressure data from the 16 sensors per side.
+  # https://moticon.com/wp-content/uploads/2021/09/OpenGo-Sensor-Insole-Specification-A4-RGB-EN-03.03.pdf (p.4)
+  def build_visulizer(self) -> dbc.Row | None:
+    return super().build_visulizer()
+  # def build_visulizer(self) -> dbc.Row | None:
+  #   insole_pressure_plot = InsolePressureVisualizer(stream=self,
+  #                                                   device_name='insoles-data',
+  #                                                   stream_names=['foot_pressure_left',
+  #                                                                 'foot_pressure_right'],
+  #                                                   legend_names=['pressure'],
+  #                                                   plot_duration_timesteps=self._timesteps_before_solidified,
+  #                                                   update_interval_ms=self._update_interval_ms,
+  #                                                   col_width=6)
+  #   return dbc.Row([insole_pressure_plot.layout])
 
 
   def _define_data_notes(self) -> None:

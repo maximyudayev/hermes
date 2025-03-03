@@ -1,7 +1,8 @@
 from collections import OrderedDict
 import cv2
-from streams.Stream import Stream
-from visualizers import VideoVisualizer
+import dash_bootstrap_components as dbc
+from streams import Stream
+from visualizers import GazeVisualizer, VideoVisualizer
 
 
 ################################################
@@ -12,7 +13,6 @@ from visualizers import VideoVisualizer
 class EyeStream(Stream):
   def __init__(self,
                stream_video_world: bool,
-               stream_video_worldGaze: bool,
                stream_video_eye: bool,
                is_binocular: bool,
                gaze_estimate_stale_s: float,
@@ -22,15 +22,19 @@ class EyeStream(Stream):
                fps_video_world: float,
                fps_video_eye0: float,
                fps_video_eye1: float,
+               timesteps_before_solidified: int = 0,
+               update_interval_ms: int = 100,
                **_) -> None:
     super().__init__()
 
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
     self._stream_video_world = stream_video_world
-    self._stream_video_worldGaze = stream_video_worldGaze
     self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
-    
+    self._color_format = cv2.COLOR_BGR2RGB
+    self._update_interval_ms = update_interval_ms
+    self._timesteps_before_solidified = timesteps_before_solidified
+
     # Define data notes that will be associated with streams created below.
     self._define_data_notes()
 
@@ -198,29 +202,8 @@ class EyeStream(Stream):
                       sampling_rate_hz=fps_video_world, 
                       data_notes=self._data_notes['eye-video-world']['frame'],
                       is_measure_rate_hz=True,
-                      is_video=True)
-
-    if stream_video_worldGaze:
-      self.add_stream(device_name='eye-video-world-gaze', 
-                      stream_name='frame_timestamp',
-                      data_type='float64', 
-                      sample_size=(1),
-                      sampling_rate_hz=fps_video_world,
-                      data_notes=self._data_notes['eye-video-world-gaze']['frame_timestamp'])
-      self.add_stream(device_name='eye-video-world-gaze', 
-                      stream_name='frame_index',
-                      data_type='uint64', 
-                      sample_size=(1),
-                      sampling_rate_hz=fps_video_world,
-                      data_notes=self._data_notes['eye-video-world-gaze']['frame_index'])
-      self.add_stream(device_name='eye-video-world-gaze', 
-                      stream_name='frame',
-                      data_type='uint8', 
-                      sample_size=shape_video_world,
-                      sampling_rate_hz=fps_video_world,
-                      data_notes=self._data_notes['eye-video-world-gaze']['frame'],
-                      is_measure_rate_hz=True,
-                      is_video=True)
+                      is_video=True,
+                      timesteps_before_solidified=self._timesteps_before_solidified)
 
     if stream_video_eye:
       self.add_stream(device_name='eye-video-eye0', 
@@ -242,7 +225,8 @@ class EyeStream(Stream):
                       sampling_rate_hz=fps_video_eye0, 
                       data_notes=self._data_notes['eye-video-eye0']['frame'],
                       is_measure_rate_hz=True,
-                      is_video=True)
+                      is_video=True,
+                      timesteps_before_solidified=self._timesteps_before_solidified)
       if is_binocular:
         self.add_stream(device_name='eye-video-eye1', 
                         stream_name='frame_timestamp',
@@ -263,7 +247,8 @@ class EyeStream(Stream):
                         sampling_rate_hz=fps_video_eye1, 
                         data_notes=self._data_notes['eye-video-eye1']['frame'],
                         is_measure_rate_hz=True,
-                        is_video=True)
+                        is_video=True,
+                        timesteps_before_solidified=self._timesteps_before_solidified)
 
 
   def get_fps(self) -> dict[str, float]:
@@ -274,8 +259,6 @@ class EyeStream(Stream):
 
     if self._stream_video_world:
       fps['eye-video-world'] = super()._get_fps('eye-video-world', 'frame')
-    if self._stream_video_worldGaze:
-      fps['eye-video-world-gaze'] = super()._get_fps('eye-video-world-gaze', 'frame')
     if self._stream_video_eye:
       fps['eye-video-eye0'] = super()._get_fps('eye-video-eye0', 'frame')
       if self._is_binocular:
@@ -283,23 +266,33 @@ class EyeStream(Stream):
     return fps
 
 
-  def get_default_visualization_options(self) -> dict:
-    visualization_options = super().get_default_visualization_options()
+  def build_visulizer(self) -> dbc.Row:
+    devices = ['eye-video-world',
+               'eye-video-eye0',
+               'eye-video-eye1']
+    predicates = [self._stream_video_world,
+                  self._stream_video_eye,
+                  self._stream_video_eye and self._is_binocular]
+    
+    gaze_plot = [GazeVisualizer(stream=self,
+                                world_data_path={'eye-video-world': 'frame'},
+                                gaze_data_path={'eye-gaze': 'position'},
+                                legend_name=device,
+                                update_interval_ms=self._update_interval_ms,
+                                color_format=self._color_format,
+                                col_width=6)
+                    for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
 
-    if self._stream_video_worldGaze:
-      visualization_options['eye-video-world-gaze']['frame'] = {'class': VideoVisualizer,
-                                                                        'format': cv2.COLOR_BGR2RGB}
-    if self._stream_video_world:
-      visualization_options['eye-video-world']['frame'] = {'class': VideoVisualizer,
-                                                                    'format': cv2.COLOR_BGR2RGB}
-    if self._stream_video_eye:
-      visualization_options['eye-video-eye0']['frame'] = {'class': VideoVisualizer,
-                                                                   'format': cv2.COLOR_BGR2RGB}
-      if self._is_binocular:
-        visualization_options['eye-video-eye1']['frame'] = {'class': VideoVisualizer,
-                                                                     'format': cv2.COLOR_BGR2RGB}
-
-    return visualization_options
+    eye_plots = [VideoVisualizer(stream=self,
+                                   device_name=device,
+                                   data_path='frame',
+                                   legend_name=device,
+                                   update_interval_ms=self._update_interval_ms,
+                                   color_format=self._color_format,
+                                   col_width=6)
+                    for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
+    
+    return dbc.Row([camera_plot.layout for camera_plot in gaze_plot+eye_plots])
 
 
   def _define_data_notes(self) -> None:
@@ -310,7 +303,6 @@ class EyeStream(Stream):
     self._data_notes.setdefault('eye-video-eye0', {})
     self._data_notes.setdefault('eye-video-eye1', {})
     self._data_notes.setdefault('eye-video-world', {})
-    self._data_notes.setdefault('eye-video-world-gaze', {})
 
     # Gaze data
     self._data_notes['eye-gaze']['confidence'] = OrderedDict([
@@ -467,21 +459,4 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-video-world']['frame'] = OrderedDict([
       ('Format', 'Frames are in BGR format'),
-    ])
-    # World-gaze video
-    self._data_notes['eye-video-world-gaze']['frame_timestamp'] = OrderedDict([
-      ('Description', 'The timestamp recorded by the Pupil Core service, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
-                      'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
-    ])
-    self._data_notes['eye-video-world-gaze']['frame_index'] = OrderedDict([
-      ('Description', 'The frame index recorded by the Pupil Core service, '
-                      'which relates to world frame used for annotation'),
-    ])
-    self._data_notes['eye-video-world-gaze']['frame'] = OrderedDict([
-      ('Format', 'Frames are in BGR format'),
-      ('Description', 'The world video with a gaze estimate overlay.  '
-                      'The estimate in eye-gaze > position was used.  '
-                      'The gaze indicator is black if the gaze estimate is \'stale\','
-                      'defined here as being predicted more than %gs before the video frame.' % self._gaze_estimate_stale_s),
     ])

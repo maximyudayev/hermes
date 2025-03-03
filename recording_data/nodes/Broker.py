@@ -18,9 +18,8 @@ from utils.zmq_utils import *
 # Will launch/destroy/connect to streamers on creation and ad-hoc.
 # Will use a separate process for each streamer and consumer.
 # Will use the main process to:
-#   * route PUB-SUB messages
-#   * manage lifecycle of locally-connected Nodes
-#   * TODO: measure and publish per-sensor network delays
+#   * route PUB-SUB messages;
+#   * manage lifecycle of locally-connected Nodes;
 #   * TODO: subscribe to stdin/stdout messages of all publishers and subscribers
 # Each Node connects only to its local broker,
 #   which then exposes its data to outside LAN subscribers.
@@ -261,6 +260,10 @@ class Broker(BrokerInterface):
     killsig_pub.bind("tcp://*:%s" % (self._port_killsig))
     self._killsigs: list[zmq.SyncSocket] = [killsig_pub]
 
+    # Socket to listen to kill command from the GUI.
+    self._gui_btn_kill: zmq.SyncSocket = self._ctx.socket(zmq.REP)
+    self._gui_btn_kill.bind("tcp://*:%s" % (PORT_KILL_BTN))
+
     # Poll object to listen to sockets without blocking
     self._poller: zmq.Poller = zmq.Poller()
 
@@ -353,6 +356,8 @@ class Broker(BrokerInterface):
       self._poller.register(s, zmq.POLLIN)
     for s in self._frontends:
       self._poller.register(s, zmq.POLLIN)
+    # Register KILL_BTN port REP socket with POLLIN event.
+    self._poller.register(self._gui_btn_kill, zmq.POLLIN)
 
 
   # Spawn local producers and consumers in separate processes
@@ -396,6 +401,9 @@ class Broker(BrokerInterface):
 
   # Check if packets contain a kill signal from downstream a broker
   def _check_for_kill(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> bool:
+    # Receives KILL from the GUI.
+    if self._gui_btn_kill in poll_res[0]:
+      return True
     for socket in poll_res[0]:
       # Receives KILL signal from another broker.
       if socket in self._killsigs:
@@ -420,6 +428,7 @@ class Broker(BrokerInterface):
     for s in self._frontends: s.close()
     for s in self._killsigs: s.close()
     self._sync.close()
+    self._gui_btn_kill.close()
 
     # Destroy ZeroMQ context.
     self._ctx.term()

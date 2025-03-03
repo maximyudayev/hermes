@@ -1,4 +1,5 @@
-from streams.Stream import Stream
+from streams import Stream
+import dash_bootstrap_components as dbc
 
 
 ###############################################
@@ -29,5 +30,5 @@ class CyberlegStream(Stream):
     return {'cyberleg-data': super()._get_fps('cyberleg-data', 'activity')}
 
 
-  def get_default_visualization_options(self) -> dict:
-    return super().get_default_visualization_options()
+  def build_visulizer(self) -> dbc.Row | None:
+    return super().build_visulizer()

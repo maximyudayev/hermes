@@ -1,6 +1,7 @@
 from .Visualizer import Visualizer
 from .VideoVisualizer import VideoVisualizer
-from .HeatmapVisualizer import HeatmapVisualizer
+from .GazeVisualizer import GazeVisualizer
+# from .InsolePressureVisualizer import InsolePressureVisualizer
 from .LinePlotVisualizer import LinePlotVisualizer
-from .OrientationVisualizer import OrientationVisualizer
-from .SkeletonVisualizer import SkeletonVisualizer
+from .ExperimentControlVisualizer import ExperimentControlVisualizer
+# from .SkeletonVisualizer import SkeletonVisualizer

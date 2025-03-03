@@ -1,4 +1,5 @@
-from streams.Stream import Stream
+from streams import Stream
+import dash_bootstrap_components as dbc
 
 
 ##########################################################
@@ -42,7 +43,7 @@ class ViconStream(Stream):
 
   def get_fps(self) -> dict[str, float]:
     return {'vicon-data': super()._get_fps('vicon-data', 'frame_count')}
-  
 
-  def get_default_visualization_options(self) -> dict:
-    return super().get_default_visualization_options()
+
+  def build_visulizer(self) -> dbc.Row | None:
+    return super().build_visulizer()

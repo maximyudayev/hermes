@@ -4,21 +4,24 @@ from utils.gui_utils import app
 from dash import Output, Input, dcc
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objects as go
 import cv2
 
 
-class VideoVisualizer(Visualizer):
+class GazeVisualizer(Visualizer):
   def __init__(self,
                stream: Stream,
-               data_path: dict[str, str],
+               world_data_path: dict[str, str],
+               gaze_data_path: dict[str, str],
                legend_name: str,
-               update_interval_ms: int,
+               update_interval_ms: int, # TODO: have 2 update intervals (for video and for gaze overlay)
                color_format: int,
                col_width: int = 6):
     super().__init__(stream=stream,
                      col_width=col_width)
 
-    self._data_path = data_path
+    self._world_data_path = world_data_path
+    self._gaze_data_path = gaze_data_path
     self._legend_name = legend_name
     self._update_interval_ms = update_interval_ms
     self._color_format = color_format
@@ -41,14 +44,23 @@ class VideoVisualizer(Visualizer):
         prevent_initial_call=True
     )
     def update_live_data(n):
-      device_name, stream_name = self._data_path.items()[0]
-      data = self._stream.get_data(device_name=device_name,
-                                   stream_name=stream_name,
-                                   starting_index=-1)['data']
-      fig = px.imshow(img=cv2.cvtColor(src=data, 
+      # Display the captured image.
+      world_device_name, world_stream_name = self._world_data_path.items()[0]
+      world_data = self._stream.get_data(device_name=world_device_name,
+                                         stream_name=world_stream_name,
+                                         starting_index=-1)['data']
+      fig = px.imshow(img=cv2.cvtColor(src=world_data, 
                                        code=self._color_format))
       fig.update(title_text=self._legend_name)
       fig.update_layout(coloraxis_showscale=False)
       fig.update_xaxes(showticklabels=False)
       fig.update_yaxes(showticklabels=False)
+      # Overlay scene gaze point onto the image.
+      gaze_device_name, gaze_stream_name = self._gaze_data_path.items()[0]
+      gaze_data = self._stream.get_data(device_name=gaze_device_name,
+                                        stream_name=gaze_stream_name,
+                                        starting_index=-1)['data']
+      fig.add_trace(go.Scatter(x=gaze_data[0],
+                               y=gaze_data[1],
+                               marker=dict(color='red', size=16)))
       return fig

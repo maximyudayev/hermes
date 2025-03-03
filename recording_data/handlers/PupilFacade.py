@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import time
-from typing import Any, Callable
+from typing import Callable
 
 import cv2
 import msgpack
@@ -17,12 +17,10 @@ class PupilFacade:
                video_image_format: str,
                gaze_estimate_stale_s: float,
                stream_video_world: bool,
-               stream_video_worldGaze: bool,
                stream_video_eye: bool,
                is_binocular: bool) -> None:
     
     self._stream_video_world = stream_video_world
-    self._stream_video_worldGaze = stream_video_worldGaze
     self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
     self._pupil_capture_ip = pupil_capture_ip
@@ -44,7 +42,7 @@ class PupilFacade:
 
     # Subscribe to the desired topics.
     self._topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')]
-    if self._stream_video_world or self._stream_video_worldGaze:
+    if self._stream_video_world:
       self._topics.append('frame.world')
     if self._stream_video_eye:
       self._topics.append('frame.eye.')
@@ -68,7 +66,6 @@ class PupilFacade:
     gaze_items = None
     pupil_items = None
     video_world_items = None
-    video_worldGaze_items = None
     video_eye_items = None
     time_items = [
       ('device_time_s', device_time_s)
@@ -140,45 +137,6 @@ class PupilFacade:
           ('frame', img),
         ]
 
-      # Synthesize a stream with the gaze superimposed on the world video.
-      try:
-        world_img = img
-        # Get the most recent gaze data
-        gaze_norm_pos, gaze_timestamp = self._get_latest_stream_data_fn(device_name='eye-gaze', 
-                                                                        stream_names=['position','timestamp'], 
-                                                                        starting_index=-1)
-        if gaze_norm_pos is not None and gaze_timestamp is not None:
-          gaze_norm_pos = gaze_norm_pos['data'][0]
-          gaze_timestamp = gaze_timestamp['data'][0]
-          world_gaze_time_diff_s = frame_timestamp - gaze_timestamp
-          gaze_radius = 10
-          gaze_color_outer = (255, 255, 255) # BGR format
-          if abs(world_gaze_time_diff_s) < self._gaze_estimate_stale_s: # check if the gaze prediction is recent
-            gaze_color_inner = (0, 255, 0) # BGR format
-          else: # gaze prediction is stale
-            gaze_color_inner = (0, 0, 0) # BGR format
-          gaze_norm_pos = np.array(gaze_norm_pos)
-          world_with_gaze = world_img.copy()
-          gaze_norm_pos[1] = 1 - gaze_norm_pos[1]
-          gaze_norm_pos = tuple((gaze_norm_pos * [world_with_gaze.shape[1], world_with_gaze.shape[0]]).astype(int))
-          cv2.circle(world_with_gaze, gaze_norm_pos, gaze_radius, gaze_color_outer, -1, lineType=cv2.LINE_AA)
-          cv2.circle(world_with_gaze, gaze_norm_pos, round(gaze_radius*0.7), gaze_color_inner, -1, lineType=cv2.LINE_AA)
-          video_worldGaze_items = [
-            ('frame_timestamp', frame_timestamp), 
-            ('frame_index', metadata['index']), # world view frame index used for annotation
-            ('frame', world_with_gaze),
-          ]
-        else:
-          video_worldGaze_items = [
-            ('frame_timestamp', frame_timestamp), 
-            ('frame_index', metadata['index']), # world view frame index used for annotation
-            ('frame', world_img),
-          ]
-      except KeyError: # Streams haven't been configured yet
-        pass
-      except IndexError: # Data hasn't been received yet
-        pass
-
     # Process eye video data
     elif topic in ['frame.eye.0', 'frame.eye.1']:
       metadata = msgpack.loads(data[1])
@@ -203,7 +161,6 @@ class PupilFacade:
       ('eye-gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
       ('eye-pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
       ('eye-video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
-      ('eye-video-world-gaze', OrderedDict(video_worldGaze_items) if video_worldGaze_items is not None else None),
       ('eye-video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
       ('eye-video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
       ('eye-time', OrderedDict(time_items) if time_items is not None else None),
@@ -234,9 +191,6 @@ class PupilFacade:
     # Temporarily set self._stream_video_world to True if we want self._stream_video_worldGaze.
     #   Gaze data is not stored yet, so video_worldGaze won't be created yet.
     #   So instead, we can at least check that the world is streamed.
-    stream_video_world_original = self._stream_video_world
-    if self._stream_video_worldGaze:
-      self._stream_video_world = True
     gaze_data = None
     pupil_data = None
     video_world_data = None
@@ -247,7 +201,6 @@ class PupilFacade:
     while (gaze_data is None
             or pupil_data is None
             or (video_world_data is None and self._stream_video_world)
-            or (video_world_data is None and self._stream_video_worldGaze) # see above note - gaze data is not stored yet, so video_worldGaze won't be created yet, but can check if the world is streamed at least
             or (video_eye0_data is None and self._stream_video_eye)
             or (video_eye1_data is None and self._stream_video_eye and self._is_binocular)) \
           and (time.time() - wait_start_time_s < wait_timeout_s):
@@ -288,14 +241,11 @@ class PupilFacade:
       frame_rate = frame_count/(time.time() - time_start_s)
       # self._log_status('estimated frame rate as %0.2f for %s' % (frame_rate, data_key))
       return frame_rate
-    if self._stream_video_world or self._stream_video_worldGaze:
+    if self._stream_video_world:
       fps_video_world = _get_fps('video-world')
     if self._stream_video_eye:
       fps_video_eye0 = _get_fps('video-eye0')
       fps_video_eye1 = _get_fps('video-eye1') if self._is_binocular else None
-
-    # Restore the desired stream world setting, now that world-gaze data has been obtained if needed.
-    self._stream_video_world = stream_video_world_original
 
     # self._log_status('Started eye tracking streamer')
 
