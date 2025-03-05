@@ -1,7 +1,7 @@
 from nodes.Node import Node
-from producers.Producer import Producer
-from pipelines import PIPELINES
-from producers import PRODUCERS
+from nodes.producers.Producer import Producer
+from nodes.pipelines import PIPELINES
+from nodes.producers import PRODUCERS
 from streams import Stream
 
 from abc import abstractmethod
@@ -86,20 +86,18 @@ class Consumer(Node):
   #   It's more efficient to dynamically switch the callback instead of checking every message.
   def _poll_ending_data_packets(self) -> None:
     # Process until all data sources sent 'END' packet.
-    message = self._sub.recv_multipart()
+    topic, payload = self._sub.recv_multipart()
+    # 'END' empty packet from a Producer.
+    if CMD_END.encode('utf-8') in payload:
+      topic_tree: list[str] = topic.decode('utf-8').split('.')
+      self._is_producer_ended[topic_tree[0]] = True
+      if all(list(self._is_producer_ended.values())):
+        self._is_done = True
     # Regular data packets.
-    if len(message) == 2:
-      topic, payload = message[0], message[1]
+    else:
       msg = deserialize(payload)
       topic_tree: list[str] = topic.decode('utf-8').split('.')
       self._streams[topic_tree[0]].append_data(**msg)
-    # 'END' empty packet from a Producer.
-    elif len(message) == 3 and CMD_END.encode('utf-8') in message:
-      topic = message[0]
-      topic_tree: list[str] = topic.decode('utf-8').split('.')
-      self._is_producer_ended[topic[0]] = True
-      if all(list(self._is_producer_ended.values())):
-        self._is_done = True
 
 
   def _trigger_stop(self):

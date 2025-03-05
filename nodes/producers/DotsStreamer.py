@@ -1,4 +1,4 @@
-from producers.Producer import Producer
+from nodes.producers.Producer import Producer
 from streams import DotsStream
 
 from handlers.MovellaHandler import MovellaFacade

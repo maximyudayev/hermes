@@ -1,4 +1,4 @@
-from producers.Producer import Producer
+from nodes.producers.Producer import Producer
 from streams import DummyStream
 
 from utils.print_utils import *

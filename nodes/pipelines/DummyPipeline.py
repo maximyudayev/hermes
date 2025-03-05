@@ -1,4 +1,4 @@
-from pipelines.Pipeline import Pipeline
+from nodes.pipelines.Pipeline import Pipeline
 from streams import DummyStream
 from handlers.LoggingHandler import Logger
 

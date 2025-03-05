@@ -1,7 +1,5 @@
 from nodes.Node import Node
-from pipelines import PIPELINES
-from producers.Producer import Producer
-from producers import PRODUCERS
+from nodes.producers.Producer import Producer
 from handlers.LoggingHandler import Logger
 from streams import Stream
 
@@ -31,6 +29,10 @@ class Pipeline(Node):
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
+    # import within this context to avoid circular imports.
+    from nodes.pipelines import PIPELINES
+    from nodes.producers import PRODUCERS
+
     super().__init__(port_sync, port_killsig, print_status, print_debug)
     self._port_pub = port_pub
     self._port_sub = port_sub

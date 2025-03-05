@@ -1,0 +1,86 @@
+log_tag       : "RevalExo"
+trial_type    : "test" # recommend "test" for testing and "real" data
+subject_id    : 0 # UID of the subject
+trial_id      : 0 # UID of the trial
+duration_s    : null
+
+host_ip       : "127.0.0.1"
+remote_broker_ips: []
+is_expose_to_remote_sub : False
+is_remote_kill : False
+
+print_status  : True
+print_debug   : True
+
+logging_spec:
+  # Choose whether to periodically write data to files.
+  stream_hdf5     : True # recommended over CSV since it creates a single file
+  stream_csv      : False # will create a CSV per stream
+  stream_video    : True
+  stream_audio    : False
+  stream_period_s : 10 # how often to save streamed data to disk
+  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+  
+  # Choose whether to write all data at the end.
+  #   Seems to be mutually exclusive with `stream_` options.
+  dump_csv        : False
+  dump_hdf5       : False
+  dump_video      : False
+  dump_audio      : False
+  
+  # Additional configuration.
+  #   Choose whether to save media separately or as part of HDF5/CSV files.
+  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
+  videos_in_hdf5  : False
+  videos_in_csv   : False
+  audio_format    : "wav" # currently only supports WAV
+  audio_in_hdf5   : False
+  audio_in_csv    : False
+
+
+producer_specs:
+  # Stream from the Moxy sensors
+  - class: "MoxyStreamer"
+    devices: 
+      - "8523"
+      - "8524"
+      - "8525"
+    sampling_rate_hz: 0.5
+
+
+consumer_specs:
+  - class: "DataLogger"
+    logging_spec:
+      # Choose whether to periodically write data to files.
+      stream_hdf5     : True # recommended over CSV since it creates a single file
+      stream_csv      : False # will create a CSV per stream
+      stream_video    : True
+      stream_audio    : False
+      stream_period_s : 10 # how often to save streamed data to disk
+      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+      
+      # Choose whether to write all data at the end.
+      #   Seems to be mutually exclusive with `stream_` options.
+      dump_csv        : False
+      dump_hdf5       : False
+      dump_video      : False
+      dump_audio      : False
+      
+      # Additional configuration.
+      #   Choose whether to save media separately or as part of HDF5/CSV files.
+      videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
+      videos_in_hdf5  : False
+      videos_in_csv   : False
+      audio_format    : "wav" # currently only supports WAV
+      audio_in_hdf5   : False
+      audio_in_csv    : False
+    stream_specs:
+      - class: "MoxyStreamer"
+        devices: 
+          - "8523"
+          - "8524"
+          - "8525"
+        sampling_rate_hz: 0.5
+
+
+pipeline_specs: []

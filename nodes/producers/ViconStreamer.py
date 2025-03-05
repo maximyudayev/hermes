@@ -1,6 +1,6 @@
-from producers.Producer import Producer
+from nodes.producers.Producer import Producer
 from streams import ViconStream
-from vicon_dssdk import ViconDataStream
+from handlers.vicon_dssdk import ViconDataStream
 from utils.print_utils import *
 from utils.zmq_utils import *
 

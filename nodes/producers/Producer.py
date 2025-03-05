@@ -135,7 +135,7 @@ class Producer(Node):
 
   # Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
   def _send_end_packet(self) -> None:
-    self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), b'', CMD_END.encode('utf-8')])
+    self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), CMD_END.encode('utf-8')])
     self._is_done = True
 
 
@@ -147,6 +147,7 @@ class Producer(Node):
     if self._transmit_delay_sample_period_s:
       self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
+    self._sync.send_string('') # no need to read contents of the message.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.

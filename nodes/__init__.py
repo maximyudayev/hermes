@@ -1,6 +1,6 @@
-from producers import PRODUCERS
-from consumers import CONSUMERS
-from pipelines import PIPELINES
+from nodes.producers import PRODUCERS
+from nodes.consumers import CONSUMERS
+from nodes.pipelines import PIPELINES
 
 NODES = {
   **PRODUCERS,

@@ -1,4 +1,4 @@
-from producers.Producer import Producer
+from nodes.producers.Producer import Producer
 from streams import MoxyStream
 
 from openant.easy.node import Node as AntNode
@@ -24,7 +24,7 @@ class CustomAntNode(AntNode):
     while time.time() - timer < start_time:
       try:
         self._datas.qsize()
-        (data_type, channel, data) = self._datas.get(True, 1.0)
+        (data_type, channel, data) = self._datas.get(True)
         self._datas.task_done()
         if data_type == "broadcast":
           byte_data = bytes(data)
@@ -111,7 +111,7 @@ class MoxyStreamer(Producer):
   def _process_data(self):
     if self._is_continue_capture:
       try:
-        data_type, channel, data = self.node._datas.get(True, 1.0)
+        data_type, channel, data = self.node._datas.get(True)
         time_s = time.time()
         self.node._datas.task_done()
         if data_type == "broadcast":

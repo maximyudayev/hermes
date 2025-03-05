@@ -41,6 +41,10 @@ class NodeInterface(ABC):
     pass
 
   @abstractmethod
+  def _send_kill_to_broker(self) -> None:
+    pass
+
+  @abstractmethod
   def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
     pass
 
@@ -100,6 +104,7 @@ class RunningState(NodeState):
 class KillState(NodeState):
   def run(self):
     self._context._deactivate_kill_poller()
+    self._context._send_kill_to_broker()
     self._context._trigger_stop()
     self._context._set_state(JoinState(self._context))
 
@@ -114,7 +119,7 @@ class JoinState(NodeState):
     self._context._on_poll(poll_res)
 
   def is_continue(self):
-    return self._context._is_done
+    return not self._context._is_done
   
   # Override to ignore more kill calls because we are already ending process.
   def kill(self):
@@ -144,7 +149,7 @@ class Node(NodeInterface):
     return self.__is_done
   
 
-  @property.setter
+  @_is_done.setter
   def _is_done(self, done: bool) -> None:
     self.__is_done = done
 
@@ -185,6 +190,9 @@ class Node(NodeInterface):
     # Socket to indicate to broker that the subscriber is ready
     self._sync: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
     self._sync.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sync))
+    # Socket to indicate to broker that the Node caught interrupt signal
+    self._babykillsig: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
+    self._babykillsig.connect("tcp://%s:%s" % (DNS_LOCALHOST, PORT_KILL_BTN))
 
 
   def _get_sync_socket(self) -> zmq.SyncSocket:
@@ -204,8 +212,12 @@ class Node(NodeInterface):
   # Stop listening to the kill signal.
   def _deactivate_kill_poller(self) -> None:
     print("%s received KILL signal"%self._log_source_tag(), flush=True)
-    self._killsig.recv_multipart()
+    # self._killsig.recv_multipart()
     self._poller.unregister(self._killsig)
+
+
+  def _send_kill_to_broker(self):
+    self._babykillsig.send_string(TOPIC_KILL)
 
 
   # Listens for events when new data is received from or when new data can be written to sockets,
@@ -236,6 +248,7 @@ class Node(NodeInterface):
   @abstractmethod
   def _cleanup(self):
     self._killsig.close()
+    self._babykillsig.close()
     self._sync.close()
     # Destroy ZeroMQ context.
     self._ctx.term()

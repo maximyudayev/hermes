@@ -189,9 +189,9 @@ class JoinState(BrokerState):
   #   Will get trigerred at most once per publisher/backend, so not needed to keep track.
   #   Once the Broker registers arrival of 'END' packet from a Producer, it will signal 'BYE' to it to allow it to exit.
   def _on_is_end_packet(self, msg: list[bytes]) -> None:
-    if len(msg) == 3 and msg[2].decode('utf-8') == CMD_END:
+    if CMD_END.encode('utf-8') in msg:
       self._num_left_to_join -= 1
-      topic = msg[0].decode()
+      topic = msg[0].decode().split('.')[0]
       nodes = self._context._get_node_addresses()
       self._sync_socket.send_multipart([nodes[topic], b'', CMD_BYE.encode('utf-8')])
       del(nodes[topic])
@@ -419,8 +419,11 @@ class Broker(BrokerInterface):
 
   # Send kill signals to upstream brokers and local publishers
   def _publish_kill(self) -> None:
-    # Ignore any more KILL signals, enter the wrap-up routine.
-    self._poller.unregister(self._killsigs[1])
+    for i in range(1, len(self._killsigs)):
+      # Ignore any more KILL signals, enter the wrap-up routine.
+      self._poller.unregister(self._killsigs[i])
+    # Ignore poll events from the GUI and the same socket if used by child processes to indicate keyboard interrupt.
+    self._poller.unregister(self._gui_btn_kill)
     # Send kill signals to own locally connected devices.
     self._killsigs[0].send(TOPIC_KILL.encode('utf-8'))
 
