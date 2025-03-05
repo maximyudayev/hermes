@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import MoxyStream
 
 from openant.easy.node import Node as AntNode
@@ -12,8 +12,9 @@ from utils.zmq_utils import *
 
 
 class CustomAntNode(AntNode):
-  def __init__(self):
+  def __init__(self, devices: list[str]):
     super().__init__()
+    self._expected_devices = devices
 
 
   def sample_devices(self):
@@ -34,15 +35,15 @@ class CustomAntNode(AntNode):
             self.devices.add(id)
       except queue.Empty as _:
         pass
-    if len(self.devices) == 3:
+    if len(self.devices) == len(self._expected_devices):
       return True
     else:
       return False
 
 
 class MoxyStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'moxy'
 
 
@@ -53,6 +54,7 @@ class MoxyStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
+               transmit_delay_sample_period_s: float = None,
                print_status: bool = True, 
                print_debug: bool = False,
                **_):
@@ -68,7 +70,8 @@ class MoxyStreamer(Producer):
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     print_status=print_status, 
+                     transmit_delay_sample_period_s=transmit_delay_sample_period_s,
+                     print_status=print_status,
                      print_debug=print_debug)
 
     self.counter_per_sensor = defaultdict(lambda: -1)
@@ -78,8 +81,12 @@ class MoxyStreamer(Producer):
     return MoxyStream(**stream_info)
 
 
+  def _ping_device(self) -> None:
+    return None
+
+
   def _connect(self) -> bool:   
-    self.node = CustomAntNode()
+    self.node = CustomAntNode(self._devices)
     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
 
     self.scanner = Scanner(self.node, device_id=0, device_type=0)
@@ -93,8 +100,8 @@ class MoxyStreamer(Producer):
 
     # local function to call when a device is found - also does the auto-create if enabled
     def on_found(device_tuple):
-        print("device found")
-        return
+      print("device found")
+      return
 
     self.scanner.on_found = on_found
     self.scanner.on_update = on_update
@@ -115,7 +122,7 @@ class MoxyStreamer(Producer):
             SmO2 = ((int(data[7] >> 4) << 6) + (int(data[7] % 2**4) << 2) + int(data[6] % 2**4)) * 0.1
             device_id = str(byte_data[9] + (byte_data[10] << 8))
             if self.counter_per_sensor[device_id] != counter:
-              tag: str = "%s.%s.data" % (self._log_source_tag, device_id)
+              tag: str = "%s.%s.data" % (self._log_source_tag(), device_id)
               data = {
                 'THb': THb,
                 'SmO2': SmO2,
@@ -125,8 +132,8 @@ class MoxyStreamer(Producer):
               self.counter_per_sensor[device_id] = counter
         else:
           print("Unknown data type '%s': %r", data_type, data)
-      except Exception as _:
-        pass
+      except Exception as e:
+        print("Error: %s"%e)
     else:
       self._send_end_packet()
 
@@ -137,41 +144,3 @@ class MoxyStreamer(Producer):
   
   def _cleanup(self) -> None:
     super()._cleanup()
-
-
-# TODO:
-#####################
-###### TESTING ######
-#####################
-if __name__ == "__main__":
-  import zmq
-  devices = [
-    "128.69.31.31:5",
-    "128.68.31.31:5"]
-    # "128.67.31.31:5"
-
-  ip = "127.0.0.1"
-  port_backend = "42069"
-  port_frontend = "42070"
-  port_sync = "42071"
-  port_killsig = "42066"
-
-  # Pass exactly one ZeroMQ context instance throughout the program
-  ctx: zmq.Context = zmq.Context()
-
-  # Exposes a known address and port to locally connected sensors to connect to.
-  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
-  local_backend.bind("tcp://127.0.0.1:%s" % (port_backend))
-  backends: list[zmq.SyncSocket] = [local_backend]
-
-  # Exposes a known address and port to broker data to local workers.
-  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
-  local_frontend.bind("tcp://127.0.0.1:%s" % (port_frontend))
-  frontends: list[zmq.SyncSocket] = [local_frontend]
-
-  streamer = MoxyStreamer(devices=devices,
-                          port_pub=port_backend,
-                          port_sync=port_sync,
-                          port_killsig=port_killsig)
-
-  streamer()

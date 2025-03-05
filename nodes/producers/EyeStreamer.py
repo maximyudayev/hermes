@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import EyeStream
 from handlers.PupilFacade import PupilFacade
 from utils.zmq_utils import *
@@ -11,8 +11,8 @@ import zmq
 #######################################################
 #######################################################
 class EyeStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'eye'
 
 
@@ -74,6 +74,10 @@ class EyeStreamer(Producer):
     return EyeStream(**stream_info)
 
 
+  def _ping_device(self) -> None:
+    return None
+
+
   def _connect(self) -> bool:
     self._handler: PupilFacade = PupilFacade(stream_video_world=self._stream_video_world,
                                              stream_video_eye=self._stream_video_eye,
@@ -89,7 +93,7 @@ class EyeStreamer(Producer):
   def _process_data(self) -> None:
     if self._is_continue_capture:
       time_s, data = self._handler.process_data()
-      tag: str = "%s.data" % self._log_source_tag
+      tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, time_s=time_s, data=data)
     else:
       self._send_end_packet()
@@ -130,51 +134,3 @@ class EyeStreamer(Producer):
       #   but assumes that it happens fast enough before replying 'OK' to the GUI.
       self._pause.send_string(MSG_ON if is_enabled else MSG_OFF)
     super()._on_poll(poll_res)
-
-
-# TODO: update the unit test.
-#####################
-###### TESTING ######
-#####################
-if __name__ == "__main__":
-  stream_info = {
-    'pupil_capture_ip'      : DNS_LOCALHOST,
-    'pupil_capture_port'    : PORT_EYE,
-    'video_image_format'    : 'bgr',
-    'gaze_estimate_stale_s' : 0.2,
-    'stream_video_world'    : True, # the world video
-    'stream_video_eye'      : False, # video of the eye
-    'is_binocular'          : True, # uses both eyes for gaze data and for video
-    'shape_video_world'     : (720,1280,3),
-    'shape_video_eye0'      : (400,400,3),
-    'shape_video_eye1'      : (400,400,3),
-    'fps_video_world'       : 30.0,
-    'fps_video_eye0'        : 120.0,
-    'fps_video_eye1'        : 120.0
-  }
-
-  ip = IP_LOOPBACK
-  port_backend = PORT_BACKEND
-  port_frontend = PORT_FRONTEND
-  port_sync = PORT_SYNC
-  port_killsig = PORT_KILL
-
-  # Pass exactly one ZeroMQ context instance throughout the program
-  ctx: zmq.Context = zmq.Context()
-
-  # Exposes a known address and port to locally connected sensors to connect to.
-  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
-  local_backend.bind("tcp://%s:%s" % (IP_LOOPBACK, port_backend))
-  backends: list[zmq.SyncSocket] = [local_backend]
-
-  # Exposes a known address and port to broker data to local workers.
-  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
-  local_frontend.bind("tcp://%s:%s" % (IP_LOOPBACK, port_frontend))
-  frontends: list[zmq.SyncSocket] = [local_frontend]
-
-  streamer = EyeStreamer(**stream_info, 
-                         port_pub=port_backend,
-                         port_sync=port_sync,
-                         port_killsig=port_killsig)
-
-  streamer()

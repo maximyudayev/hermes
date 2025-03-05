@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import TmsiStream
 
 from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
@@ -19,8 +19,8 @@ from utils.zmq_utils import *
 ########################################
 ########################################
 class TmsiStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'tmsi'
 
 
@@ -30,6 +30,7 @@ class TmsiStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
+               transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False,
                **_)-> None:
@@ -43,12 +44,17 @@ class TmsiStreamer(Producer):
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
+                     transmit_delay_sample_period_s=transmit_delay_sample_period_s,
                      print_status=print_status, 
                      print_debug=print_debug)
 
 
   def create_stream(self, stream_info: dict) -> TmsiStream:  
     return TmsiStream(**stream_info)
+
+
+  def _ping_device(self) -> None:
+    return None
 
 
   def _connect(self) -> bool:
@@ -134,7 +140,7 @@ class TmsiStreamer(Producer):
       sample_data = self.data_queue.get(0)
       reshaped = np.array(Reshape(sample_data.samples, sample_data.num_samples_per_sample_set))
       time_s = time.time()
-      tag: str = "%s.data" % self._log_source_tag
+      tag: str = "%s.data" % self._log_source_tag()
       for column in reshaped.T:
         data = {
           'BIP-01': column[0],

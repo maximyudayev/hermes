@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import CyberlegStream
 
 from utils.print_utils import *
@@ -8,18 +8,19 @@ import time
 import struct
 
 
-##########################################################################################
-##########################################################################################
-# A class to inteface with AidWear Cyberleg to receive smartphone activity selection data.
-#   At the moment consists of 3 bytes:
-#     - 0-9 - main task
-#     - 0-9 - subtask
-#     - o/f - boolean for both motors ON
-##########################################################################################
-##########################################################################################
+######################################################
+######################################################
+# A class to inteface with AidWear Cyberleg to receive 
+#   smartphone activity selection data.
+# At the moment consists of 3 bytes:
+#   - 0-9 - main task
+#   - 0-9 - subtask
+#   - o/f - boolean for both motors ON
+######################################################
+######################################################
 class CyberlegStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'cyberleg'
 
 
@@ -49,6 +50,10 @@ class CyberlegStreamer(Producer):
     return CyberlegStream(**stream_info)
 
 
+  def _ping_device(self) -> None:
+    return None
+
+
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,7 +76,7 @@ class CyberlegStreamer(Producer):
         'motor_state':  msg[2], 
         # 'timestamp':    msg[3],
       }
-      tag: str = "%s.data" % self._log_source_tag
+      tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, time_s=time_s, data={'cyberleg-data': data})
     else:
       self._send_end_packet()

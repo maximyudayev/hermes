@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import ExperimentControlStream
 
 from utils.print_utils import *
@@ -13,8 +13,8 @@ from utils.zmq_utils import *
 #####################################################################
 #####################################################################
 class ExperimentControlStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'control'
 
   
@@ -38,7 +38,7 @@ class ExperimentControlStreamer(Producer):
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     print_status=print_status, 
+                     print_status=print_status,
                      print_debug=print_debug)
 
 
@@ -46,6 +46,10 @@ class ExperimentControlStreamer(Producer):
   #   Should also be a class method to create Stream objects on consumers. 
   def create_stream(cls, stream_info: dict) -> ExperimentControlStream:
     return ExperimentControlStream(**stream_info)
+
+
+  def _ping_device(self) -> None:
+    return None
 
 
   # Connect to the sensor device(s).
@@ -56,9 +60,3 @@ class ExperimentControlStreamer(Producer):
   # Clean up and quit
   def _cleanup(self) -> None:
     super()._cleanup()
-
-  
-# TODO:
-#####################
-###### TESTING ######
-#####################

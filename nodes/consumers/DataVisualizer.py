@@ -1,4 +1,4 @@
-from consumers import Consumer
+from consumers.Consumer import Consumer
 from handlers.LoggingHandler import Logger
 
 import threading
@@ -16,13 +16,13 @@ from utils.zmq_utils import *
 ######################################
 ######################################
 class DataVisualizer(Consumer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'visualizer'
 
 
   def __init__(self, 
-               streamer_specs: list[dict],
+               stream_specs: list[dict],
                logging_spec: dict,
                log_history_filepath: str = None,
                port_sub: str = PORT_FRONTEND,
@@ -32,7 +32,7 @@ class DataVisualizer(Consumer):
                print_debug: bool = False, 
                **_):
 
-    super().__init__(streamer_specs=streamer_specs,
+    super().__init__(stream_specs=stream_specs,
                      port_sub=port_sub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -69,11 +69,3 @@ class DataVisualizer(Consumer):
     self._flask_server_thread.join()
     self._dash_app_thread.join()
     super()._cleanup()
-
-
-# TODO:
-#####################
-###### TESTING ######
-#####################
-if __name__ == "__main__":
-  pass

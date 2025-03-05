@@ -5,12 +5,10 @@ import threading
 
 from handlers.LoggingHandler import Logger
 from handlers.TransmissionDelayHandler import DelayEstimator
-from nodes import Node
+from nodes.Node import Node
 from streams import Stream
 from utils.msgpack_utils import serialize
-from utils.time_utils import *
 from utils.dict_utils import *
-from utils.print_utils import *
 from utils.zmq_utils import *
 
 
@@ -27,11 +25,13 @@ class Producer(Node):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
+               transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     super().__init__(port_sync, port_killsig, print_status, print_debug)
     self._port_pub = port_pub
     self._is_continue_capture = True
+    self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
 
     # Data structure for keeping track of data
     self._stream: Stream = self.create_stream(stream_info)
@@ -40,19 +40,18 @@ class Producer(Node):
     self._logger = Logger(**logging_spec)
 
     # Launch datalogging thread with reference to the Stream object.
-    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag, self._stream)]),))
+    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag(), self._stream)]),))
     self._logger_thread.start()
 
     # Conditional creation of the transmission delay estimate thread.
-    self._transmit_delay_sample_period_s = stream_info['transmit_delay_sample_period_s']
     if self._transmit_delay_sample_period_s:
       self._delay_estimator = DelayEstimator(self._transmit_delay_sample_period_s)
       self._delay_thread = threading.Thread(target=self._delay_estimator, 
                                             kwargs={
                                               'ping_fn': self._ping_device,
-                                              'publish_fn': lambda time_s, delay_s: self._publish(tag="%s.connection"%self._log_source_tag,
+                                              'publish_fn': lambda time_s, delay_s: self._publish(tag="%s.connection"%self._log_source_tag(),
                                                                                                   time_s=time_s,
-                                                                                                  data={"%s-connection"%self._log_source_tag: {
+                                                                                                  data={"%s-connection"%self._log_source_tag(): {
                                                                                                     'transmission_delay': delay_s
                                                                                                   }})
                                             })
@@ -93,6 +92,7 @@ class Producer(Node):
     # Socket to publish sensor data and log
     self._pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
     self._pub.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_pub))
+    self._connect()
 
 
   # Connect to the sensor device(s).
@@ -135,7 +135,7 @@ class Producer(Node):
 
   # Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
   def _send_end_packet(self) -> None:
-    self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), b'', CMD_END.encode('utf-8')])
+    self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), b'', CMD_END.encode('utf-8')])
     self._is_done = True
 
 

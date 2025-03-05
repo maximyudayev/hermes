@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import DotsStream
 
 from handlers.MovellaHandler import MovellaFacade
@@ -7,7 +7,6 @@ from utils.zmq_utils import *
 import numpy as np
 import time
 from collections import OrderedDict
-import zmq
 
 
 ######################################
@@ -16,8 +15,8 @@ import zmq
 ######################################
 ######################################
 class DotsStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'dots'
 
 
@@ -30,6 +29,7 @@ class DotsStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
+               transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False,
                **_):
@@ -54,12 +54,17 @@ class DotsStreamer(Producer):
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
+                     transmit_delay_sample_period_s=transmit_delay_sample_period_s,
                      print_status=print_status, 
                      print_debug=print_debug)
 
 
   def create_stream(cls, stream_info: dict) -> DotsStream:
     return DotsStream(**stream_info)
+
+
+  def _ping_device(self) -> None:
+    return None
 
 
   def _connect(self) -> bool:
@@ -126,7 +131,7 @@ class DotsStreamer(Producer):
         'counter': counter,
       }
 
-      tag: str = "%s.data" % self._log_source_tag
+      tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, time_s=process_time_s, data={'dots-imu': data})
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
@@ -139,47 +144,3 @@ class DotsStreamer(Producer):
 
   def _cleanup(self) -> None:
     super()._cleanup()
-
-
-# TODO: update the unit test.
-#####################
-###### TESTING ######
-#####################
-if __name__ == "__main__":
-  device_mapping = {
-    'knee_right'  : '40195BFC800B01F2',
-    'foot_right'  : '40195BFC800B003B',
-    'pelvis'      : '40195BFD80C20052',
-    'knee_left'   : '40195BFC800B017A',
-    'foot_left'   : '40195BFD80C200D1',
-  }
-  master_device = 'pelvis' # wireless dot relaying messages, must match a key in the `device_mapping`
-
-  ip = IP_LOOPBACK
-  port_backend = PORT_BACKEND
-  port_frontend = PORT_FRONTEND
-  port_sync = PORT_SYNC
-  port_killsig = PORT_KILL
-
-  # Pass exactly one ZeroMQ context instance throughout the program
-  ctx: zmq.Context = zmq.Context()
-
-  # Exposes a known address and port to locally connected sensors to connect to.
-  local_backend: zmq.SyncSocket = ctx.socket(zmq.XSUB)
-  local_backend.bind("tcp://%s:%s" % (IP_LOOPBACK, port_backend))
-  backends: list[zmq.SyncSocket] = [local_backend]
-
-  # Exposes a known address and port to broker data to local workers.
-  local_frontend: zmq.SyncSocket = ctx.socket(zmq.XPUB)
-  local_frontend.bind("tcp://%s:%s" % (IP_LOOPBACK, port_frontend))
-  frontends: list[zmq.SyncSocket] = [local_frontend]
-
-  streamer = DotsStreamer(device_mapping=device_mapping, 
-                          master_device=master_device,
-                          port_pub=port_backend,
-                          port_sync=port_sync,
-                          port_killsig=port_killsig,
-                          sampling_rate_hz=20,
-                          num_joints=5)
-
-  streamer()

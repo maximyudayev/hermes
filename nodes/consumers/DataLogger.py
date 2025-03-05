@@ -1,4 +1,4 @@
-from consumers import Consumer
+from consumers.Consumer import Consumer
 from handlers.LoggingHandler import Logger
 
 import threading
@@ -13,12 +13,13 @@ from utils.zmq_utils import *
 ########################################################################
 ########################################################################
 class DataLogger(Consumer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'logger'
 
+
   def __init__(self,
-               streamer_specs: list[dict],
+               stream_specs: list[dict],
                logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
@@ -29,7 +30,7 @@ class DataLogger(Consumer):
                **_):
 
     # Inherits FSM and Consumer ZeroMQ functionality.
-    super().__init__(streamer_specs=streamer_specs,
+    super().__init__(stream_specs=stream_specs,
                      port_sub=port_sub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,

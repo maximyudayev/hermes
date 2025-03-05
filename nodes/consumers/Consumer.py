@@ -1,5 +1,5 @@
-from nodes import Node
-from producers import Producer
+from nodes.Node import Node
+from producers.Producer import Producer
 from pipelines import PIPELINES
 from producers import PRODUCERS
 from streams import Stream
@@ -21,7 +21,7 @@ from utils.zmq_utils import *
 ##########################################################
 class Consumer(Node):
   def __init__(self,
-               streamer_specs: list[dict],
+               stream_specs: list[dict],
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
@@ -37,16 +37,16 @@ class Consumer(Node):
 
     # Instantiate all desired Streams that DataLogger will subscribe to.
     self._streams: OrderedDict[str, Stream] = OrderedDict()
-    for streamer_spec in streamer_specs:
-      class_name: str = streamer_spec['class']
-      class_args = streamer_spec.copy()
+    for stream_spec in stream_specs:
+      class_name: str = stream_spec['class']
+      class_args = stream_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Producer] = (PRODUCERS+PIPELINES)[class_name]
+      class_type: type[Producer] = {**PRODUCERS,**PIPELINES}[class_name]
       class_object: Stream = class_type.create_stream(class_type, class_args)
       # Store the streamer object.
-      self._streams.setdefault(class_type._log_source_tag, class_object)
-      self._is_producer_ended.setdefault(class_type._log_source_tag, False)
+      self._streams.setdefault(class_type._log_source_tag(), class_object)
+      self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
 
 
   # Initialize backend parameters specific to Consumer.

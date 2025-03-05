@@ -1,4 +1,4 @@
-from producers import Producer
+from producers.Producer import Producer
 from streams import ViconStream
 from vicon_dssdk import ViconDataStream
 from utils.print_utils import *
@@ -11,8 +11,8 @@ from utils.zmq_utils import *
 ###############################################
 ###############################################
 class ViconStreamer(Producer):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'vicon'
 
 
@@ -38,6 +38,10 @@ class ViconStreamer(Producer):
 
   def create_stream(cls, stream_info: dict) -> ViconStream:  
     return ViconStream(**stream_info)
+
+
+  def _ping_device(self) -> None:
+    return None
 
 
   def _connect(self) -> bool:
@@ -102,7 +106,7 @@ class ViconStreamer(Producer):
           # Store the captured data into the data structure.
         result_array = np.array(all_results)
         for sample in result_array.T:
-          tag: str = "%s.data" % self._log_source_tag
+          tag: str = "%s.data" % self._log_source_tag()
           data = {
             'EMG': sample,
             'mocap': None,

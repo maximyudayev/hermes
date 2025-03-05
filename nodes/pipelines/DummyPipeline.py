@@ -1,4 +1,4 @@
-from pipelines import Pipeline
+from pipelines.Pipeline import Pipeline
 from streams import DummyStream
 from handlers.LoggingHandler import Logger
 
@@ -8,15 +8,15 @@ from utils.zmq_utils import *
 
 
 class DummyPipeline(Pipeline):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'dummy-pipeline'
 
 
   def __init__(self,
                stream_info: dict,
                logging_spec: dict,
-               streamer_specs: list[dict],
+               stream_specs: list[dict],
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
@@ -29,7 +29,7 @@ class DummyPipeline(Pipeline):
     #   to build the data structure of the sensor
     super().__init__(stream_info=stream_info,
                      logging_spec=logging_spec,
-                     streamer_specs=streamer_specs,
+                     stream_specs=stream_specs,
                      port_pub=port_pub,
                      port_sub=port_sub,
                      port_sync=port_sync,
@@ -52,7 +52,7 @@ class DummyPipeline(Pipeline):
   def _process_data(self) -> None:
     if self._is_continue_produce:
       process_time_s: float = time.time()
-      tag: str = "%s.data" % self._log_source_tag
+      tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, time_s=process_time_s, data=process_time_s)
     elif not self._is_continue_produce:
       # If triggered to stop and no more available data, send empty 'END' packet and join.

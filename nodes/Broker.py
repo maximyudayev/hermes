@@ -27,9 +27,13 @@ from utils.zmq_utils import *
 ################################################################################
 class BrokerInterface(ABC):
   # Read-only property that every subclass must implement.
-  @property
+  @classmethod
   @abstractmethod
-  def _log_source_tag(self) -> str:
+  def _log_source_tag(cls) -> str:
+    pass
+
+  @abstractmethod
+  def _start(self) -> None:
     pass
 
   @abstractmethod
@@ -104,6 +108,7 @@ class BrokerState(ABC):
 class StartState(BrokerState):
   def run(self) -> None:
     self._context._activate_poller()
+    self._context._start()
     self._context._set_state(SyncState(self._context))
 
   def is_continue(self) -> bool:
@@ -198,9 +203,10 @@ class JoinState(BrokerState):
 
 
 class Broker(BrokerInterface):
-  @property
-  def _log_source_tag(self) -> str:
+  @classmethod
+  def _log_source_tag(cls) -> str:
     return 'manager'
+
 
   # Initializes all broker logic and launches nodes
   def __init__(self,
@@ -432,130 +438,3 @@ class Broker(BrokerInterface):
 
     # Destroy ZeroMQ context.
     self._ctx.term()
-
-
-# TODO: update the unit test.
-#####################
-###### TESTING ######
-#####################
-if __name__ == "__main__":
-  class publisher():
-    def __init__(self,
-                 ip,
-                 port_backend,
-                 port_killsig,
-                 port_sync):
-      self.ip = ip
-      self.port_backend = port_backend
-      self.port_killsig = port_killsig
-      self.port_sync = port_sync
-
-    def __call__(self):
-      self.ctx = zmq.Context.instance()
-      self.pub: zmq.SyncSocket = self.ctx.socket(zmq.PUB)
-      self.pub.connect("tcp://%s:%s" % (self.ip, self.port_backend))
-
-      self.killsig: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
-      self.killsig.connect("tcp://%s:%s" % (self.ip, self.port_killsig))
-      self.killsig.subscribe("kill")
-
-      self.poller: zmq.Poller = zmq.Poller()
-      self.poller.register(self.killsig, zmq.POLLIN)
-      self.poller.register(self.pub, zmq.POLLOUT)
-
-      self.sync: zmq.SyncSocket = self.ctx.socket(zmq.REQ)
-      self.sync.connect("tcp://%s:%s" % (self.ip, self.port_sync))
-
-      # time.sleep(5.0)
-
-      # self.sync.send_multipart([b'',b'PUB'])
-      # self.sync.recv()
-
-      msg_id: int = 0
-      _running = True
-      while _running:
-        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self.poller.poll())))
-        if self.pub in poll_res[0]:
-          self.pub.send_multipart([b'PUB', bytes(str(msg_id), 'utf-8')])
-          print("Sent #%d" % msg_id, flush=True)
-          msg_id += 1
-        if self.killsig in poll_res[0]:
-          self.killsig.recv_multipart()
-          self.poller.unregister(self.killsig)
-          _running = False
-          print("quitting publisher", flush=True)
-
-      self.sync.close()
-      self.pub.close()
-      self.ctx.term()
-
-  class subscriber():
-    def __init__(self,
-                 ip,
-                 port_frontend,
-                 port_killsig,
-                 port_sync):
-      self.ip = ip
-      self.port_frontend = port_frontend
-      self.port_killsig = port_killsig
-      self.port_sync = port_sync
-
-    def __call__(self):
-      self.ctx = zmq.Context.instance()
-      self.sub: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
-      self.sub.connect("tcp://%s:%s" % (ip, port_frontend))
-      self.sub.subscribe("PUB")
-
-      self.killsig: zmq.SyncSocket = self.ctx.socket(zmq.SUB)
-      self.killsig.connect("tcp://%s:%s" % (self.ip, self.port_killsig))
-      self.killsig.subscribe("kill")
-
-      self.poller: zmq.Poller = zmq.Poller()
-      self.poller.register(self.sub, zmq.POLLIN)
-      self.poller.register(self.killsig, zmq.POLLIN)
-
-      self.sync: zmq.SyncSocket = self.ctx.socket(zmq.REQ)
-      self.sync.connect("tcp://%s:%s" % (self.ip, self.port_sync))
-
-      # time.sleep(8.0)
-
-      # self.sync.send_multipart([b'',b'SUB'])
-      # self.sync.recv()
-
-      _running = True
-      while _running:
-        poll_res: tuple[list[zmq.SyncSocket], list[int]] = tuple(zip(*(self.poller.poll())))
-        if self.sub in poll_res[0]:
-          msg: tuple[str, bytes] = self.sub.recv_multipart()
-          print("Received #%d" % int(msg[1].decode('utf-8')), flush=True)
-        if self.killsig in poll_res[0]:
-          self.killsig.recv_multipart()
-          self.poller.unregister(self.killsig)
-          _running = False
-          print("quitting publisher", flush=True)
-
-      self.sync.close()
-      self.sub.close()
-      self.ctx.term()
-
-  ip = IP_LOOPBACK
-  port_backend = PORT_BACKEND
-  port_frontend = PORT_FRONTEND
-  port_sync = PORT_SYNC
-  port_killsig = PORT_KILL
-
-  # Test launcher
-  stream_broker: Broker = Broker(ip=ip)
-
-  # set_start_method('spawn')
-  # Hacking an emulation of workers and sensors
-  processes: list[Process] = [Process(target=node) for node in [publisher(ip, port_backend, port_killsig, port_sync), 
-                                                                subscriber(ip, port_frontend, port_killsig, port_sync)]]
-  for p in processes:
-    p.start()
-
-  stream_broker._start()
-  stream_broker.run(duration_s=None)
-
-  for p in processes:
-    p.join()

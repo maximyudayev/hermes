@@ -1,6 +1,6 @@
-from nodes import Node
+from nodes.Node import Node
 from pipelines import PIPELINES
-from producers import Producer
+from producers.Producer import Producer
 from producers import PRODUCERS
 from handlers.LoggingHandler import Logger
 from streams import Stream
@@ -24,7 +24,7 @@ class Pipeline(Node):
   def __init__(self,
                stream_info: dict,
                logging_spec: dict,
-               streamer_specs: list[dict],
+               stream_specs: list[dict],
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
@@ -44,7 +44,7 @@ class Pipeline(Node):
     self._logger = Logger(**logging_spec)
 
     # Launch datalogging thread with reference to the Stream object, to save Pipeline's outputs.
-    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag, self._out_stream)]),))
+    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag(), self._out_stream)]),))
     self._logger_thread.start()
 
     # Instantiate all desired Streams that the Pipeline will process.
@@ -52,16 +52,16 @@ class Pipeline(Node):
     self._in_streams: OrderedDict[str, Stream] = OrderedDict()
     self._poll_data_fn = self._poll_data_packets
     self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
-    for streamer_spec in streamer_specs:
-      class_name: str = streamer_spec['class']
-      class_args = streamer_spec.copy()
+    for stream_spec in stream_specs:
+      class_name: str = stream_spec['class']
+      class_args = stream_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Producer] = (PRODUCERS+PIPELINES)[class_name]
+      class_type: type[Producer] = {**PRODUCERS,**PIPELINES}[class_name]
       class_object: Stream = class_type.create_stream(class_type, class_args)
       # Store the streamer object.
-      self._in_streams.setdefault(class_type._log_source_tag, class_object)
-      self._is_producer_ended.setdefault(class_type._log_source_tag, False)
+      self._in_streams.setdefault(class_type._log_source_tag(), class_object)
+      self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
 
 
   # Instantiate Stream datastructure object specific to this Pipeline.
@@ -170,7 +170,7 @@ class Pipeline(Node):
 
   # Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
   def _send_end_packet(self) -> None:
-    self._pub.send_multipart([("%s.data" % self._log_source_tag).encode('utf-8'), b'', CMD_END.encode('utf-8')])
+    self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), b'', CMD_END.encode('utf-8')])
     self._is_done = not self._is_more_data_in and not self._is_continue_produce
 
 

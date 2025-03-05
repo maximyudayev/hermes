@@ -25,6 +25,8 @@ PORT_VICON        = '801'
 # IP addresses of devices on the network used by our system
 DNS_LOCALHOST   = 'localhost'
 IP_LOOPBACK     = '127.0.0.1'
-IP_STATION      = '192.168.0.100'
+
+IP_TERMINAL     = '192.168.0.100'
 IP_PROSTHESIS   = '192.168.0.101'
 IP_BACKPACK     = '192.168.0.103'
+IP_VICON        = '192.168.0.104'

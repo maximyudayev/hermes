@@ -6,9 +6,9 @@ from utils.zmq_utils import *
 
 class NodeInterface(ABC):
   # Read-only property that every subclass must implement.
-  @property
+  @classmethod
   @abstractmethod
-  def _log_source_tag(self) -> str:
+  def _log_source_tag(cls) -> str:
     pass
 
   @property
@@ -82,7 +82,7 @@ class SyncState(NodeState):
     self._sync = context._get_sync_socket()
 
   def run(self):
-    self._sync.send_multipart([b'', self._context._log_source_tag.encode('utf-8')])
+    self._sync.send(self._context._log_source_tag().encode('utf-8'))
     self._sync.recv()
     self._context._set_state(RunningState(self._context))
 
@@ -155,16 +155,16 @@ class Node(NodeInterface):
       while self._state.is_continue():
         self._state.run()
     except KeyboardInterrupt: # catches the first CLI Ctrl+C interrupt
-      print("Keyboard interrupt signalled, %s quitting..."%self._log_source_tag, flush=True)
+      print("Keyboard interrupt signalled, %s quitting..."%self._log_source_tag(), flush=True)
       self._state.kill()
     finally:
       while self._state.is_continue(): # ignores follow-up Ctrl+C interrupts while the program is wrapping up
         try:
           self._state.run()
         except KeyboardInterrupt:
-          print("%s safely closing and saving, have some patience..."%self._log_source_tag, flush=True)
+          print("%s safely closing and saving, have some patience..."%self._log_source_tag(), flush=True)
       self._cleanup()
-      print("%s exited, goodbye <3"%self._log_source_tag, flush=True)
+      print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
 
 
   # FSM transition.
@@ -203,7 +203,7 @@ class Node(NodeInterface):
 
   # Stop listening to the kill signal.
   def _deactivate_kill_poller(self) -> None:
-    print("%s received KILL signal"%self._log_source_tag, flush=True)
+    print("%s received KILL signal"%self._log_source_tag(), flush=True)
     self._killsig.recv_multipart()
     self._poller.unregister(self._killsig)
 

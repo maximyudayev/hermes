@@ -2,6 +2,7 @@ from collections import OrderedDict
 from streams import Stream
 from visualizers import VideoVisualizer
 import dash_bootstrap_components as dbc
+import cv2
 
 
 ############################################
@@ -14,7 +15,7 @@ class CameraStream(Stream):
                camera_mapping: dict[str, str],
                fps: float,
                resolution: tuple[int],
-               color_format: int,
+               color_format: str,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                **_) -> None:
@@ -22,7 +23,7 @@ class CameraStream(Stream):
 
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
-    self._color_format = color_format
+    self._color_format = getattr(cv2, color_format)
     self._update_interval_ms = update_interval_ms
     self._timesteps_before_solidified = timesteps_before_solidified
 
