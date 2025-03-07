@@ -21,6 +21,7 @@ PORT_PROSTHESIS   = '51702' # defined by LabView code of VUB
 PORT_GUI          = '8005'
 PORT_EYE          = '50020'
 PORT_VICON        = '801'
+PORT_MVN          = '9763' # defined by MVN Analyze
 
 # IP addresses of devices on the network used by our system
 DNS_LOCALHOST   = 'localhost'

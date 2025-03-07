@@ -1,5 +1,6 @@
 from .Stream import Stream
 from .AwindaStream import AwindaStream
+from .MvnAnalyzeStream import MvnAnalyzeStream
 from .CameraStream import CameraStream
 from .CyberlegStream import CyberlegStream
 from .DotsStream import DotsStream
