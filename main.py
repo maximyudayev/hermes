@@ -46,7 +46,8 @@ if __name__ == '__main__':
   # Initialize folders and other chore data, and share programmatically across Node specs. 
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(return_time_s=True)
-  log_dir_root: str = os.path.join(script_dir, 'data',
+  log_dir_root: str = os.path.join(script_dir, 
+                                   'data',
                                    config['project'],
                                    config['trial_type'],
                                    '{0}_S{1}_{2}'.format(get_time_str(format='%Y-%m-%d'), 
