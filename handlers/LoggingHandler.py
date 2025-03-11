@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from io import TextIOWrapper
 import os
@@ -34,10 +35,100 @@ from utils.time_utils import get_time_str
 #   See MicrophoneStreamer for an example of defining these attributes.
 ##############################################################################################
 ##############################################################################################
-class Logger:
+class LoggerInterface(ABC):
+  @abstractmethod
+  def _set_state(self, state) -> None:
+    pass
+
+  @abstractmethod
+  def _initialize(self, streams: OrderedDict[str, Stream]) -> None:
+    pass
+
+  @abstractmethod
+  def _log_data(self) -> None:
+    pass
+
+  @abstractmethod
+  def _is_to_stream(self) -> bool:
+    pass
+
+  @abstractmethod
+  def _is_to_dump(self) -> bool:
+    pass
+
+  @abstractmethod
+  def _start_stream_logging(self) -> None:
+    pass
+
+  @abstractmethod
+  def _stop_stream_logging(self) -> None:
+    pass
+
+  @abstractmethod
+  def _start_dump_logging(self) -> None:
+    pass
+
+  @abstractmethod
+  def _wait_till_flush(self) -> None:
+    pass
+
+
+class BrokerState(ABC):
+  def __init__(self, context: LoggerInterface):
+    self._context = context
+    self._continue = True
+
+  @abstractmethod
+  def run(self) -> None:
+    pass
+
+  def is_continue(self) -> bool:
+    return self._continue
+
+
+class StartState(BrokerState):
+  def __init__(self, context, streams: OrderedDict[str, Stream]):
+    super().__init__(context)
+    self._context._initialize(streams)
+
+  def run(self) -> None:
+    self._context._set_state(StreamState(self._context))
+
+
+class StreamState(BrokerState):
+  def __init__(self, context):
+    super().__init__(context)
+    # Prepare stream-logging.
+    if self._context._is_to_stream():
+      self._context._start_stream_logging()
+
+  def run(self) -> None:
+    self._context._log_data()
+    self._context._set_state(DumpState(self._context))
+
+
+class DumpState(BrokerState):
+  def __init__(self, context):
+    super().__init__(context)
+    # Dump write files at the end of the trial for data that hadn't been streamed.
+    #   Assumes all intermediate recorded data can fit in memory.
+    if self._context._is_to_dump():
+      self._context._start_dump_logging()
+
+  def run(self) -> None:
+    # Until top-level module's main thread indicated that it finished producing data,
+    #   periodically sleep the thread to yield the CPU.
+    self._context._wait_till_flush()
+    # When experiment ended, write data once and wrap up.
+    #   Use the end log time to not overwrite written streamed data with empty dumped files.
+    self._context._log_data()
+    self._continue = False
+
+
+class Logger(LoggerInterface):
   def __init__(self,
+               log_tag: str,
                log_dir: str,
-               log_tag: str = None,
                stream_csv: bool = False,
                stream_hdf5: bool = False,
                stream_video: bool = False,
@@ -48,11 +139,11 @@ class Logger:
                dump_audio: bool = False,
                videos_in_csv: bool = False, 
                videos_in_hdf5: bool = False, 
-               videos_format: str = 'avi',
+               videos_format: str = "avi",
                audio_in_csv: bool = False, 
                audio_in_hdf5: bool = False, 
-               audio_format: str = 'wav',
-               stream_period_s = 30,
+               audio_format: str = "wav",
+               stream_period_s: float = 30.0,
                clear_logged_data_from_memory: bool = True,
                **_):
 
@@ -93,10 +184,32 @@ class Logger:
     self._is_flush = False       # whether remaining data at the end should now be flushed
 
 
-  # Initialize and start stream-logging to periodically write data if desired.
   def __call__(self, streams: OrderedDict[str, Stream]) -> None:
-    log_start_time_s = time.time()
+    self._state = StartState(self, streams)
+    # Run continuously, ignoring Ctrl+C interrupt, until owner Node commands an exit.
+    while self._state.is_continue():
+      try:
+        self._state.run()
+      except KeyboardInterrupt:
+        print("Caught Ctrl+C in %s Logger"%self._log_tag, flush=True)
+    print("%s Logger safely exited."%self._log_tag, flush=True)
 
+
+  # Stop logging.
+  # Will stop stream-logging, if it is active.
+  # Will trigger data dump, if configured.
+  # Node pushing data to the Stream should stop adding new data before cleaning up Logger. 
+  def cleanup(self):
+    # Stop stream-logging and wait for it to finish.
+    self._stop_stream_logging()
+    self._log_stop_time_s = time.time()
+
+
+  ############################
+  ###### FSM OPERATIONS ######
+  ############################
+  # Initializes files and indices for write pointer tracking.
+  def _initialize(self, streams: OrderedDict[str, Stream]):
     # Create Stream objects for all desired sensors we are to subscribe to from classes_to_log
     self._hdf5_log_length_increment = 10000
     self._streams = streams
@@ -112,69 +225,89 @@ class Logger:
       #  its size will be increased by the following amount.
       self._next_data_indexes_hdf5.setdefault(tag, OrderedDict())
 
+
+  def _set_state(self, state: BrokerState) -> None:
+    self._state = state
+
+
+  def _is_to_stream(self) -> bool:
+    return self._stream_csv or self._stream_hdf5 or self._stream_video or self._stream_audio
+
+
+  def _is_to_dump(self) -> bool:
+    return self._dump_csv or self._dump_hdf5 or self._dump_video or self._dump_audio
+
+
+  def _start_stream_logging(self) -> None:
+    log_start_time_s = time.time()
     # Set up CSV/HDF5 file writers for stream-logging if desired.
     if self._stream_csv:
-      self._init_writing_csv(log_start_time_s, for_streaming=True)
+      self._init_writing_csv(log_start_time_s)
     if self._stream_hdf5:
-      self._init_writing_hdf5(log_start_time_s, for_streaming=True)
+      self._init_writing_hdf5(log_start_time_s)
     if self._stream_video:
-      self._init_writing_videos(log_start_time_s, for_streaming=True)
+      self._init_writing_videos(log_start_time_s)
     if self._stream_audio:
-      self._init_writing_audio(log_start_time_s, for_streaming=True)
-
-    # Start stream-logging.
-    if self._stream_csv or self._stream_hdf5 or self._stream_video or self._stream_audio:
-      self._init_log_indexes()
-      self._is_streaming = True
-      self._is_flush = False
-      self._log_data()
-
-    # Dump write files at the end of the trial for data that hadn't been streamed.
-    #   Assumes all intermediate recorded data can fit in memory.
-    if self._dump_csv or self._dump_hdf5 or self._dump_video or self._dump_audio:
-      # Until top-level module's main thread indicated that it finished producing data,
-      #   periodically sleep the thread to yield the CPU.
-      while not self._is_flush:
-        time.sleep(self._stream_period_s)
-
-      # When experiment ended, write data once and wrap up.
-      #   Use the end log time to not overwrite written streamed data with empty dumped files.
-      self._log_all_data(dump_csv=self._dump_csv, 
-                         dump_hdf5=self._dump_hdf5,
-                         dump_video=self._dump_video, 
-                         dump_audio=self._dump_audio,
-                         log_time_s=self._log_stop_time_s)
+      self._init_writing_audio(log_start_time_s)
+    self._init_log_indices()
+    self._is_streaming = True
+    self._is_flush = False
 
 
-  # Stop all data logging.
-  # Will stop stream-logging if it is active.
-  # Will dump all data if desired.
-  # The SensorStreamers should already be stopped when this is called.
-  def cleanup(self):
-    # Stop stream-logging and wait for it to finish.
-    self._stop_stream_logging()
-    self._log_stop_time_s = time.time()
+  # Helper to stop the stream-logging thread to periodically write data.
+  # Will write any outstanding data,
+  #  and will log any metadata associated with the streamers.
+  # Will wait for the thread to finish before returning.
+  def _stop_stream_logging(self):
+    self._is_streaming = False
+    self._is_flush = True
 
 
-  #################################
-  ###### FILE INITIALIZATION ######
-  #################################
+  def _start_dump_logging(self) -> None:
+    if self._dump_csv:
+      self._init_writing_csv(self._log_stop_time_s)
+    if self._dump_hdf5:
+      self._init_writing_hdf5(self._log_stop_time_s)
+    if self._dump_video:
+      self._init_writing_videos(self._log_stop_time_s)
+    if self._dump_audio:
+      self._init_writing_audio(self._log_stop_time_s)
+    # Log all data.
+    # Will basically enable periodic stream-logging,
+    #  but will set self._is_flush and self._is_streaming such that
+    #  it seems like the experiment ended and just a final flush is required.
+    #  This will cause the stream-logging in self._log_data()
+    #  to fetch and write any outstanding data, which is all data since
+    #  none is written yet.  It will then exit after the single write.
+    # Pretend like the dumping options are actually streaming options.
+    self._stream_csv = self._dump_csv
+    self._stream_hdf5 = self._dump_hdf5
+    self._stream_video = self._dump_video
+    self._stream_audio = self._dump_audio
+    # Initialize indexes and log all of the data.
+    self._init_log_indices()
+
+
+  def _wait_till_flush(self) -> None:
+    while not self._is_flush:
+      time.sleep(self._stream_period_s)
+
+
+  #############################
+  ###### FILE OPERATIONS ######
+  #############################
   # Helper to get a base prefix for logging filenames.
   # Will indicate the logging start time and whether it's streaming or post-experiment.
-  def _get_filename_base(self, 
-                         log_time_s: float, 
-                         for_streaming: bool = True):
+  def _get_filename_base(self, log_time_s: float):
     log_datetime_str = get_time_str(log_time_s, '%Y-%m-%d_%H-%M-%S')
-    filename_base = '%s_%sLog' % (log_datetime_str, 'stream' if for_streaming else 'post')
-    if self._log_tag is not None:
-      filename_base = '%s_%s' % (filename_base, self._log_tag)
+    filename_base = '%s_%s' % (log_datetime_str, self._log_tag)
     return filename_base
 
 
   # Initialize the data indices to fetch for logging.
   # Will record the next data indices that should be fetched for each stream,
   #  and the number of timesteps that each streamer needs before data is solidified.
-  def _init_log_indexes(self):
+  def _init_log_indices(self):
     for (streamer_name, stream) in self._streams.items():
       for (device_name, device_info) in stream.get_stream_info_all().items():
         self._next_data_indexes[streamer_name][device_name] = OrderedDict()
@@ -187,11 +320,8 @@ class Logger:
   # Create and initialize CSV files.
   # Will have a separate file for each stream of each device.
   # Currently assumes that device names are unique across all streamers.
-  def _init_writing_csv(self, 
-                        log_time_s: float, 
-                        for_streaming: bool = True):
-    filename_base = self._get_filename_base(log_time_s=log_time_s,
-                                            for_streaming=for_streaming)
+  def _init_writing_csv(self, log_time_s: float):
+    filename_base = self._get_filename_base(log_time_s=log_time_s)
 
     # Open a writer for each CSV data file.
     csv_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
@@ -215,10 +345,7 @@ class Logger:
     csv_writer_metadata = open(filepath_csv, 'w')
 
     # Write CSV headers.
-    csv_headers = [
-            'Timestamp',
-            'Timestamp [s]',
-            ]
+    csv_headers = ['Timestamp [s]']
     for (streamer_name, streamer) in self._streams.items():
       for (device_name, stream_writers) in csv_writers[streamer_name].items():
         for (stream_name, stream_writer) in stream_writers.items():
@@ -270,11 +397,8 @@ class Logger:
   # Create and initialize an HDF5 file.
   # Will have a single file for all streams from all devices.
   # Currently assumes that device names are unique across all streamers.
-  def _init_writing_hdf5(self, 
-                         log_time_s: float, 
-                         for_streaming: bool = True):
-    filename_base = self._get_filename_base(log_time_s=log_time_s,
-                                            for_streaming=for_streaming)
+  def _init_writing_hdf5(self, log_time_s: float):
+    filename_base = self._get_filename_base(log_time_s=log_time_s)
 
     # Open an HDF5 file writer
     filename_hdf5 = '%s.hdf5' % filename_base
@@ -313,27 +437,21 @@ class Logger:
             elif data_key == 'time_s':
               sample_size = [1]
               data_type = 'float64'
-            elif data_key == 'time_str':
-              sample_size = [1]
-              data_type = 'S26'
             else:
               raise KeyError('Unknown data specification for %s.%s.%s' % (device_name, stream_name, data_key))
             # Create the dataset!
             stream_group.create_dataset(data_key,
-                  (self._hdf5_log_length_increment, *sample_size),
-                  maxshape=(None, *sample_size),
-                  dtype=data_type,
-                  chunks=True)
+                                        (self._hdf5_log_length_increment, *sample_size),
+                                        maxshape=(None, *sample_size),
+                                        dtype=data_type,
+                                        chunks=True)
     # Store the writer.
     self._hdf5_file = hdf5_file
 
 
   # Create and initialize video writers.
-  def _init_writing_videos(self, 
-                           log_time_s: float, 
-                           for_streaming: bool = True):
-    filename_base = self._get_filename_base(log_time_s=log_time_s,
-                                            for_streaming=for_streaming)
+  def _init_writing_videos(self, log_time_s: float):
+    filename_base = self._get_filename_base(log_time_s=log_time_s)
 
     # Create a video writer for each video stream of each device.
     self._video_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
@@ -358,8 +476,9 @@ class Logger:
           filename_video = '%s_%s_%s.%s' % (filename_base, device_name, stream_name, extension)
           filepath_video = os.path.join(self._log_dir, filename_video)
           video_writer = cv2.VideoWriter(filepath_video,
-                              cv2.VideoWriter_fourcc(*fourcc),
-                              fps, (frame_width, frame_height))
+                                         cv2.VideoWriter_fourcc(*fourcc),
+                                         fps, 
+                                         (frame_width, frame_height))
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
@@ -367,11 +486,8 @@ class Logger:
 
 
   # Create and initialize audio writers.
-  def _init_writing_audio(self, 
-                          log_time_s: float, 
-                          for_streaming: bool = True):
-    filename_base = self._get_filename_base(log_time_s=log_time_s,
-                                            for_streaming=for_streaming)
+  def _init_writing_audio(self, log_time_s: float):
+    filename_base = self._get_filename_base(log_time_s=log_time_s)
 
     # Create an audio writer for each audio stream of each device.
     self._audio_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
@@ -395,16 +511,13 @@ class Logger:
           self._audio_writers[streamer_name][device_name][stream_name] = audio_writer
 
 
-  #####################
-  ###### WRITING ######
-  #####################
   # Write provided data to the CSV logs.
   # Note that this can be called during streaming (periodic writing)
   #  or during post-experiment dumping.
-  # @param new_data is a dict with 'data', 'time_str', 'time_s',
+  # @param new_data is a dict with 'data', 'time_s',
   #   and any extra fields specified by the streamer.
   #   The data may contain multiple timesteps (each value may be a list).
-  def _write_data_CSV(self, 
+  def _write_data_csv(self, 
                       streamer_name: str, 
                       device_name: str, 
                       stream_name: str, 
@@ -438,10 +551,10 @@ class Logger:
   # Write provided data to the HDF5 file.
   # Note that this can be called during streaming (periodic writing)
   #  or during post-experiment dumping.
-  # @param new_data is a dict with 'data', probably 'time_str' and 'time_s',
+  # @param new_data is a dict with 'data', probably 'time_s',
   #   and any extra fields specified by the streamer.
   #   The data may contain multiple timesteps (each value may be a list).
-  def _write_data_HDF5(self, 
+  def _write_data_hdf5(self, 
                        streamer_name: str, 
                        device_name: str, 
                        stream_name: str, 
@@ -496,7 +609,7 @@ class Logger:
         if stream._streams_info[device_name][stream_name]['data_notes'] and \
           stream._streams_info[device_name][stream_name]['data_notes']['color_format']:
             video_writer.write(cv2.cvtColor(new_data['data'][entry_index],
-                              stream._streams_info[device_name][stream_name]['data_notes']['color_format']))
+                               stream._streams_info[device_name][stream_name]['data_notes']['color_format']))
         else:
           video_writer.write(new_data['data'][entry_index])
     except KeyError: # a writer was not created for this stream
@@ -621,63 +734,6 @@ class Logger:
   ##########################
   ###### DATA LOGGING ######
   ##########################
-  # Helper to stop the stream-logging thread to periodically write data.
-  # Will write any outstanding data,
-  #  and will log any metadata associated with the streamers.
-  # Will wait for the thread to finish before returning.
-  def _stop_stream_logging(self):
-    self._is_flush = True
-    self._is_streaming = False
-
-
-  # Helper method to log all data currently available.
-  # This is meant to be called at the end of an experiment, if dump_* options are enabled.
-  # Will first terminate any ongoing stream-logging that was happening during the experiment.
-  def _log_all_data(self, 
-                    dump_csv: bool = False, 
-                    dump_hdf5: bool = False, 
-                    dump_video: bool = False, 
-                    dump_audio: bool = False, 
-                    log_time_s: float = time.time()):
-    if dump_csv:
-      self._init_writing_csv(log_time_s, for_streaming=False)
-    if dump_hdf5:
-      self._init_writing_hdf5(log_time_s, for_streaming=False)
-    if dump_video:
-      self._init_writing_videos(log_time_s, for_streaming=False)
-    if dump_audio:
-      self._init_writing_audio(log_time_s, for_streaming=False)
-    # Log all data.
-    # Will basically enable periodic stream-logging,
-    #  but will set self._is_flush and self._is_streaming such that
-    #  it seems like the experiment ended and just a final flush is required.
-    #  This will cause the stream-logging in self._log_data()
-    #  to fetch and write any outstanding data, which is all data since
-    #  none is written yet.  It will then exit after the single write.
-    # First, save the existing stream-logging options.
-    stream_csv = self._stream_csv
-    stream_hdf5 = self._stream_hdf5
-    stream_video = self._stream_video
-    stream_audio = self._stream_audio
-    # Then pretend like the dumping options are actually streaming options.
-    self._stream_csv = self._dump_csv
-    self._stream_hdf5 = self._dump_hdf5
-    self._stream_video = self._dump_video
-    self._stream_audio = self._dump_audio
-    # Initialize indexes and log all of the data.
-    self._init_log_indexes()
-    self._log_data()
-    # Log metadata.
-    self._log_metadata()
-    # Flush/close all files.
-    self._close_files()
-    # Restore the original stream-logging configuration.
-    self._stream_csv = stream_csv
-    self._stream_hdf5 = stream_hdf5
-    self._stream_video = stream_video
-    self._stream_audio = stream_audio
-
-
   # Poll data from each streamer and log it, either periodically or all at once.
   # The poll period is set by self._stream_period_s.
   # Will loop until self._is_streaming is False, and then
@@ -698,11 +754,10 @@ class Logger:
       #  it has been at least self._stream_period_s since the last write, or
       #  periodic logging has been deactivated.
       while last_log_time_s is not None \
-              and time.time() - last_log_time_s < self._stream_period_s \
-              and self._is_streaming:
-        # Sleep a reasonable amount by default to poll the stream-logging,
-        #  but sleep shorter as the next log time approaches.
-        time.sleep(min(0.1, (last_log_time_s + self._stream_period_s) - time.time()))
+            and time.time() - last_log_time_s < self._stream_period_s \
+            and self._is_streaming:
+        time.sleep(last_log_time_s + self._stream_period_s - time.time())
+      
       if not self._is_streaming and not self._is_flush:
         continue
       # Update the last log time now, before the write actually starts.
@@ -736,9 +791,9 @@ class Logger:
             # Write any new data to files.
             if new_data is not None:
               if self._stream_csv:
-                self._write_data_CSV(streamer_name, device_name, stream_name, new_data)
+                self._write_data_csv(streamer_name, device_name, stream_name, new_data)
               if self._stream_hdf5:
-                self._write_data_HDF5(streamer_name, device_name, stream_name, new_data)
+                self._write_data_hdf5(streamer_name, device_name, stream_name, new_data)
               if self._stream_video:
                 self._write_data_video(streamer_name, device_name, stream_name, new_data)
               if self._stream_audio:
