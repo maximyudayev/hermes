@@ -25,14 +25,15 @@
 ############
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil import tz
 
 
 # Get a date string from seconds since epoch.
 # If time_s is None, will use the current time.
-def get_time_str(time_s: float | None = None, format: str = '%Y-%m-%d_%H-%M-%S', return_time_s: bool = False):
-  time_s = time_s or time.time()
+def get_time_str(time_s: float = time.time(), 
+                 format: str = '%Y-%m-%d_%H-%M-%S', 
+                 return_time_s: bool = False):
   time_datetime = datetime.fromtimestamp(time_s)
   time_str = time_datetime.strftime(format)
   if return_time_s:
@@ -43,14 +44,16 @@ def get_time_str(time_s: float | None = None, format: str = '%Y-%m-%d_%H-%M-%S',
 
 # Given a UTC time string in the format %H:%M:%S.%f,
 #  add the current UTC date then convert it to local time and return seconds since epoch.
-def get_time_s_from_utc_timeNoDate_str(time_utc_str, input_time_format='%H:%M:%S.%f',
-                                       date_utc_str=None, input_date_format='%Y-%m-%d'):
+def get_time_s_from_utc_time_no_date_str(time_utc_str: str, 
+                                         input_time_format: str = '%H:%M:%S.%f',
+                                         date_utc_str: str = None, 
+                                         input_date_format: str ='%Y-%m-%d'):
   from_zone = tz.tzutc()
   to_zone = tz.tzlocal()
   
   # Get the current UTC date if no date was provided.
   if date_utc_str is None:
-    now_utc_datetime = datetime.utcnow()
+    now_utc_datetime = datetime.now(timezone.utc)
     date_utc_str = now_utc_datetime.strftime(input_date_format)
   
   # Combine the date and time.
@@ -65,8 +68,10 @@ def get_time_s_from_utc_timeNoDate_str(time_utc_str, input_time_format='%H:%M:%S
 
 # Given a local time string in the format %H:%M:%S.%f,
 #  add the current local date then return seconds since epoch.
-def get_time_s_from_local_str(time_local_str, input_time_format='%H:%M:%S.%f',
-                              date_local_str=None, input_date_format='%Y-%m-%d'):
+def get_time_s_from_local_str(time_local_str: str, 
+                              input_time_format: str = '%H:%M:%S.%f',
+                              date_local_str: str = None, 
+                              input_date_format: str = '%Y-%m-%d'):
   # Get the current local date if no date was provided.
   if date_local_str is None:
     now_local_datetime = datetime.now()
