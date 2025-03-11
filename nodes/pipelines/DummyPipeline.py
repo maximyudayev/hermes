@@ -1,8 +1,6 @@
 from nodes.pipelines.Pipeline import Pipeline
 from streams import DummyStream
-from handlers.LoggingHandler import Logger
 
-import threading
 import time
 from utils.zmq_utils import *
 
@@ -36,13 +34,6 @@ class DummyPipeline(Pipeline):
                      port_killsig=port_killsig,
                      print_status=print_status, 
                      print_debug=print_debug)
-    
-    # Inherits the datalogging functionality.
-    self._in_logger = Logger(**logging_spec)
-
-    # Launch datalogging thread with reference to the Stream object.
-    self._in_logger_thread = threading.Thread(target=self._logger, args=(self._in_streams,))
-    self._in_logger_thread.start()
 
 
   def create_stream(cls, stream_info: dict) -> DummyStream:
@@ -64,7 +55,4 @@ class DummyPipeline(Pipeline):
   
 
   def _cleanup(self) -> None:
-    # Finish up the file saving before exitting.
-    self._in_logger.cleanup()
-    self._in_logger_thread.join()
     super()._cleanup()

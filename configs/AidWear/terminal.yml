@@ -1,4 +1,4 @@
-log_tag       : "AidWear"
+project       : "AidWear"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
@@ -6,6 +6,17 @@ duration_s    : null
 
 print_status  : True
 print_debug   : True
+
+
+host_ip : "192.168.0.100"
+remote_broker_ips: # IPs of Brokers to listen to for data on some of desired topics
+  - "192.168.0.103"
+  - "192.168.0.104"
+
+is_remote_kill: False
+
+is_expose_to_remote_sub: False # If current Broker produces data that other Brokers can listen to
+
 
 logging_spec:
   # Choose whether to periodically write data to files.

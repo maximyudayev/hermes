@@ -1,3 +1,5 @@
+import threading
+from handlers.LoggingHandler import Logger
 from nodes.Node import Node
 from nodes.producers.Producer import Producer
 from nodes.pipelines import PIPELINES
@@ -22,6 +24,7 @@ from utils.zmq_utils import *
 class Consumer(Node):
   def __init__(self,
                stream_specs: list[dict],
+               logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
@@ -47,6 +50,12 @@ class Consumer(Node):
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag(), class_object)
       self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
+
+    # Create the DataLogger object
+    self._logger = Logger(self._log_source_tag(), **logging_spec)
+    # Launch datalogging thread with reference to the Stream object.
+    self._logger_thread = threading.Thread(target=self._logger, args=(self._streams,))
+    self._logger_thread.start()
 
 
   # Initialize backend parameters specific to Consumer.
@@ -104,7 +113,13 @@ class Consumer(Node):
     self._poll_data_fn = self._poll_ending_data_packets
 
 
+  # Stop all the data logging.
+  # Will stop stream-logging if it is active.
+  # Will dump all data if desired.
   @abstractmethod
   def _cleanup(self):
+    # Finish up the file saving before exitting.
+    self._logger.cleanup()
+    self._logger_thread.join()
     self._sub.close()
     super()._cleanup()

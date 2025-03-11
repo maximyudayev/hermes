@@ -1,4 +1,4 @@
-log_tag       : "AidWear"
+project       : "AidWear"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
@@ -7,11 +7,21 @@ duration_s    : null
 print_status  : True
 print_debug   : True
 
+
+host_ip : "192.168.0.104"
+remote_broker_ips: []
+
+is_remote_kill: True
+remote_kill_ip: "192.168.0.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
+
+is_expose_to_remote_sub: True # If current Broker produces data that other Brokers can listen to
+
+
 logging_spec:
   # Choose whether to periodically write data to files.
   stream_hdf5     : True # recommended over CSV since it creates a single file
   stream_csv      : False # will create a CSV per stream
-  stream_video    : True
+  stream_video    : False
   stream_audio    : False
   stream_period_s : 10 # how often to save streamed data to disk
   clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below

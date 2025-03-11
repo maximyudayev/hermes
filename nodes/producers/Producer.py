@@ -37,7 +37,7 @@ class Producer(Node):
     self._stream: Stream = self.create_stream(stream_info)
 
     # Create the DataLogger object
-    self._logger = Logger(**logging_spec)
+    self._logger = Logger(self._log_source_tag(), **logging_spec)
 
     # Launch datalogging thread with reference to the Stream object.
     self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag(), self._stream)]),))

@@ -9,7 +9,7 @@ import yaml
 if __name__ == '__main__':
   # Parse YAML config file.
   # $> python ./main.py configs/example/template.yml
-  config_path: str = 'configs\\RevalExo\\backpack.yml'  #sys.argv[1]
+  config_path: str = sys.argv[1]
   with open(config_path, "r") as f:
     try:
       config: dict = yaml.safe_load(f)
@@ -20,18 +20,17 @@ if __name__ == '__main__':
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(return_time_s=True)
   log_dir_root: str = os.path.join(script_dir, 'data',
+                                   config['project'],
                                    config['trial_type'],
                                    '{0}_S{1}_{2}'.format(get_time_str(format='%Y-%m-%d'), 
                                                          str(config['subject_id']).zfill(3), 
                                                          str(config['trial_id']).zfill(2)))
-  log_subdir: str = '%s_%s' % (log_time_str, config['log_tag'])
-  log_dir: str = os.path.join(log_dir_root, log_subdir)
+  log_dir: str = os.path.join(log_dir_root, log_time_str)
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s_log_history.txt' % (log_time_str))
   os.makedirs(log_dir, exist_ok=True)
 
   config['logging_spec']['log_dir'] = log_dir
-  config['logging_spec']['log_tag'] = config['log_tag']
 
   # Add logging spec to each producer.
   for spec in config['producer_specs']:
@@ -40,7 +39,6 @@ if __name__ == '__main__':
   # Add logging spec to each consumer.
   for spec in config['consumer_specs']:
     spec['logging_spec']['log_dir'] = log_dir
-    spec['logging_spec']['log_tag'] = config['log_tag']+'_overall'
     spec['log_history_filepath'] = log_history_filepath
 
   producer_specs: list[dict] = config['producer_specs']

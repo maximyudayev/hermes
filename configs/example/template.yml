@@ -1,4 +1,4 @@
-log_tag       : "template"
+project       : "template"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
