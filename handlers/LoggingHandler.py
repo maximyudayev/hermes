@@ -781,10 +781,10 @@ class Logger(LoggerInterface):
       #  it has been at least self._stream_period_s since the last write, or
       #  periodic logging has been deactivated.
       while last_log_time_s is not None \
-            and time.time() - last_log_time_s < self._stream_period_s \
+            and (time_to_next_period := (last_log_time_s + self._stream_period_s - time.time())) > 0 \
             and self._is_streaming:
-        time.sleep(last_log_time_s + self._stream_period_s - time.time())
-      
+        time.sleep(time_to_next_period)
+
       if not self._is_streaming and not self._is_flush:
         continue
       # Update the last log time now, before the write actually starts.
