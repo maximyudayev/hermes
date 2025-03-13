@@ -56,6 +56,10 @@ if __name__ == '__main__':
   log_dir: str = os.path.join(log_dir_root, log_time_str)
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s_log_history.txt' % (log_time_str))
+
+  # TODO: ssh into remote IPs, distribute the log_dir and launch main.py on each device.
+  # TODO: distribute log_history.txt across Nodes and prepend each with Node tag.
+
   os.makedirs(log_dir, exist_ok=True)
 
   config['logging_spec']['log_dir'] = log_dir
@@ -94,3 +98,5 @@ if __name__ == '__main__':
 
   # Run broker's main until user exits in GUI or Ctrl+C in terminal.
   local_broker(duration_s=config['duration_s'])
+
+  # TODO: collect files from remote IPs

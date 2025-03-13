@@ -1,20 +1,14 @@
 # Temporary/generated files
 ###################################
-.idea
+__pycache__
 *.pyc
 *.asv
 
-# Data and media
+# Data
 ###################################
-*.csv
-*.json
-*.png
-*.jpg
-*.jpeg
-*.pdf
-*.fig
-*.mp4
-*.avi
-*.ppt
-*.pptx
 data/
+
+# VS Code
+###################################
+/.vscode/*
+!/.vscode/launch.json
