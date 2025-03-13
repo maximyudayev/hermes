@@ -351,7 +351,7 @@ class PupilFacade:
       self._send_to_ipc('T %0.8f' % time_s)
 
     # Estimate the network delay when sending the set-time command.
-    transmit_delay_s = estimate_transmission_delay(ping_fn=lambda _: set_device_time(time.time()))
+    transmit_delay_s = estimate_transmission_delay(ping_fn=lambda: set_device_time(time.time()))
 
     # self._log_debug('Estimated Pupil Core set clock transmit delay [ms]: mean %0.3f | std %0.3f | min %0.3f | max %0.3f' % \
     #                 (np.mean(transmit_delay_s)*1000.0, np.std(transmit_delay_s)*1000.0,

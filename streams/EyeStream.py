@@ -473,6 +473,7 @@ class EyeStream(Stream):
       ])
       self._data_notes['eye-video-eye%s' % i]['frame'] = OrderedDict([
         ('Format', 'Frames are in BGR format'),
+        ('color_format', self._color_format),
       ])
     # World video
     self._data_notes['eye-video-world']['frame_timestamp'] = OrderedDict([
@@ -486,4 +487,5 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-video-world']['frame'] = OrderedDict([
       ('Format', 'Frames are in BGR format'),
+      ('color_format', self._color_format),
     ])
