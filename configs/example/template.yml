@@ -159,6 +159,17 @@ producer_specs:
   
   # Vicon capture system.
   - class': "ViconStreamer"
+    device_mapping:
+      gluteus_medius_left         : "1" # left upper glute
+      rectus_femoris_left         : "2" # left quad
+      semitendius_left            : "3" # left hamstring
+      medial_gastrocnemius_left   : "4" # left inner calf
+      gluteus_medius_right        : "5" # right upper glute
+      rectus_femoris_right        : "6" # right quad
+      semitendius_right           : "7" # right hamstring
+      medial_gastrocnemius_right  : "8" # right inner calf
+    sampling_rate_hz: 2000
+    vicon_ip: "192.168.0.104"
   
   # Dummy producer.
   - class': "DummyStreamer"
@@ -257,6 +268,17 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         sampling_rate_hz: 20
       
       - class': "ViconStreamer"
+        device_mapping:
+          gluteus_medius_left         : "1" # left upper glute
+          rectus_femoris_left         : "2" # left quad
+          semitendius_left            : "3" # left hamstring
+          medial_gastrocnemius_left   : "4" # left inner calf
+          gluteus_medius_right        : "5" # right upper glute
+          rectus_femoris_right        : "6" # right quad
+          semitendius_right           : "7" # right hamstring
+          medial_gastrocnemius_right  : "8" # right inner calf
+        sampling_rate_hz: 2000
+        vicon_ip: "192.168.0.104"
       
       - class': "DummyStreamer"
 

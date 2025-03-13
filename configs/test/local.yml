@@ -29,7 +29,7 @@ project       : "DummyTest"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
-duration_s    : 60
+duration_s    : null
 
 print_status  : True
 print_debug   : True
@@ -62,17 +62,21 @@ logging_spec:
 
 
 producer_specs:
-  - class': "DummyStreamer"
+  - class: "ViconStreamer"
+    device_mapping:
+      gluteus_medius_left         : "1" # left upper glute
+      rectus_femoris_left         : "2" # left quad
+      semitendius_left            : "3" # left hamstring
+      medial_gastrocnemius_left   : "4" # left inner calf
+      gluteus_medius_right        : "5" # right upper glute
+      rectus_femoris_right        : "6" # right quad
+      semitendius_right           : "7" # right hamstring
+      medial_gastrocnemius_right  : "8" # right inner calf
+    sampling_rate_hz: 2000
+    vicon_ip: "192.168.0.104"
 
 
-consumer_specs:
-  - class: "DataLogger"
-    stream_specs: 
-      - class': "DummyStreamer"
-
-  - class: "DummyConsumer"
-    stream_specs: 
-      producer_specs_visualizer
+consumer_specs: []
 
 
 pipeline_specs: []
