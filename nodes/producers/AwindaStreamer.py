@@ -65,9 +65,7 @@ class AwindaStreamer(Producer):
     self._sampling_rate_hz = sampling_rate_hz
     self._radio_channel = radio_channel
     self._device_mapping = device_mapping
-
-    joint_names, device_ids = tuple(zip(*(self._device_mapping.items())))
-    self._packet = OrderedDict(zip(device_ids, [{}]*len(joint_names)))
+    self._row_id_mapping = OrderedDict([(device_id, row_id) for row_id, device_id in enumerate(self._device_mapping.values())])
 
     stream_info = {
       "num_joints": self._num_joints,
@@ -107,38 +105,26 @@ class AwindaStreamer(Producer):
     process_time_s = time.time()
     snapshot = self._handler.get_snapshot()
     if snapshot:
+      acceleration = np.empty((self._num_joints, 3), dtype=np.float32)
+      acceleration.fill(np.nan)
+      gyroscope = np.empty((self._num_joints, 3), dtype=np.float32)
+      gyroscope.fill(np.nan)
+      magnetometer = np.empty((self._num_joints, 3), dtype=np.float32)
+      magnetometer.fill(np.nan)
+      orientation = np.empty((self._num_joints, 4), dtype=np.float32)
+      orientation.fill(np.nan)      
+      timestamp = np.zeros((self._num_joints), np.uint32)
+      counter = np.zeros((self._num_joints), np.uint16)
+
       for device, packet in snapshot.items():
+        id = self._row_id_mapping[device]
         if packet:
-          acc = packet["acc"]
-          gyr = packet["gyr"]
-          mag = packet["mag"]
-          quaternion = packet["quaternion"]
-          timestamp_fine: np.uint32 = packet["timestamp_fine"]
-          counter: np.uint16 = packet["counter"]
-          toa_s: float = packet["toa_s"] # TODO: use the average clock of the valid samples in a snapshot
-        else:
-          acc = (None, None, None)
-          gyr = (None, None, None)
-          mag = (None, None, None)
-          quaternion = (None, None, None, None)
-          timestamp_fine = 0
-          counter = 0
-
-        self._packet[device] = {
-          "acceleration": acc,
-          "gyroscope": gyr,
-          "magnetometer": mag,
-          "orientation": quaternion,
-          "timestamp": timestamp_fine,
-          "counter": counter,
-        }
-
-      acceleration = np.array([v['acceleration'] for v in self._packet.values()])
-      gyroscope = np.array([v['gyroscope'] for v in self._packet.values()])
-      magnetometer = np.array([v['magnetometer'] for v in self._packet.values()])
-      orientation = np.array([v['orientation'] for v in self._packet.values()])
-      timestamp = np.array([v['timestamp'] for v in self._packet.values()])
-      counter = np.array([v['counter'] for v in self._packet.values()])
+          acceleration[id] = packet["acc"]
+          gyroscope[id] = packet["gyr"]
+          magnetometer[id] = packet["mag"]
+          orientation[id] = packet["quaternion"]
+          timestamp[id] = packet["timestamp_fine"]
+          counter[id] = packet["counter"]
 
       data = {
         'acceleration-x': acceleration[:,0],
