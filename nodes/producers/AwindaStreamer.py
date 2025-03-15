@@ -121,8 +121,8 @@ class AwindaStreamer(Producer):
           gyr = (None, None, None)
           mag = (None, None, None)
           quaternion = (None, None, None, None)
-          timestamp_fine = None
-          counter = None
+          timestamp_fine = 0
+          counter = 0
 
         self._packet[device] = {
           "acceleration": acc,

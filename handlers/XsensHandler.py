@@ -65,7 +65,7 @@ class XsensFacade:
                device_mapping: dict[str, str],
                radio_channel: int,
                sampling_rate_hz: int,
-               buffer_size: int = 5) -> None:
+               buffer_size: int = 10) -> None:
     # Queue used to synchronize current main thread and callback handler thread listening 
     #   to device connections when all expected devices connected before continuing
     self._is_all_connected_queue = queue.Queue(maxsize=1)
@@ -138,8 +138,8 @@ class XsensFacade:
     self._master_device.gotoConfig()
     config_array = xda.XsOutputConfigurationArray()
     # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0)) 
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, self._sampling_rate_hz)) 
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, self._sampling_rate_hz))
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, self._sampling_rate_hz))
     config_array.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, self._sampling_rate_hz)) # NOTE: also has XDI_MagneticFieldCorrected

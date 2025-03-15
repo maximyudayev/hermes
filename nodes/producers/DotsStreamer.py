@@ -51,8 +51,9 @@ class DotsStreamer(Producer):
                logging_spec: dict,
                device_mapping: dict[str, str],
                master_device: str,
-               sampling_rate_hz: int = 20,
+               sampling_rate_hz: int = 60,
                num_joints: int = 5,
+               is_sync_devices: bool = True,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
@@ -65,6 +66,7 @@ class DotsStreamer(Producer):
     self._sampling_rate_hz = sampling_rate_hz
     self._num_joints = num_joints
     self._master_device = master_device
+    self._is_sync_devices = is_sync_devices
     self._device_mapping = device_mapping
     self._packet = OrderedDict([(id, None) for name, id in self._device_mapping.items()])
 
@@ -97,7 +99,8 @@ class DotsStreamer(Producer):
   def _connect(self) -> bool:
     self._handler = MovellaFacade(device_mapping=self._device_mapping, 
                                   master_device=self._master_device,
-                                  sampling_rate_hz=self._sampling_rate_hz)
+                                  sampling_rate_hz=self._sampling_rate_hz,
+                                  is_sync_devices=self._is_sync_devices)
     # Keep reconnecting until success
     while not self._handler.initialize(): 
       self._handler.cleanup()
@@ -124,8 +127,8 @@ class DotsStreamer(Producer):
           gyr = (None, None, None)
           mag = (None, None, None)
           quaternion = (None, None, None, None)
-          timestamp_fine = None
-          counter = None
+          timestamp_fine = 0
+          counter = 0
 
         self._packet[device] = {
           "acceleration": acc,

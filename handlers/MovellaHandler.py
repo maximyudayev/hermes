@@ -69,7 +69,8 @@ class MovellaFacade:
                device_mapping: dict[str, str], 
                master_device: str,
                sampling_rate_hz: int,
-               buffer_size: int = 5) -> None:
+               is_sync_devices: bool,
+               buffer_size: int = 10) -> None:
     self._is_all_discovered_queue = queue.Queue(maxsize=1)
     self._device_mapping = device_mapping
     self._discovered_devices = list()
@@ -79,6 +80,7 @@ class MovellaFacade:
 
     self._master_device_id = device_mapping[master_device]
     self._sampling_rate_hz = sampling_rate_hz
+    self._is_sync_devices = is_sync_devices
 
 
   def initialize(self) -> bool:
@@ -148,24 +150,21 @@ class MovellaFacade:
         return False
 
     # Call facade sync function, not directly the backend manager proxy
-    if not self._sync(attempts=3):
-      return False
+    if self._is_sync_devices:
+      if not self._sync(attempts=3):
+        return False
 
     # Set dots to streaming mode and break out of the loop if successful
     return self._stream()
 
 
   def _sync(self, attempts=1) -> bool:
-    # TODO: check if individually stopping sync on each device helps sync devices on the LattePanda
-    for device in self._connected_devices:
-      device.stopSync()
-    # Works on the NUC
+    # NOTE: Syncing may not work on some devices due to poor BT drivers 
     while attempts > 0:
       if self._manager.startSync(self._connected_devices[self._master_device_id].bluetoothAddress()):
         return True
       else:
         attempts -= 1
-        # self._manager.getSyncStatus()
         self._manager.stopSync()
     return False
 

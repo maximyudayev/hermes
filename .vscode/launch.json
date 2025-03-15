@@ -9,7 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "main.py",
-      "args": ["configs/test/local.yml"],
+      "args": ["configs/test/local_dots.yml"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "env": {"PYTHONPATH": "${workspaceFolder}"},

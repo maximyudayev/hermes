@@ -97,7 +97,7 @@ producer_specs:
       foot_left       : "40195BFD80C200D1"
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
-    sampling_rate_hz  : 100
+    sampling_rate_hz  : 60 # [1, 4, 10, 12, 15, 20, 30, 60]
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
   - class: "EyeStreamer"
@@ -213,7 +213,7 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           foot_left       : "40195BFD80C200D1"
         master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
         num_joints        : 5
-        sampling_rate_hz  : 100
+        sampling_rate_hz  : 60
       
       - class: "EyeStreamer"
         pupil_capture_ip      : "localhost"

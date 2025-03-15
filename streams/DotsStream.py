@@ -41,7 +41,7 @@ class DotsStream(Stream):
   def __init__(self, 
                device_mapping: dict[str,str],
                num_joints: int = 5,
-               sampling_rate_hz: int = 20,
+               sampling_rate_hz: int = 60,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                transmission_delay_period_s: int = None,
