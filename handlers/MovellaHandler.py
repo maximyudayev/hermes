@@ -35,19 +35,11 @@ from utils.user_settings import *
 import time
 
 
-class DotCallback(mdda.XsDotCallback):
+class DotDataCallback(mdda.XsDotCallback):
   def __init__(self,
-               on_advertisement_found: Callable,
-               on_packet_received: Callable,
-               on_device_disconnected: Callable):
+               on_packet_received: Callable):
     super().__init__()
-    self._on_advertisement_found = on_advertisement_found
-    self._on_device_disconnected = on_device_disconnected
     self._on_packet_received = on_packet_received
-
-
-  def onAdvertisementFound(self, portInfo):
-    self._on_advertisement_found(portInfo)
 
 
   def onLiveDataAvailable(self, device, packet):
@@ -55,8 +47,21 @@ class DotCallback(mdda.XsDotCallback):
     self._on_packet_received(toa_s, device, packet)
 
 
-  def onDeviceStateChanged(self, device, newState, oldState):
-    if newState == mdda.XDS_Destructing:
+class DotConnectivityCallback(mdda.XsDotCallback):
+  def __init__(self,
+               on_advertisement_found: Callable,
+               on_device_disconnected: Callable):
+    super().__init__()
+    self._on_advertisement_found = on_advertisement_found
+    self._on_device_disconnected = on_device_disconnected
+
+
+  def onAdvertisementFound(self, port_info):
+    self._on_advertisement_found(port_info)
+
+
+  def onDeviceStateChanged(self, device, new_state, old_state):
+    if new_state == mdda.XDS_Destructing:
       self._on_device_disconnected(device)
 
 
@@ -93,11 +98,11 @@ class MovellaFacade:
     if self._manager is None:
       return False
 
-    def on_advertisement_found(portInfo) -> None:
-      if not portInfo.isBluetooth(): return
-      self._discovered_devices.append(portInfo)
+    def on_advertisement_found(port_info) -> None:
+      if not port_info.isBluetooth(): return
+      self._discovered_devices.append(port_info)
       if len(self._discovered_devices) == len(self._device_mapping): self._is_all_discovered_queue.put(True)
-      print("discovered %s"%portInfo.bluetoothAddress())
+      print("discovered %s"%port_info.bluetoothAddress(), flush=True)
 
     def on_packet_received(toa_s, device, packet):
       device_id: str = str(device.deviceId())
@@ -122,22 +127,21 @@ class MovellaFacade:
       self._connected_devices[device_id] = None
 
     # Attach callback handler to connection manager
-    self._callback = DotCallback(on_advertisement_found=on_advertisement_found,
-                                 on_packet_received=on_packet_received,
-                                 on_device_disconnected=on_device_disconnected)
-    self._manager.addXsDotCallbackHandler(self._callback)
+    self._conn_callback = DotConnectivityCallback(on_advertisement_found=on_advertisement_found,
+                                                  on_device_disconnected=on_device_disconnected)
+    self._manager.addXsDotCallbackHandler(self._conn_callback)
 
     # Start a scan and wait until we have found all devices
     self._manager.enableDeviceDetection()
     self._is_all_discovered_queue.get()
     self._manager.disableDeviceDetection()
 
-    for portInfo in self._discovered_devices:
-      if not self._manager.openPort(portInfo): 
-        print("failed to connect to %s"%portInfo.bluetoothAddress())
+    for port_info in self._discovered_devices:
+      if not self._manager.openPort(port_info): 
+        print("failed to connect to %s"%port_info.bluetoothAddress(), flush=True)
         return False
-      device = self._manager.device(portInfo.deviceId())
-      device_id: str = str(portInfo.deviceId())
+      device = self._manager.device(port_info.deviceId())
+      device_id: str = str(port_info.deviceId())
       self._connected_devices[device_id] = device
 
     # Make sure all connected devices have the same filter profile and output rate
@@ -156,7 +160,16 @@ class MovellaFacade:
         return False
 
     # Set dots to streaming mode and break out of the loop if successful
-    return self._stream()
+    if not self._stream():
+      return False
+    
+    self._data_callback = DotDataCallback(on_packet_received=on_packet_received)
+    self._manager.addXsDotCallbackHandler(self._data_callback)
+
+    return True
+
+
+  # def _activate_data_callback(self):
 
 
   def _sync(self, attempts=1) -> bool:
