@@ -490,7 +490,6 @@ class Stream(ABC):
     # Create the device/stream entry if it doesn't exist
     self._data.setdefault(device_name, OrderedDict())
     self._data[device_name].setdefault(stream_name, OrderedDict())
-
     # Get the data keys that have been populated so far.
     data_keys = list(self._data[device_name][stream_name].keys())
     # Get the expected data keys in the stream,
@@ -500,20 +499,18 @@ class Stream(ABC):
     data_keys = list(set(data_keys))
     # Clear data for each known or expected data key.
     for data_key in data_keys:
-      if first_index_to_keep is None:
+      if data_key not in self._data[device_name][stream_name]:
         self._data[device_name][stream_name][data_key] = []
+      elif first_index_to_keep is None:
+        del(self._data[device_name][stream_name][data_key][:])
       else:
-        self._data[device_name][stream_name][data_key] = \
-          self._data[device_name][stream_name][data_key][first_index_to_keep:]
+        del(self._data[device_name][stream_name][data_key][:first_index_to_keep])
 
 
   # Get the number of timesteps recorded so far.
   def _get_num_timesteps(self, device_name: str, stream_name: str) -> int:
     times_s = self._get_times_s(device_name, stream_name)
-    try: # If reading from a stored HDF5 file, avoid loading the array into memory
-      return times_s.shape[0]
-    except:
-      return len(times_s)
+    return len(times_s)
 
 
   # Get the start time of data recorded so far.

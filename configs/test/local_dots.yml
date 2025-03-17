@@ -29,7 +29,7 @@ project       : "DummyTest"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
-duration_s    : null
+duration_s    : 60
 
 print_status  : True
 print_debug   : True
@@ -45,9 +45,9 @@ is_expose_to_remote_sub: False # If current Broker produces data that other Brok
 logging_spec:
   stream_hdf5     : True
   stream_csv      : False
-  stream_video    : True
+  stream_video    : False
   stream_audio    : False
-  stream_period_s : 10
+  stream_period_s : 30
   clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
   dump_csv        : False
   dump_hdf5       : False
@@ -72,10 +72,39 @@ producer_specs:
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
     sampling_rate_hz  : 60 # [1, 4, 10, 12, 15, 20, 30, 60]
-    is_sync_devices   : False
+    # is_sync_devices   : False
 
 
-consumer_specs: []
+consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select only one.
+  - class: "DataLogger"
+    stream_specs: 
+      - class: "DotsStreamer"
+        device_mapping: 
+          knee_right      : "40195BFC800B01F2"
+          foot_right      : "40195BFC800B003B"
+          pelvis          : "40195BFD80C20052"
+          knee_left       : "40195BFC800B017A"
+          foot_left       : "40195BFD80C200D1"
+        master_device     : "pelvis"
+        num_joints        : 5
+        sampling_rate_hz  : 60
+    logging_spec:
+      stream_hdf5     : True
+      stream_csv      : False
+      stream_video    : False
+      stream_audio    : False
+      stream_period_s : 30
+      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+      dump_csv        : False
+      dump_hdf5       : False
+      dump_video      : False
+      dump_audio      : False
+      videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
+      videos_in_hdf5  : False
+      videos_in_csv   : False
+      audio_format    : "wav" # currently only supports WAV
+      audio_in_hdf5   : False
+      audio_in_csv    : False
 
 
 pipeline_specs: []

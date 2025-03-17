@@ -5,15 +5,27 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "DAQ",
       "type": "debugpy",
       "request": "launch",
       "program": "main.py",
-      "args": ["configs/test/local_dots.yml"],
+      "args": [
+        "configs/test/local_dots.yml"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
-      "env": {"PYTHONPATH": "${workspaceFolder}"},
-      "justMyCode": false
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "subProcess": true,
+      // "justMyCode": true,
     }
   ]
 }

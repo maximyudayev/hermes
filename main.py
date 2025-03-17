@@ -67,7 +67,7 @@ if __name__ == '__main__':
   # Add logging spec to each producer.
   for spec in config['producer_specs']:
     spec['logging_spec'] = config['logging_spec']
-  
+
   # Add logging spec to each consumer.
   for spec in config['consumer_specs']:
     spec['logging_spec']['log_dir'] = log_dir
