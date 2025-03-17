@@ -103,14 +103,14 @@ class LoggerInterface(ABC):
 class BrokerState(ABC):
   def __init__(self, context: LoggerInterface):
     self._context = context
-    self._continue = True
+    self._is_continue_fsm = True
 
   @abstractmethod
   def run(self) -> None:
     pass
 
   def is_continue(self) -> bool:
-    return self._continue
+    return self._is_continue_fsm
 
 
 class StartState(BrokerState):
@@ -149,7 +149,7 @@ class DumpState(BrokerState):
     # When experiment ended, write data once and wrap up.
     #   Use the end log time to not overwrite written streamed data with empty dumped files.
     self._context._log_data()
-    self._continue = False
+    self._is_continue_fsm = False
 
 
 class Logger(LoggerInterface):
@@ -205,10 +205,11 @@ class Logger(LoggerInterface):
         or self._dump_csv or self._dump_hdf5 or self._dump_video or self._dump_audio:
       os.makedirs(self._log_dir, exist_ok=True)
 
-    # Initialize state for the thread that will do stream-logging of data available in the Stream objects.
+    # Initialize variables that will guide the thread that will do stream/dump logging of data available in the Stream objects.
     #   Main thread will listen to the sockets and put files to the Stream objects.
-    self._is_streaming = False   # whether periodic writing is active
-    self._is_flush = False       # whether remaining data at the end should now be flushed
+    self._is_streaming = None   # whether periodic writing is active
+    self._is_flush = None       # whether remaining data at the end should now be flushed
+    self._is_finished = None    # whether the logging loop is finished and all data was flushed
 
 
   def __call__(self, streams: OrderedDict[str, Stream]) -> None:
@@ -279,6 +280,7 @@ class Logger(LoggerInterface):
     self._init_log_indices()
     self._is_streaming = True
     self._is_flush = False
+    self._is_finished = False
 
 
   # Helper to stop the stream-logging thread to periodically write data.
@@ -311,12 +313,14 @@ class Logger(LoggerInterface):
     self._stream_hdf5 = self._dump_hdf5
     self._stream_video = self._dump_video
     self._stream_audio = self._dump_audio
+    # Clear the is_finished flag in case dump is run after stream so the log loop can run once to flush all logged data that wasn't stream-logged.
+    self._is_finished = False
     # Initialize indexes and log all of the data.
     self._init_log_indices()
 
 
   def _wait_till_flush(self) -> None:
-    while not self._is_flush:
+    while not self._is_flush: 
       time.sleep(self._stream_period_s)
 
 
@@ -467,8 +471,8 @@ class Logger(LoggerInterface):
             else:
               raise KeyError('Unknown data specification for %s.%s.%s' % (device_name, stream_name, data_key))
             # Create the dataset!
-            stream_group.create_dataset(data_key,
-                                        (self._hdf5_log_length_increment, *sample_size),
+            stream_group.create_dataset(name=data_key,
+                                        shape=(self._hdf5_log_length_increment, *sample_size),
                                         maxshape=(None, *sample_size),
                                         dtype=data_type,
                                         chunks=True)
@@ -498,6 +502,7 @@ class Logger(LoggerInterface):
           elif self._videos_format.lower() == 'avi':
             extension = 'avi'
             fourcc = 'MJPG'
+          # TODO: try a different codec for better efficiency and speed of writing and network transmission.
           else:
             raise AssertionError('Unsupported video format %s.  Can be mp4 or avi.' % self._videos_format)
           filename_video = '%s_%s_%s.%s' % (filename_base, device_name, stream_name, extension)
@@ -621,24 +626,23 @@ class Logger(LoggerInterface):
   # @param new_data is a dict with 'data' (all other keys will be ignored).
   #   The 'data' entry must contain raw frames as a matrix.
   #   The data may contain multiple timesteps (a list of matrices).
-  def _write_data_video(self, 
-                        streamer_name: str, 
-                        device_name: str, 
-                        stream_name: str, 
+  def _write_data_video(self,
+                        streamer_name: str,
+                        device_name: str,
+                        stream_name: str,
                         new_data: dict):
     stream = self._streams[streamer_name]
-    num_new_entries = len(new_data['data'])
     try:
       video_writer: cv2.VideoWriter = self._video_writers[streamer_name][device_name][stream_name]
-      for entry_index in range(num_new_entries):
+      for frame in new_data['data']:
         # Assume the data is the frame.
         # If a custom video format was specified, convert the frame before writing it to file. 
         if stream._streams_info[device_name][stream_name]['data_notes'] and \
           stream._streams_info[device_name][stream_name]['data_notes']['color_format']:
-            video_writer.write(cv2.cvtColor(new_data['data'][entry_index],
-                               stream._streams_info[device_name][stream_name]['data_notes']['color_format']))
+            video_writer.write(cv2.cvtColor(frame,
+                                            stream._streams_info[device_name][stream_name]['data_notes']['color_format']))
         else:
-          video_writer.write(new_data['data'][entry_index])
+          video_writer.write(frame)
     except KeyError: # a writer was not created for this stream
       return
 
@@ -773,16 +777,19 @@ class Logger(LoggerInterface):
   #   Set self._is_streaming to False and self._is_flush to True
   #     then run this method (in a thread or in the main thread).
   def _log_data(self) -> None:
+    # Used to run periodic data writing.
     last_log_time_s = None
-    flushing_log = False
-    while self._is_streaming or self._is_flush:
+    # Set at the beginning of the iteration if _is_flush is externally modified to indicate cleanup and exit,
+    #   to catch case where external command to flush happened while some of streamers already saved part of available data.
+    is_flush_all_in_current_iteration = False
+    while (self._is_streaming or self._is_flush) and not self._is_finished:
       # Wait until it is time to write new data, which is either:
-      #  This is the first iteration,
-      #  it has been at least self._stream_period_s since the last write, or
-      #  periodic logging has been deactivated.
-      while last_log_time_s is not None \
-            and (time_to_next_period := (last_log_time_s + self._stream_period_s - time.time())) > 0 \
-            and self._is_streaming:
+      #  1. This is the first iteration.
+      #  2. It has been at least self._stream_period_s since the last write.
+      #  3. Periodic logging has been deactivated.
+      while (last_log_time_s is not None
+            and (time_to_next_period := (last_log_time_s + self._stream_period_s - time.time())) > 0
+            and self._is_streaming):
         time.sleep(time_to_next_period)
 
       if not self._is_streaming and not self._is_flush:
@@ -793,9 +800,9 @@ class Logger(LoggerInterface):
       #   This would compound over time, leading to longer delays and more data to write each time.
       #   This becomes more severe as the write duration increases (e.g. videos).
       last_log_time_s = time.time()
-      # If the log should be flushed, record that it is happening during this iteration for all streamers.
+      # If the log should be flushed, record that it is happening during this iteration for ALL streamers.
       if self._is_flush:
-        flushing_log = True
+        is_flush_all_in_current_iteration = True
       # Write new data for each stream of each device of each streamer.
       for (streamer_name, stream) in self._streams.items():
         for (device_name, device_info) in stream.get_stream_info_all().items():
@@ -843,15 +850,17 @@ class Logger(LoggerInterface):
                 stream.clear_data(device_name, stream_name, first_index_to_keep=next_starting_index)
                 next_starting_index = 0
               self._next_data_indexes[streamer_name][device_name][stream_name] = next_starting_index
-              new_data = None # should be unnecessary, but maybe it helps free the memory?
+              del(new_data) # should be unnecessary, but maybe it helps free the memory?
       # If stream-logging is disabled, but a final flush had been requested,
-      #  record that the flush is complete so streaming can really stop now.
+      #   record that the flush is complete so streaming can really stop now.
       # Note that it also checks whether the flush was configured to happen for all streamers during this iteration.
-      #  Especially if a lot of data was being written (such as with video data),
-      #  the self._is_flush flag may have been set sometime during the data writing.
-      #  In that case, all streamers would not have known to flush data and some data may be omitted.
-      if (not self._is_streaming) and self._is_flush and flushing_log:
-        self._is_flush = False
+      #   Especially if a lot of data was being written (such as with video data),
+      #   the self._is_flush flag may have been set sometime during the data writing.
+      #   In that case, all streamers would not have known to flush data and some data may be omitted.
+      # flushing_log set True when _is_flush was set before any streamer saved its data chunk, to make ure nothing is left behind. 
+      if (not self._is_streaming) and self._is_flush and is_flush_all_in_current_iteration:
+        self._is_finished = True
+        # self._is_flush = False
     # Log metadata.
     self._log_metadata()
     # Save and close the files.
