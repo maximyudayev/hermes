@@ -142,12 +142,24 @@ class AwindaStream(Stream):
                     sampling_rate_hz=self._sampling_rate_hz,
                     is_measure_rate_hz=True, # only 1 stream per device needs to be marked `True` if all streams get new data at a time
                     data_notes=self._data_notes['awinda-imu']['timestamp'])
+    self.add_stream(device_name='dots-imu',
+                    stream_name='toa_s',
+                    data_type='float32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    data_notes=self._data_notes['dots-imu']['toa_s'])
     self.add_stream(device_name='awinda-imu',
-                    stream_name='counter',
+                    stream_name='counter_onboard',
                     data_type='uint16',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
-                    data_notes=self._data_notes['awinda-imu']['counter'])
+                    data_notes=self._data_notes['awinda-imu']['counter_onboard'])
+    self.add_stream(device_name='dots-imu',
+                    stream_name='counter',
+                    data_type='uint32',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    data_notes=self._data_notes['dots-imu']['counter'])
 
     if self._transmission_delay_period_s:
       self.add_stream(device_name='awinda-connection',
@@ -267,7 +279,18 @@ class AwindaStream(Stream):
       ('Units', 'microsecond in range [0, (2^32)-1]'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
-    self._data_notes['awinda-imu']['counter'] = OrderedDict([
+    self._data_notes['dots-imu']['toa_s'] = OrderedDict([
+      ('Description', 'Time of arrival of the packet w.r.t. system clock.'),
+      ('Units', 'seconds'),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+    ])
+    self._data_notes['dots-imu']['counter'] = OrderedDict([
+      ('Description', 'Index of the sampled packet per device, w.r.t. the start of the recording, starting from 0. '
+                      'At sample rate of 60Hz, corresponds to ~19884 hours of recording, longer than the battery life of the sensors.'),
+      ('Range', '[0, (2^32)-1]'),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+    ])
+    self._data_notes['awinda-imu']['counter_onboard'] = OrderedDict([
       ('Description', 'Index of the sampled packet per device, starting from 0 on 1st read-out and wrapping around after 65535'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])

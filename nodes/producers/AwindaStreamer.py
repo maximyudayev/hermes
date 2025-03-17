@@ -113,8 +113,11 @@ class AwindaStreamer(Producer):
       magnetometer.fill(np.nan)
       orientation = np.empty((self._num_joints, 4), dtype=np.float32)
       orientation.fill(np.nan)      
-      timestamp = np.zeros((self._num_joints), np.uint32)
-      counter = np.zeros((self._num_joints), np.uint16)
+      timestamp = np.zeros((self._num_joints), dtype=np.uint32)
+      toa_s = np.empty((self._num_joints), dtype=np.float32)
+      toa_s.fill(np.nan)
+      counter = np.zeros((self._num_joints), dtype=np.uint32)
+      counter_onboard = np.zeros((self._num_joints), dtype=np.uint16)
 
       for device, packet in snapshot.items():
         id = self._row_id_mapping[device]
@@ -124,7 +127,9 @@ class AwindaStreamer(Producer):
           magnetometer[id] = packet["mag"]
           orientation[id] = packet["quaternion"]
           timestamp[id] = packet["timestamp_fine"]
+          toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
+          counter_onboard[id] = packet["counter_onboard"]
 
       data = {
         'acceleration-x': acceleration[:,0],
@@ -138,7 +143,9 @@ class AwindaStreamer(Producer):
         'magnetometer-z': magnetometer[:,2],
         'orientation': orientation,
         'timestamp': timestamp,
-        'counter': counter
+        'toa_s': toa_s,
+        'counter': counter,
+        'counter_onboard': counter_onboard
       }
 
       tag: str = "%s.data" % self._log_source_tag()

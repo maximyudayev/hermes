@@ -121,9 +121,11 @@ class DotsStreamer(Producer):
       magnetometer = np.empty((self._num_joints, 3), dtype=np.float32)
       magnetometer.fill(np.nan)
       orientation = np.empty((self._num_joints, 4), dtype=np.float32)
-      orientation.fill(np.nan)      
+      orientation.fill(np.nan)
       timestamp = np.zeros((self._num_joints), np.uint32)
-      counter = np.zeros((self._num_joints), np.uint16)
+      toa_s = np.empty((self._num_joints), dtype=np.float32)
+      toa_s.fill(np.nan)
+      counter = np.zeros((self._num_joints), np.uint32)
 
       for device, packet in snapshot.items():
         id = self._row_id_mapping[device]
@@ -133,6 +135,7 @@ class DotsStreamer(Producer):
           magnetometer[id] = packet["mag"]
           orientation[id] = packet["quaternion"]
           timestamp[id] = packet["timestamp_fine"]
+          toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
 
       data = {
@@ -147,6 +150,7 @@ class DotsStreamer(Producer):
         'magnetometer-z': magnetometer[:,2],
         'orientation': orientation,
         'timestamp': timestamp,
+        'toa_s': toa_s,
         'counter': counter,
       }
 

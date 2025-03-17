@@ -30,7 +30,7 @@ from typing import Callable
 import movelladot_pc_sdk as mdda
 from collections import OrderedDict
 
-from utils.datastructures import CircularBuffer
+from utils.datastructures import TimestampAlignedFifoBuffer
 from utils.user_settings import *
 import time
 
@@ -70,13 +70,16 @@ class MovellaFacade:
                master_device: str,
                sampling_rate_hz: int,
                is_sync_devices: bool,
-               buffer_size: int = 10) -> None:
+               timesteps_before_stale: int = 10) -> None:
     self._is_all_discovered_queue = queue.Queue(maxsize=1)
     self._device_mapping = device_mapping
     self._discovered_devices = list()
     self._connected_devices = OrderedDict([(v, None) for v in device_mapping.values()])
-    self._buffer = CircularBuffer(size=buffer_size,
-                                  keys=device_mapping.values())
+    sampling_period = round(1/sampling_rate_hz * 10000)
+    self._buffer = TimestampAlignedFifoBuffer(keys=device_mapping.values(),
+                                              timesteps_before_stale=timesteps_before_stale,
+                                              sampling_period=sampling_period,
+                                              num_bits_timestamp=32)
 
     self._master_device_id = device_mapping[master_device]
     self._sampling_rate_hz = sampling_rate_hz
@@ -103,7 +106,6 @@ class MovellaFacade:
       mag = packet.calibratedMagneticField()
       quaternion = packet.orientationQuaternion()
       timestamp_fine = packet.sampleTimeFine()
-      counter = packet.packetCounter()
       data = {
         "device_id":            device_id,                          # str
         "acc":                  acc,
@@ -112,9 +114,8 @@ class MovellaFacade:
         "quaternion":           quaternion, 
         "toa_s":                toa_s,                              # float
         "timestamp_fine":       timestamp_fine,                     # uint32
-        "counter":              counter,                            # uint16
       }
-      self._buffer.plop(key=device_id, data=data, counter=counter)
+      self._buffer.plop(key=device_id, data=data, timestamp=timestamp_fine)
 
     def on_device_disconnected(device):
       device_id: str = str(device.deviceId())
