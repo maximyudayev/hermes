@@ -176,7 +176,7 @@ class RunningState(BrokerState):
     if self._context._check_for_kill(poll_res): self.kill()
 
   def is_continue(self) -> bool:
-    return (time.time() > (self._context._get_start_time() + self._context._get_duration())) if not not self._context._get_duration() else True
+    return (time.time() < (self._context._get_start_time() + self._context._get_duration())) if self._context._get_duration() is not None else True
 
 
 # Received the KILL signal from an upstream broker or terminal, relay the KILL signals to all nodes and go to the JOIN state
@@ -335,6 +335,7 @@ class Broker(BrokerInterface):
     try:
       while self._state.is_continue():
         self._state.run()
+      self._state.kill()
     except KeyboardInterrupt:
       print("Keyboard interrupt signalled, quitting...", flush=True)
       self._state.kill()
