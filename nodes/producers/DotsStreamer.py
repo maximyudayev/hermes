@@ -129,7 +129,7 @@ class DotsStreamer(Producer):
 
       for device, packet in snapshot.items():
         id = self._row_id_mapping[device]
-        if packet:
+        if packet and packet["acc"].size:
           acceleration[id] = packet["acc"]
           gyroscope[id] = packet["gyr"]
           magnetometer[id] = packet["mag"]

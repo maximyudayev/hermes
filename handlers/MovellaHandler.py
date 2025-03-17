@@ -75,7 +75,7 @@ class MovellaFacade:
                master_device: str,
                sampling_rate_hz: int,
                is_sync_devices: bool,
-               timesteps_before_stale: int = 10) -> None:
+               timesteps_before_stale: int = 100) -> None:
     self._is_all_discovered_queue = queue.Queue(maxsize=1)
     self._device_mapping = device_mapping
     self._discovered_devices = list()
@@ -85,7 +85,6 @@ class MovellaFacade:
                                               timesteps_before_stale=timesteps_before_stale,
                                               sampling_period=sampling_period,
                                               num_bits_timestamp=32)
-
     self._master_device_id = device_mapping[master_device]
     self._sampling_rate_hz = sampling_rate_hz
     self._is_sync_devices = is_sync_devices
@@ -193,6 +192,7 @@ class MovellaFacade:
       # XsPayloadMode_CustomMode5         - Quaternion, Acceleration, Angular velocity, Timestamp
       # XsPayloadMode_CustomMode4         - Quaternion, 9DOF IMU data, Status, Timestamp
       # XsPayloadMode_CompleteQuaternion  - Quaternion, Free acceleration, Timestamp
+      # XsPayloadMode_RateQuantitieswMag  - 9DOF IMU data, Timestamp
       if not device.startMeasurement(mdda.XsPayloadMode_CustomMode4):
         return False
     # NOTE: orientation reset works only in 'yaw' direction on DOTs -> no reason to use, turn on flat on the table, then attach to body and start program.
