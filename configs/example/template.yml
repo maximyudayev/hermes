@@ -67,6 +67,7 @@ logging_spec:
   videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
   videos_in_hdf5  : False
   videos_in_csv   : False
+  videos_is_use_intel_api : False
   audio_format    : "wav" # currently only supports WAV
   audio_in_hdf5   : False
   audio_in_csv    : False
@@ -136,7 +137,7 @@ producer_specs:
       - 1944
       - 2592
     color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-    camera_config_filepath: "resources/pylon_20fps_maxres.pfs"
+    camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
 
   # Moticon insole pressure.
   - class: "InsoleStreamer"
@@ -250,7 +251,7 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           - 1944
           - 2592
         color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-        camera_config_filepath: "resources/pylon_20fps_maxres.pfs"
+        camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
       
       - class: "InsoleStreamer"
         sampling_rate_hz: 100

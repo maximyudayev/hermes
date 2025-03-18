@@ -161,7 +161,7 @@ class PupilFacade:
         video_world_items = [
           ('frame_timestamp', frame_timestamp),
           ('frame_index', metadata['index']), # world view frame index used for annotation
-          ('frame', img),
+          ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
         ]
 
     # Process eye video data
@@ -178,7 +178,7 @@ class PupilFacade:
       video_eye_items = [
         ('frame_timestamp', frame_timestamp),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        ('frame', img)
+        ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
       ]
       eye_id = int(topic.split('.')[2])
 

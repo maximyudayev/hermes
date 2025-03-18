@@ -32,7 +32,7 @@ from handlers.BaslerHandler import ImageEventHandler
 import pypylon.pylon as pylon
 from utils.print_utils import *
 from utils.zmq_utils import *
-
+import cv2
 from collections import OrderedDict
 
 
@@ -130,7 +130,7 @@ class CameraStreamer(Producer):
       while cam.PtpServoStatus.GetValue() != "Locked":
         # Execute clock latch 
         cam.PtpDataSetLatch.Execute()
-        time.sleep(10)
+        time.sleep(2)
 
     # Instantiate callback handler
     self._image_handler = ImageEventHandler(cam_array=self._cam_array)
@@ -146,7 +146,7 @@ class CameraStreamer(Producer):
       for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
         tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
         data = {
-          'frame': frame,
+          'frame': cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1],
           'timestamp': timestamp,
           'frame_sequence': sequence_id
         }

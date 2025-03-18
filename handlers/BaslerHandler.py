@@ -31,17 +31,19 @@ from threading import Lock
 from typing import Generator
 from pypylon import pylon
 import numpy as np
+import cv2
 
 from utils.print_utils import *
 
 class ImageEventHandler(pylon.ImageEventHandler):
-  def __init__(self, cam_array, buffer_size=5):
+  def __init__(self, cam_array, buffer_size=0):
     super().__init__()
     self._cam_array = cam_array
     # Register with the pylon loop
     for cam in cam_array: cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
     self._buffers = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), queue.Queue(maxsize=buffer_size)) for cam in cam_array])
     self._locks = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), Lock()) for cam in cam_array])
+
 
   def OnImageGrabbed(self, camera, res: pylon.GrabResultData):
     # Gets called on every image.

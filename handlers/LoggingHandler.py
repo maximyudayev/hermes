@@ -167,6 +167,7 @@ class Logger(LoggerInterface):
                videos_in_csv: bool = False, 
                videos_in_hdf5: bool = False, 
                videos_format: str = "avi",
+               videos_is_use_intel_api: bool = False,
                audio_in_csv: bool = False, 
                audio_in_hdf5: bool = False, 
                audio_format: str = "wav",
@@ -188,6 +189,7 @@ class Logger(LoggerInterface):
     self._videos_in_csv = videos_in_csv
     self._videos_in_hdf5 = videos_in_hdf5
     self._videos_format = videos_format
+    self._videos_is_use_intel_api = videos_is_use_intel_api
     self._audio_in_csv = audio_in_csv
     self._audio_in_hdf5 = audio_in_hdf5
     self._audio_format = audio_format
@@ -502,15 +504,19 @@ class Logger(LoggerInterface):
           elif self._videos_format.lower() == 'avi':
             extension = 'avi'
             fourcc = 'MJPG'
-          # TODO: try a different codec for better efficiency and speed of writing and network transmission.
+          # TODO: try a different codec? for better efficiency and speed of writing and network transmission.
           else:
             raise AssertionError('Unsupported video format %s.  Can be mp4 or avi.' % self._videos_format)
           filename_video = '%s_%s_%s.%s' % (filename_base, device_name, stream_name, extension)
           filepath_video = os.path.join(self._log_dir, filename_video)
-          video_writer = cv2.VideoWriter(filepath_video,
-                                         cv2.VideoWriter_fourcc(*fourcc),
-                                         fps, 
-                                         (frame_width, frame_height))
+          writer_params = {
+            'filename'  : filepath_video,
+            'fourcc'    : cv2.VideoWriter_fourcc(*fourcc),
+            'fps'       : fps,
+            'frameSize' :(frame_width, frame_height)
+          }
+          if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_INTEL_MFX
+          video_writer = cv2.VideoWriter(**writer_params)
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
@@ -637,12 +643,12 @@ class Logger(LoggerInterface):
       for frame in new_data['data']:
         # Assume the data is the frame.
         # If a custom video format was specified, convert the frame before writing it to file. 
+        frame = cv2.imdecode(frame, cv2.IMREAD_UNCHANGED)
         if stream._streams_info[device_name][stream_name]['data_notes'] and \
-          stream._streams_info[device_name][stream_name]['data_notes']['color_format']:
-            video_writer.write(cv2.cvtColor(frame,
-                                            stream._streams_info[device_name][stream_name]['data_notes']['color_format']))
-        else:
-          video_writer.write(frame)
+          'color_format' in stream._streams_info[device_name][stream_name]['data_notes']:
+            frame = cv2.cvtColor(frame,
+                                 stream._streams_info[device_name][stream_name]['data_notes']['color_format'])
+        video_writer.write(frame)
     except KeyError: # a writer was not created for this stream
       return
 

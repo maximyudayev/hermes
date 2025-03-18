@@ -58,7 +58,6 @@ class EyeStream(Stream):
     self._stream_video_world = stream_video_world
     self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
-    self._color_format = cv2.COLOR_BGR2RGB
     self._update_interval_ms = update_interval_ms
     self._timesteps_before_solidified = timesteps_before_solidified
 
@@ -306,7 +305,6 @@ class EyeStream(Stream):
                                 gaze_data_path={'eye-gaze': 'position'},
                                 legend_name=device,
                                 update_interval_ms=self._update_interval_ms,
-                                color_format=self._color_format,
                                 col_width=6)
                     for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
 
@@ -315,7 +313,6 @@ class EyeStream(Stream):
                                    data_path='frame',
                                    legend_name=device,
                                    update_interval_ms=self._update_interval_ms,
-                                   color_format=self._color_format,
                                    col_width=6)
                     for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
     
@@ -473,7 +470,6 @@ class EyeStream(Stream):
       ])
       self._data_notes['eye-video-eye%s' % i]['frame'] = OrderedDict([
         ('Format', 'Frames are in BGR format'),
-        ('color_format', self._color_format),
       ])
     # World video
     self._data_notes['eye-video-world']['frame_timestamp'] = OrderedDict([
@@ -487,5 +483,4 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-video-world']['frame'] = OrderedDict([
       ('Format', 'Frames are in BGR format'),
-      ('color_format', self._color_format),
     ])
