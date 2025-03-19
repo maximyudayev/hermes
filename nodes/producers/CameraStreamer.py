@@ -61,6 +61,7 @@ class CameraStreamer(Producer):
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False,
+               timesteps_before_solidified: int = 0,
                **_):
 
     # Initialize general state.
@@ -74,6 +75,7 @@ class CameraStreamer(Producer):
       "fps": fps,
       "resolution": resolution,
       "color_format": color_format,
+      "timesteps_before_solidified": timesteps_before_solidified
     }
 
     super().__init__(host_ip=host_ip,

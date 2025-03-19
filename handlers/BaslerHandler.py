@@ -25,13 +25,9 @@
 #
 # ############
 
-from collections import OrderedDict
 import queue
-from threading import Lock
-from typing import Generator
 from pypylon import pylon
 import numpy as np
-import cv2
 
 from utils.print_utils import *
 

@@ -504,7 +504,6 @@ class Logger(LoggerInterface):
           elif self._videos_format.lower() == 'avi':
             extension = 'avi'
             fourcc = 'MJPG'
-          # TODO: try a different codec? for better efficiency and speed of writing and network transmission.
           else:
             raise AssertionError('Unsupported video format %s.  Can be mp4 or avi.' % self._videos_format)
           filename_video = '%s_%s_%s.%s' % (filename_base, device_name, stream_name, extension)
@@ -513,9 +512,10 @@ class Logger(LoggerInterface):
             'filename'  : filepath_video,
             'fourcc'    : cv2.VideoWriter_fourcc(*fourcc),
             'fps'       : fps,
-            'frameSize' :(frame_width, frame_height)
+            'frameSize' : (frame_width, frame_height)
           }
-          if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_INTEL_MFX
+          # if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_OPENCV_MJPEG
+          # if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_INTEL_MFX
           video_writer = cv2.VideoWriter(**writer_params)
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:

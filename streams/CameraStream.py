@@ -89,8 +89,8 @@ class CameraStream(Stream):
 
   def build_visulizer(self) -> dbc.Row:
     camera_plots = [VideoVisualizer(stream=self,
-                                    device_name=camera_id,
-                                    data_path='frame',
+                                    unique_id=camera_id,
+                                    data_path={camera_id: 'frame'},
                                     legend_name=camera_name,
                                     update_interval_ms=self._update_interval_ms,
                                     color_format=self._color_format,

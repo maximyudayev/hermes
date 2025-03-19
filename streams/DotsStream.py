@@ -167,6 +167,7 @@ class DotsStream(Stream):
   # TODO: add `SkeletonVisualizer` for orientation data.
   def build_visulizer(self) -> dbc.Row:
     acceleration_plot = LinePlotVisualizer(stream=self,
+                                           unique_id='dots_acc',
                                            data_path={'dots-imu': [
                                                         'acceleration-x',
                                                         'acceleration-y',
@@ -176,19 +177,21 @@ class DotsStream(Stream):
                                            update_interval_ms=self._update_interval_ms,
                                            col_width=6)
     gyroscope_plot = LinePlotVisualizer(stream=self,
-                                        device_name={'dots-imu': [
-                                                       'gyroscope-x',
-                                                       'gyroscope-y',
-                                                       'gyroscope-z']},
+                                        unique_id='dots_gyr',
+                                        data_path={'dots-imu': [
+                                                      'gyroscope-x',
+                                                      'gyroscope-y',
+                                                      'gyroscope-z']},
                                         legend_names=list(self._device_mapping.values()),
                                         plot_duration_timesteps=self._timesteps_before_solidified,
                                         update_interval_ms=self._update_interval_ms,
                                         col_width=6)
     magnetometer_plot = LinePlotVisualizer(stream=self,
-                                           device_name={'dots-imu': [
-                                                          'magnetometer-x',
-                                                          'magnetometer-y',
-                                                          'magnetometer-z']},
+                                           unique_id='dots_mag',
+                                           data_path={'dots-imu': [
+                                                        'magnetometer-x',
+                                                        'magnetometer-y',
+                                                        'magnetometer-z']},
                                            legend_names=list(self._device_mapping.values()),
                                            plot_duration_timesteps=self._timesteps_before_solidified,
                                            update_interval_ms=self._update_interval_ms,

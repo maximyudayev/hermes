@@ -62,6 +62,7 @@ class DotsStreamer(Producer):
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False,
+               timesteps_before_solidified: int = 0,
                **_):
 
     # Initialize any state that the sensor needs.
@@ -78,6 +79,7 @@ class DotsStreamer(Producer):
       "sampling_rate_hz": self._sampling_rate_hz,
       "device_mapping": device_mapping,
       "is_get_orientation": is_get_orientation,
+      "timesteps_before_solidified": timesteps_before_solidified
     }
 
     # Abstract class will call concrete implementation's creation methods

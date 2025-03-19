@@ -301,19 +301,22 @@ class EyeStream(Stream):
                   self._stream_video_eye and self._is_binocular]
     
     gaze_plot = [GazeVisualizer(stream=self,
+                                unique_id=device,
                                 world_data_path={'eye-video-world': 'frame'},
                                 gaze_data_path={'eye-gaze': 'position'},
                                 legend_name=device,
                                 update_interval_ms=self._update_interval_ms,
+                                color_format=None,
                                 col_width=6)
                     for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
 
     eye_plots = [VideoVisualizer(stream=self,
-                                   device_name=device,
-                                   data_path='frame',
-                                   legend_name=device,
-                                   update_interval_ms=self._update_interval_ms,
-                                   col_width=6)
+                                 unique_id=device,
+                                 data_path={device: 'frame'},
+                                 legend_name=device,
+                                 update_interval_ms=self._update_interval_ms,
+                                 color_format=None,
+                                 col_width=6)
                     for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
     
     return dbc.Row([camera_plot.layout for camera_plot in gaze_plot+eye_plots])

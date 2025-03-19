@@ -65,6 +65,7 @@ class EyeStreamer(Producer):
                port_pause: str = PORT_PAUSE,
                print_status: bool = True,
                print_debug: bool = False,
+               timesteps_before_solidified: int = 0,
                **_) -> None:
 
     self._stream_video_world = stream_video_world
@@ -86,7 +87,8 @@ class EyeStreamer(Producer):
       "shape_video_eye1": shape_video_eye1,
       "fps_video_world": fps_video_world,
       "fps_video_eye0": fps_video_eye0,
-      "fps_video_eye1": fps_video_eye1
+      "fps_video_eye1": fps_video_eye1,
+      "timesteps_before_solidified": timesteps_before_solidified
     }
 
     super().__init__(host_ip=host_ip,
