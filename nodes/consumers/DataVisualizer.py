@@ -53,7 +53,7 @@ class DataVisualizer(Consumer):
                logging_spec: dict,
                log_history_filepath: str = None,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False, 

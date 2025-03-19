@@ -36,12 +36,13 @@ print_debug   : True
 
 
 host_ip : "192.168.69.103"
-remote_broker_ips: []
+remote_publisher_ips: []
 
 is_remote_kill: True
 remote_kill_ip: "192.168.69.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 
-is_expose_to_remote_sub: True # If current Broker produces data that other Brokers can listen to
+remote_subscriber_ips:
+  - "192.168.69.100"
 
 
 logging_spec:

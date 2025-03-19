@@ -51,7 +51,7 @@ class Producer(Node):
                stream_info: dict,
                logging_spec: dict,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,

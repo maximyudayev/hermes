@@ -50,7 +50,7 @@ class ViconStreamer(Producer):
                sampling_rate_hz: int = 2000,
                vicon_ip: str = DNS_LOCALHOST,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,

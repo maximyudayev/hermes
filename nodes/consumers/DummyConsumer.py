@@ -41,7 +41,7 @@ class DummyConsumer(Consumer):
                stream_specs: list[dict],
                logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                log_history_filepath: str = None,
                print_status: bool = True,

@@ -50,7 +50,7 @@ class PytorchWorker(Pipeline):
                stream_specs: list[dict],
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False,

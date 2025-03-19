@@ -51,7 +51,7 @@ class ExperimentControlStreamer(Producer):
                activities: list[str],
 
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,

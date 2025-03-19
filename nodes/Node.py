@@ -156,7 +156,7 @@ class JoinState(NodeState):
 class Node(NodeInterface):
   def __init__(self,
                host_ip: str = DNS_LOCALHOST,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:

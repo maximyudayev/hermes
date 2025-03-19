@@ -60,7 +60,7 @@ class EyeStreamer(Producer):
                fps_video_eye0: float = 120.0,
                fps_video_eye1: float = 120.0,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                port_pause: str = PORT_PAUSE,
                print_status: bool = True,

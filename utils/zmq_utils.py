@@ -35,12 +35,13 @@ MSG_OFF     = 'OFF'
 MSG_OK      = 'OK'
 
 # Ports used for ZeroMQ by our system
-PORT_BACKEND    = '42069'
-PORT_FRONTEND   = '42070'
-PORT_SYNC       = '42071'
-PORT_KILL       = '42066'
-PORT_KILL_BTN   = '42065'
-PORT_PAUSE      = '42067'
+PORT_BACKEND        = '42069'
+PORT_FRONTEND       = '42070'
+PORT_SYNC_HOST      = '42071'
+PORT_SYNC_REMOTE    = '42072'
+PORT_KILL           = '42066'
+PORT_KILL_BTN       = '42065'
+PORT_PAUSE          = '42067'
 
 # Ports of connected devices/sensors
 PORT_MOTICON      = '8888' # defined by the Moticon desktop app, putting data at the loopback address for listening

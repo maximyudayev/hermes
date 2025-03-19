@@ -55,7 +55,7 @@ class AwindaStreamer(Producer):
                num_joints: int = 7,
                radio_channel: int = 15,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True, 

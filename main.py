@@ -85,12 +85,12 @@ if __name__ == '__main__':
                                 print_debug=config['print_debug'])
 
   # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
-  for ip in config['remote_broker_ips']:
+  for ip in config['remote_publisher_ips']:
     local_broker.connect_to_remote_pub(addr=ip)
 
   # Expose local wearable data to remote subscribers (e.g. lab PC in AidFOG project).
-  if config['is_expose_to_remote_sub']:
-    local_broker.expose_to_remote_sub()
+  if config['remote_subscriber_ips']:
+    local_broker.expose_to_remote_sub(config['remote_subscriber_ips'])
   
   # Subscribe to the KILL signal of a remote machine.
   if config['is_remote_kill']:

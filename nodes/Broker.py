@@ -68,7 +68,23 @@ class BrokerInterface(ABC):
     pass
 
   @abstractmethod
-  def _get_num_expected_connections(self) -> int:
+  def _get_num_local_nodes(self) -> int:
+    pass
+
+  @abstractmethod
+  def _get_num_frontends(self) -> int:
+    pass
+  
+  @abstractmethod
+  def _get_num_backends(self) -> int:
+    pass
+
+  @abstractmethod
+  def _get_remote_publishers(self) -> list[str]:
+    pass
+  
+  @abstractmethod
+  def _get_remote_subscribers(self) -> list[str]:
     pass
 
   @abstractmethod
@@ -80,11 +96,23 @@ class BrokerInterface(ABC):
     pass
 
   @abstractmethod
-  def _get_sync_socket(self) -> zmq.SyncSocket:
+  def _get_sync_host_socket(self) -> zmq.SyncSocket:
+    pass
+
+  @abstractmethod
+  def _get_sync_remote_socket(self) -> zmq.SyncSocket:
     pass
 
   @abstractmethod 
   def _set_node_addresses(self, nodes: dict[str, bytes]) -> None:
+    pass
+
+  @abstractmethod 
+  def _set_remote_broker_addresses(self, remote_brokers: dict[str, bytes]) -> None:
+    pass
+
+  @abstractmethod
+  def _get_host_ip(self) -> str:
     pass
 
   @abstractmethod
@@ -145,21 +173,39 @@ class StartState(BrokerState):
 # Waits until all blocks of the system are initialized and ready to exchange data.
 class SyncState(BrokerState):
   def run(self) -> None:
-    num_expected_connections: int = self._context._get_num_expected_connections()
-    sync_socket: zmq.SyncSocket = self._context._get_sync_socket()
+    sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
+    sync_remote_socket: zmq.SyncSocket = self._context._get_sync_remote_socket()
+    num_expected_produce_connections: int = self._context._get_num_local_nodes + (self._context._get_num_backends()-1)
     count = 0
     nodes = dict()
-    while count < num_expected_connections:
-      address, _, node_name = sync_socket.recv_multipart()
+    # Receives SYNC requests from local Nodes and from remote Brokers that produce data to us.
+    while count < num_expected_produce_connections:
+      address, _, node_name = sync_host_socket.recv_multipart()
       count += 1
       node_name = node_name.decode('utf-8')
       nodes[node_name] = address
       print("%s connected to broker" % node_name, flush=True)
 
+    if remote_subscribers := self._context._get_remote_subscribers():
+      for ip in remote_subscribers:
+        sync_remote_socket.connect('tcp://%s:%s'%(ip, PORT_SYNC_HOST))
+      # Send SYNC to terminal and wait for response permission to continue.
+      sync_remote_socket.send(self._context._get_host_ip().encode('utf-8'))
+      count = 0
+      remote_brokers = dict()
+      while count < remote_subscribers:
+        address, _, node_name = sync_remote_socket.recv_multipart()
+        count += 1
+        node_name = node_name.decode('utf-8')
+        remote_brokers[node_name] = address
+        print("%s connected to broker" % node_name, flush=True)
+
     for address in nodes.values():
-      sync_socket.send_multipart([address, b'', CMD_GO.encode('utf-8')])
+      sync_host_socket.send_multipart([address, b'', CMD_GO.encode('utf-8')])
 
     self._context._set_node_addresses(nodes)
+    if remote_subscribers:
+      self._context._set_remote_broker_addresses(remote_brokers)
     self._context._set_state(RunningState(self._context))
 
   def is_continue(self) -> bool:
@@ -199,8 +245,8 @@ class KillState(BrokerState):
 class JoinState(BrokerState):
   def __init__(self, context: BrokerInterface):
     super().__init__(context)
-    self._num_left_to_join: int = self._context._get_num_expected_connections()
-    self._sync_socket: zmq.SyncSocket = self._context._get_sync_socket()
+    self._num_left_to_join: int = self._context._get_num_local_nodes + (self._context._get_num_backends()-1)
+    self._sync_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
 
   # Wait for all processes (local and remote) to send the last messages before closing.
   #   Continue brokering packets until signalled by all publishers that there will be no more packets.
@@ -241,7 +287,8 @@ class Broker(BrokerInterface):
                node_specs: list[dict],
                port_backend: str = PORT_BACKEND,
                port_frontend: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync_host: str = PORT_SYNC_HOST,
+               port_sync_remote: str = PORT_SYNC_REMOTE,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
@@ -250,11 +297,15 @@ class Broker(BrokerInterface):
     self._host_ip = host_ip
     self._port_backend = port_backend
     self._port_frontend = port_frontend
-    self._port_sync = port_sync
+    self._port_sync_host = port_sync_host
+    self._port_sync_remote = port_sync_remote
     self._port_killsig = port_killsig
     self._print_status = print_status
     self._print_debug = print_debug
     self._node_specs = node_specs
+
+    self._remote_publishers = []
+    self._remote_subscribers = []
 
     # FSM for the broker
     self._state = StartState(self)
@@ -285,8 +336,11 @@ class Broker(BrokerInterface):
     self._frontends: list[zmq.SyncSocket] = [local_frontend]
 
     # Listener endpoint to receive signals of streamers' readiness
-    self._sync: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
-    self._sync.bind("tcp://%s:%s" % (self._host_ip, self._port_sync))
+    self._sync_host: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
+    self._sync_host.bind("tcp://%s:%s" % (self._host_ip, self._port_sync_host))
+
+    # Socket to connect to remote Brokers 
+    self._sync_remote: zmq.SyncSocket = self._ctx.socket(zmq.DEALER)
 
     # Termination control socket to command publishers and subscribers to finish and exit.
     killsig_pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
@@ -302,9 +356,10 @@ class Broker(BrokerInterface):
 
 
   # Exposes a known address and port to remote networked subscribers if configured.
-  def expose_to_remote_sub(self) -> None:
+  def expose_to_remote_sub(self, addr: list[str]) -> None:
     frontend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XPUB)
     frontend_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_frontend))
+    self._remote_subscribers.extend(addr) 
     self._frontends.append(frontend_remote)
 
 
@@ -312,6 +367,7 @@ class Broker(BrokerInterface):
   def connect_to_remote_pub(self, addr: str, port_pub: str = PORT_FRONTEND) -> None:
     backend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XSUB)
     backend_remote.connect("tcp://%s:%s" % (addr, port_pub))
+    self._remote_publishers.append(addr) 
     self._backends.append(backend_remote)
 
 
@@ -364,6 +420,10 @@ class Broker(BrokerInterface):
     return self._nodes
 
 
+  def _set_remote_broker_addresses(self, remote_brokers: dict[str, bytes]) -> None:
+    self._remote_brokers = remote_brokers
+
+
   # Start time of the current state - useful for measuring run time of the experiment, excluding the lengthy setup process
   def _get_start_time(self) -> float:
     return self._state_start_time_s
@@ -374,14 +434,33 @@ class Broker(BrokerInterface):
     return self._duration_s
 
 
-  # Locally running processes and remote backends
-  def _get_num_expected_connections(self):
-    return len(self._processes) + (len(self._backends)-1) + (len(self._frontends)-1)
+  def _get_num_local_nodes(self):
+    return len(self._processes)
+  
+
+  def _get_num_frontends(self):
+    return len(self._frontends)
+  
+
+  def _get_num_backends(self):
+    return len(self._backends)
+
+
+  def _get_remote_publishers(self):
+    return len(self._remote_publishers)
+  
+
+  def _get_remote_subscribers(self):
+    return len(self._remote_subscribers)
+
+
+  def _get_host_ip(self) -> str:
+    return self._host_ip
 
 
   # Reference to the RCV socket for syncing
-  def _get_sync_socket(self) -> zmq.SyncSocket:
-    return self._sync
+  def _get_sync_host_socket(self) -> zmq.SyncSocket:
+    return self._sync_host
 
 
   # Register PUB-SUB sockets on both interfaces for polling.
@@ -404,7 +483,7 @@ class Broker(BrokerInterface):
                                                     self._host_ip,
                                                     self._port_backend,
                                                     self._port_frontend,
-                                                    self._port_sync,
+                                                    self._port_sync_host,
                                                     self._port_killsig)) for spec in self._node_specs]
     for p in self._processes: p.start()
 
@@ -465,7 +544,7 @@ class Broker(BrokerInterface):
     for s in self._backends: s.close()
     for s in self._frontends: s.close()
     for s in self._killsigs: s.close()
-    self._sync.close()
+    self._sync_host.close()
     self._gui_btn_kill.close()
 
     # Destroy ZeroMQ context.

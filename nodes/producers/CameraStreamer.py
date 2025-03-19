@@ -56,7 +56,7 @@ class CameraStreamer(Producer):
                resolution: tuple[int],
                camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,

@@ -57,7 +57,7 @@ class DotsStreamer(Producer):
                is_sync_devices: bool = True,
                is_get_orientation: bool = True,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
