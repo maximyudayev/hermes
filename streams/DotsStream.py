@@ -42,6 +42,7 @@ class DotsStream(Stream):
                device_mapping: dict[str,str],
                num_joints: int = 5,
                sampling_rate_hz: int = 60,
+               is_get_orientation: bool = True,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                transmission_delay_period_s: int = None,
@@ -49,6 +50,7 @@ class DotsStream(Stream):
     super().__init__()
     self._num_joints = num_joints
     self._sampling_rate_hz = sampling_rate_hz
+    self._is_get_orientation = is_get_orientation
     self._transmission_delay_period_s = transmission_delay_period_s
     self._timesteps_before_solidified = timesteps_before_solidified
     self._update_interval_ms = update_interval_ms
@@ -122,12 +124,13 @@ class DotsStream(Stream):
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['dots-imu']['magnetometer-z'],
                     timesteps_before_solidified=self._timesteps_before_solidified)
-    self.add_stream(device_name='dots-imu',
-                    stream_name='orientation',
-                    data_type='float32',
-                    sample_size=(self._num_joints, 4),
-                    sampling_rate_hz=self._sampling_rate_hz, 
-                    data_notes=self._data_notes['dots-imu']['orientation'])
+    if self._is_get_orientation:
+      self.add_stream(device_name='dots-imu',
+                      stream_name='orientation',
+                      data_type='float32',
+                      sample_size=(self._num_joints, 4),
+                      sampling_rate_hz=self._sampling_rate_hz, 
+                      data_notes=self._data_notes['dots-imu']['orientation'])
     self.add_stream(device_name='dots-imu',
                     stream_name='timestamp',
                     data_type='uint32',
@@ -247,10 +250,11 @@ class DotsStream(Stream):
                 'w.r.t. sensor local coordinate system'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
-    self._data_notes['dots-imu']['orientation'] = OrderedDict([
-      ('Description', 'Quaternion rotation vector [W,X,Y,Z]'),
-      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
-    ])
+    if self._is_get_orientation:
+      self._data_notes['dots-imu']['orientation'] = OrderedDict([
+        ('Description', 'Quaternion rotation vector [W,X,Y,Z]'),
+        (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+      ])
     self._data_notes['dots-imu']['timestamp'] = OrderedDict([
       ('Description', 'Time of sampling of the packet w.r.t. sensor on-board 1MHz clock, '
                       'clearing on startup and overflowing every ~1.2 hours'),

@@ -54,6 +54,7 @@ class DotsStreamer(Producer):
                sampling_rate_hz: int = 60,
                num_joints: int = 5,
                is_sync_devices: bool = True,
+               is_get_orientation: bool = True,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
@@ -66,6 +67,7 @@ class DotsStreamer(Producer):
     self._sampling_rate_hz = sampling_rate_hz
     self._num_joints = num_joints
     self._master_device = master_device
+    self._is_get_orientation = is_get_orientation
     self._is_sync_devices = is_sync_devices
     self._device_mapping = device_mapping
     self._row_id_mapping = OrderedDict([(device_id, row_id) for row_id, device_id in enumerate(self._device_mapping.values())])
@@ -73,7 +75,8 @@ class DotsStreamer(Producer):
     stream_info = {
       "num_joints": self._num_joints,
       "sampling_rate_hz": self._sampling_rate_hz,
-      "device_mapping": device_mapping
+      "device_mapping": device_mapping,
+      "is_get_orientation": is_get_orientation,
     }
 
     # Abstract class will call concrete implementation's creation methods
@@ -100,6 +103,7 @@ class DotsStreamer(Producer):
     self._handler = MovellaFacade(device_mapping=self._device_mapping, 
                                   master_device=self._master_device,
                                   sampling_rate_hz=self._sampling_rate_hz,
+                                  is_get_orientation=self._is_get_orientation,
                                   is_sync_devices=self._is_sync_devices)
     # Keep reconnecting until success
     while not self._handler.initialize(): 
@@ -120,8 +124,9 @@ class DotsStreamer(Producer):
       gyroscope.fill(np.nan)
       magnetometer = np.empty((self._num_joints, 3), dtype=np.float32)
       magnetometer.fill(np.nan)
-      orientation = np.empty((self._num_joints, 4), dtype=np.float32)
-      orientation.fill(np.nan)
+      if self._is_get_orientation:
+        orientation = np.empty((self._num_joints, 4), dtype=np.float32)
+        orientation.fill(np.nan)
       timestamp = np.zeros((self._num_joints), np.uint32)
       toa_s = np.empty((self._num_joints), dtype=np.float32)
       toa_s.fill(np.nan)
@@ -133,7 +138,8 @@ class DotsStreamer(Producer):
           acceleration[id] = packet["acc"]
           gyroscope[id] = packet["gyr"]
           magnetometer[id] = packet["mag"]
-          orientation[id] = packet["quaternion"]
+          if self._is_get_orientation:
+            orientation[id] = packet["quaternion"]
           timestamp[id] = packet["timestamp_fine"]
           toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
@@ -148,11 +154,12 @@ class DotsStreamer(Producer):
         'magnetometer-x': magnetometer[:,0],
         'magnetometer-y': magnetometer[:,1],
         'magnetometer-z': magnetometer[:,2],
-        'orientation': orientation,
         'timestamp': timestamp,
         'toa_s': toa_s,
         'counter': counter,
       }
+      if self._is_get_orientation:
+        data["orientation"] = orientation
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, time_s=process_time_s, data={'dots-imu': data})

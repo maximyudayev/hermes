@@ -65,6 +65,7 @@ logging_spec:
   videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
   videos_in_hdf5  : False
   videos_in_csv   : False
+  videos_is_use_intel_api : False
   audio_format    : "wav" # currently only supports WAV
   audio_in_hdf5   : False
   audio_in_csv    : False
@@ -82,6 +83,8 @@ producer_specs:
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
     sampling_rate_hz  : 60
+    is_get_orientation: True
+    is_sync_devices   : True
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
   - class: "EyeStreamer"

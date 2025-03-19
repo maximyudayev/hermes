@@ -127,6 +127,8 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
         num_joints        : 5
         sampling_rate_hz  : 60
+        is_get_orientation: True
+        is_sync_devices   : True
       
       - class: "EyeStreamer"
         pupil_capture_ip      : "localhost"

@@ -74,6 +74,7 @@ class MovellaFacade:
                device_mapping: dict[str, str], 
                master_device: str,
                sampling_rate_hz: int,
+               is_get_orientation: bool,
                is_sync_devices: bool,
                timesteps_before_stale: int = 100) -> None:
     self._is_all_discovered_queue = queue.Queue(maxsize=1)
@@ -87,7 +88,13 @@ class MovellaFacade:
                                               num_bits_timestamp=32)
     self._master_device_id = device_mapping[master_device]
     self._sampling_rate_hz = sampling_rate_hz
+    self._is_get_orientation = is_get_orientation
     self._is_sync_devices = is_sync_devices
+    # XsPayloadMode_CustomMode5         - Quaternion, Acceleration, Angular velocity, Timestamp
+    # XsPayloadMode_CustomMode4         - Quaternion, 9DOF IMU data, Status, Timestamp
+    # XsPayloadMode_CompleteQuaternion  - Quaternion, Free acceleration, Timestamp
+    # XsPayloadMode_RateQuantitieswMag  - 9DOF IMU data, Timestamp
+    self._payload_mode = mdda.XsPayloadMode_CustomMode4 if is_get_orientation else mdda.XsPayloadMode_RateQuantitieswMag
 
 
   def initialize(self) -> bool:
@@ -108,17 +115,16 @@ class MovellaFacade:
       acc = packet.calibratedAcceleration()
       gyr = packet.calibratedGyroscopeData()
       mag = packet.calibratedMagneticField()
-      quaternion = packet.orientationQuaternion()
       timestamp_fine = packet.sampleTimeFine()
       data = {
         "device_id":            device_id,                          # str
         "acc":                  acc,
         "gyr":                  gyr,
         "mag":                  mag,
-        "quaternion":           quaternion, 
         "toa_s":                toa_s,                              # float
         "timestamp_fine":       timestamp_fine,                     # uint32
       }
+      if self._is_get_orientation: data["quaternion"] = packet.orientationQuaternion()
       self._buffer.plop(key=device_id, data=data, timestamp=timestamp_fine)
 
     def on_device_disconnected(device):
@@ -168,9 +174,6 @@ class MovellaFacade:
     return True
 
 
-  # def _activate_data_callback(self):
-
-
   def _sync(self, attempts=1) -> bool:
     # NOTE: Syncing may not work on some devices due to poor BT drivers 
     while attempts > 0:
@@ -189,11 +192,7 @@ class MovellaFacade:
                                                     (self._master_device_id, self._connected_devices[self._master_device_id])]
 
     for (joint, device) in ordered_device_list:
-      # XsPayloadMode_CustomMode5         - Quaternion, Acceleration, Angular velocity, Timestamp
-      # XsPayloadMode_CustomMode4         - Quaternion, 9DOF IMU data, Status, Timestamp
-      # XsPayloadMode_CompleteQuaternion  - Quaternion, Free acceleration, Timestamp
-      # XsPayloadMode_RateQuantitieswMag  - 9DOF IMU data, Timestamp
-      if not device.startMeasurement(mdda.XsPayloadMode_CustomMode4):
+      if not device.startMeasurement(self._payload_mode):
         return False
     # NOTE: orientation reset works only in 'yaw' direction on DOTs -> no reason to use, turn on flat on the table, then attach to body and start program.
     # for (joint, device) in ordered_device_list:

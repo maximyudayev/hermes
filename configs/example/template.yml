@@ -99,6 +99,8 @@ producer_specs:
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
     sampling_rate_hz  : 60 # [1, 4, 10, 12, 15, 20, 30, 60]
+    is_get_orientation: True
+    is_sync_devices   : True
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
   - class: "EyeStreamer"
@@ -215,6 +217,8 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
         num_joints        : 5
         sampling_rate_hz  : 60
+        is_get_orientation: True
+        is_sync_devices   : True
       
       - class: "EyeStreamer"
         pupil_capture_ip      : "localhost"
@@ -282,6 +286,32 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         vicon_ip: "192.168.0.104"
       
       - class': "DummyStreamer"
+    
+    logging_spec:
+      # Choose whether to periodically write data to files.
+      stream_hdf5     : False # recommended over CSV since it creates a single file
+      stream_csv      : False # will create a CSV per stream
+      stream_video    : False
+      stream_audio    : False
+      stream_period_s : 10 # how often to save streamed data to disk
+      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+
+      # Choose whether to write all data at the end.
+      #   Seems to be mutually exclusive with `stream_` options.
+      dump_csv        : False
+      dump_hdf5       : False
+      dump_video      : False
+      dump_audio      : False
+
+      # Additional configuration.
+      #   Choose whether to save media separately or as part of HDF5/CSV files.
+      videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
+      videos_in_hdf5  : False
+      videos_in_csv   : False
+      videos_is_use_intel_api : False
+      audio_format    : "wav" # currently only supports WAV
+      audio_in_hdf5   : False
+      audio_in_csv    : False
 
   - class: "DataVisualizer"
     stream_specs: 
