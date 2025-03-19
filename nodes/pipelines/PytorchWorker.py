@@ -44,6 +44,7 @@ class PytorchWorker(Pipeline):
 
 
   def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                stream_specs: list[dict],
@@ -60,7 +61,8 @@ class PytorchWorker(Pipeline):
       
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      stream_specs=stream_specs,
                      port_pub=port_pub,

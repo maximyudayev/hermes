@@ -76,9 +76,9 @@ producer_specs:
   - class: "CameraStreamer"
     camera_mapping: # map camera names (usable as device names in the HDF5 file) to capture device indexes
       basler_north : "40478064"
-      basler_east  : "40549960"
-      basler_south : "40549975"
-      basler_west  : "40549976"
+      # basler_east  : "40549960"
+      # basler_south : "40549975"
+      # basler_west  : "40549976"
     fps: 20
     resolution:
       - 1944
@@ -109,6 +109,8 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
         num_joints        : 5
         sampling_rate_hz  : 60
+        is_get_orientation: False
+        is_sync_devices   : True
       
       - class: "EyeStreamer"
         pupil_capture_ip      : "localhost"
@@ -123,12 +125,12 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           - 1280
           - 3
         shape_video_eye0: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         shape_video_eye1: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         fps_video_world       : 30.0
         fps_video_eye0        : 120.0
@@ -137,9 +139,9 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
       - class: "CameraStreamer"
         camera_mapping: # map camera names (usable as device names in the HDF5 file) to capture device indexes
           basler_north : "40478064"
-          basler_east  : "40549960"
-          basler_south : "40549975"
-          basler_west  : "40549976"
+          # basler_east  : "40549960"
+          # basler_south : "40549975"
+          # basler_west  : "40549976"
         fps: 20
         resolution:
           - 1944
@@ -147,8 +149,8 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
         camera_config_filepath: "resources/AidFOG/pylon_20fps_maxres.pfs"
       
-      - class: "InsoleStreamer"
-        sampling_rate_hz: 100
+      # - class: "InsoleStreamer"
+      #   sampling_rate_hz: 100
 
 
 pipeline_specs: []

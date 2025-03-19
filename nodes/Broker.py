@@ -237,7 +237,7 @@ class Broker(BrokerInterface):
 
   # Initializes all broker logic and launches nodes
   def __init__(self,
-               ip: str,
+               host_ip: str,
                node_specs: list[dict],
                port_backend: str = PORT_BACKEND,
                port_frontend: str = PORT_FRONTEND,
@@ -247,7 +247,7 @@ class Broker(BrokerInterface):
                print_debug: bool = False) -> None:
 
     # Record various configuration options.
-    self._ip = ip
+    self._host_ip = host_ip
     self._port_backend = port_backend
     self._port_frontend = port_frontend
     self._port_sync = port_sync
@@ -286,7 +286,7 @@ class Broker(BrokerInterface):
 
     # Listener endpoint to receive signals of streamers' readiness
     self._sync: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
-    self._sync.bind("tcp://%s:%s" % (self._ip, self._port_sync))
+    self._sync.bind("tcp://%s:%s" % (self._host_ip, self._port_sync))
 
     # Termination control socket to command publishers and subscribers to finish and exit.
     killsig_pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
@@ -304,7 +304,7 @@ class Broker(BrokerInterface):
   # Exposes a known address and port to remote networked subscribers if configured.
   def expose_to_remote_sub(self) -> None:
     frontend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XPUB)
-    frontend_remote.bind("tcp://%s:%s" % (self._ip, self._port_frontend))
+    frontend_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_frontend))
     self._frontends.append(frontend_remote)
 
 
@@ -376,7 +376,7 @@ class Broker(BrokerInterface):
 
   # Locally running processes and remote backends
   def _get_num_expected_connections(self):
-    return len(self._processes) + (len(self._backends)-1)
+    return len(self._processes) + (len(self._backends)-1) + (len(self._frontends)-1)
 
 
   # Reference to the RCV socket for syncing
@@ -401,6 +401,7 @@ class Broker(BrokerInterface):
     # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
     self._processes: list[Process] = [Process(target=launch,
                                               args=(spec,
+                                                    self._host_ip,
                                                     self._port_backend,
                                                     self._port_frontend,
                                                     self._port_sync,

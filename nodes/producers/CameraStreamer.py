@@ -48,6 +48,7 @@ class CameraStreamer(Producer):
 
 
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
@@ -75,7 +76,8 @@ class CameraStreamer(Producer):
       "color_format": color_format,
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,

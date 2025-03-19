@@ -155,12 +155,14 @@ class JoinState(NodeState):
 
 class Node(NodeInterface):
   def __init__(self,
+               host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     self._print_status = print_status
     self._print_debug = print_debug
+    self._host_ip = host_ip
     self._port_sync = port_sync
     self._port_killsig = port_killsig
     self.__is_done = False
@@ -216,7 +218,7 @@ class Node(NodeInterface):
 
     # Socket to indicate to broker that the subscriber is ready
     self._sync: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
-    self._sync.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sync))
+    self._sync.connect("tcp://%s:%s" % (self._host_ip, self._port_sync))
     # Socket to indicate to broker that the Node caught interrupt signal
     self._babykillsig: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
     self._babykillsig.connect("tcp://%s:%s" % (DNS_LOCALHOST, PORT_KILL_BTN))

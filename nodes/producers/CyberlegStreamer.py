@@ -52,6 +52,7 @@ class CyberlegStreamer(Producer):
 
 
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC,
@@ -64,7 +65,8 @@ class CyberlegStreamer(Producer):
     stream_info = {
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,

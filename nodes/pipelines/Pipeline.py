@@ -47,6 +47,7 @@ import zmq
 ##############################################################
 class Pipeline(Node):
   def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                stream_specs: list[dict],
@@ -60,7 +61,11 @@ class Pipeline(Node):
     from nodes.pipelines import PIPELINES
     from nodes.producers import PRODUCERS
 
-    super().__init__(port_sync, port_killsig, print_status, print_debug)
+    super().__init__(host_ip=host_ip,
+                     port_sync=port_sync, 
+                     port_killsig=port_killsig, 
+                     print_status=print_status,
+                     print_debug=print_debug)
     self._port_pub = port_pub
     self._port_sub = port_sub
     self._is_continue_produce = True

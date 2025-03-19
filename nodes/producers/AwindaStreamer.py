@@ -47,7 +47,8 @@ class AwindaStreamer(Producer):
     return 'awinda'
 
 
-  def __init__(self, 
+  def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                device_mapping: dict[str, str],
                sampling_rate_hz: int = 100,
@@ -73,7 +74,8 @@ class AwindaStreamer(Producer):
       "device_mapping": self._device_mapping
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,

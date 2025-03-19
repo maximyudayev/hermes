@@ -48,6 +48,7 @@ class DotsStreamer(Producer):
 
 
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                device_mapping: dict[str, str],
                master_device: str,
@@ -81,7 +82,8 @@ class DotsStreamer(Producer):
 
     # Abstract class will call concrete implementation's creation methods
     #   to build the data structure of the sensor
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,
@@ -117,7 +119,7 @@ class DotsStreamer(Producer):
     process_time_s: float = time.time()
     # Retrieve the oldest enqueued packet for each sensor.
     snapshot = self._handler.get_snapshot()
-    if snapshot:
+    if snapshot is not None:
       acceleration = np.empty((self._num_joints, 3), dtype=np.float32)
       acceleration.fill(np.nan)
       gyroscope = np.empty((self._num_joints, 3), dtype=np.float32)

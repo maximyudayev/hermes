@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
 
   # Create the broker and manage all the components of the experiment.
-  local_broker: Broker = Broker(ip=config['host_ip'],
+  local_broker: Broker = Broker(host_ip=config['host_ip'],
                                 node_specs=producer_specs+consumer_specs+pipeline_specs,
                                 print_status=config['print_status'], 
                                 print_debug=config['print_debug'])

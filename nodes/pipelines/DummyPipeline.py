@@ -39,6 +39,7 @@ class DummyPipeline(Pipeline):
 
 
   def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                stream_specs: list[dict],
@@ -52,7 +53,8 @@ class DummyPipeline(Pipeline):
 
     # Abstract class will call concrete implementation's creation methods
     #   to build the data structure of the sensor
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      stream_specs=stream_specs,
                      port_pub=port_pub,

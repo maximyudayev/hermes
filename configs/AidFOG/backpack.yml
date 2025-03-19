@@ -83,7 +83,7 @@ producer_specs:
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
     sampling_rate_hz  : 60
-    is_get_orientation: True
+    is_get_orientation: False
     is_sync_devices   : True
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
@@ -107,13 +107,13 @@ producer_specs:
       - 192
       - 192
       - 3
-    fps_video_world       : 60.0
-    fps_video_eye0        : 200.0
-    fps_video_eye1        : 200.0
+    fps_video_world       : 30.0
+    fps_video_eye0        : 120.0
+    fps_video_eye1        : 120.0
 
-  # Moticon insole pressure.
-  - class: "InsoleStreamer"
-    sampling_rate_hz: 100
+  # # Moticon insole pressure.
+  # - class: "InsoleStreamer"
+  #   sampling_rate_hz: 100
 
 
 consumer_specs: []

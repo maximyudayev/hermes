@@ -47,7 +47,8 @@ class DataVisualizer(Consumer):
     return 'visualizer'
 
 
-  def __init__(self, 
+  def __init__(self,
+               host_ip: str,
                stream_specs: list[dict],
                logging_spec: dict,
                log_history_filepath: str = None,
@@ -58,7 +59,8 @@ class DataVisualizer(Consumer):
                print_debug: bool = False, 
                **_):
 
-    super().__init__(stream_specs=stream_specs,
+    super().__init__(host_ip=host_ip,
+                     stream_specs=stream_specs,
                      logging_spec=logging_spec,
                      port_sub=port_sub,
                      port_sync=port_sync,
