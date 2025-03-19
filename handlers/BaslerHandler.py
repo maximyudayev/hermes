@@ -35,14 +35,21 @@ import cv2
 
 from utils.print_utils import *
 
+
+# Does not align video streams according to timestamps, 
+#   they are captured synchronously on independent PoE interfaces -> no need.
+#   That's why alignment is not necessary unlike IMUs.
+#   Grabbed images from several devices pushed into single buffer, arbitrarily overlapping images.
+# NOTE: may be interesting to actually align them in a snapshot buffer, similar to IMUs,
+#   To make multi-angle computer vision algorithms possible. 
 class ImageEventHandler(pylon.ImageEventHandler):
-  def __init__(self, cam_array, buffer_size=0):
+  def __init__(self, cam_array):
     super().__init__()
     self._cam_array = cam_array
-    # Register with the pylon loop
-    for cam in cam_array: cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
-    self._buffers = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), queue.Queue(maxsize=buffer_size)) for cam in cam_array])
-    self._locks = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), Lock()) for cam in cam_array])
+    for cam in cam_array: 
+      # Register with the pylon loop, specify strategy for frame grabbing.
+      cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
+    self._buffer = queue.Queue()
 
 
   def OnImageGrabbed(self, camera, res: pylon.GrabResultData):
@@ -56,41 +63,19 @@ class ImageEventHandler(pylon.ImageEventHandler):
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
-        self._put_frame(camera_id=camera_id, frame=frame, timestamp=timestamp, sequence_id=sequence_id)
+        self._buffer.put((camera_id, frame, timestamp, sequence_id))
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
       print(e)
 
-  def OnImagesSkipped(self, camera, countOfSkippedImages):
-    print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {countOfSkippedImages} images.")
+  def OnImagesSkipped(self, camera, num_images_skipped):
+    print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {num_images_skipped} images.")
 
-  # Pops the oldest value if the queue is full
-  def _put_frame(self, camera_id: str, frame: np.ndarray, timestamp: np.uint64, sequence_id: np.int64) -> None:
+
+  def get_frame(self) -> tuple[str, np.ndarray, np.uint64, np.int64] | None:
     try:
-      self._locks[camera_id].acquire()
-      self._buffers[camera_id].put_nowait((camera_id, frame, timestamp, sequence_id))
-    except queue.Full:
-      _ = self._buffers[camera_id].get()
-      self._buffers[camera_id].put((camera_id, frame, timestamp, sequence_id))
-    finally:
-      self._locks[camera_id].release()
-
-  def get_frame(self) -> Generator[tuple[str, np.ndarray, np.uint64, np.int64], None, None]:
-    for camera in self._cam_array:
-      camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
-      try:
-        self._locks[camera_id].acquire()
-        oldest_frame = self._buffers[camera_id].get_nowait()
-        self._locks[camera_id].release()
-        yield oldest_frame
-      except queue.Empty:
-        self._locks[camera_id].release()
-        continue
-
-  # If at least one camera has a new frame
-  def is_data_available(self) -> bool:
-    for camera in self._cam_array:
-      camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
-      if self._buffers[camera_id].qsize() > 0: return True
-    return False
+      oldest_frame = self._buffer.get_nowait()
+      return oldest_frame
+    except queue.Empty:
+      return None

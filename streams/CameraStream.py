@@ -26,6 +26,7 @@
 # ############
 
 from collections import OrderedDict
+from typing import Any
 from streams import Stream
 from visualizers import VideoVisualizer
 import dash_bootstrap_components as dbc
@@ -115,3 +116,30 @@ class CameraStream(Stream):
       self._data_notes[camera_id]["frame_sequence"] = OrderedDict([
         ('Notes', ('Monotonically increasing index of the frame to track lost frames')),
       ])
+
+
+  # Override the thread-locking wrapper methods to safely access the data (we are responsible)
+  #   between cameras independently, without locking other threads.
+  # !!! 'data' must contain only 1 device's data. Can do this, because these streams are async,
+  #   may want to align them like DOTs if using a multi-angle (3D) recognition, pose estimation, etc.
+  # NOTE: simpler solution to current code, cleaner than alternatives,
+  #   may be less performant than individual Logger per camera device.
+  def append_data(self, time_s: float, data: dict) -> None:
+    self._append_data(time_s=time_s, data=data)
+
+
+  def get_data(self, 
+               device_name: str, 
+               stream_name: str,
+               starting_index: int = None, 
+               ending_index: int = None,
+               starting_time_s: float = None, 
+               ending_time_s: float = None,
+               return_deepcopy: bool = True) -> dict[str, list[Any]]:
+    return self._get_data(device_name=device_name,
+                          stream_name=stream_name,
+                          starting_index=starting_index,
+                          ending_index=ending_index,
+                          starting_time_s=starting_time_s,
+                          ending_time_s=ending_time_s,
+                          return_deepcopy=return_deepcopy)
