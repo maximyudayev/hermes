@@ -39,9 +39,11 @@ host_ip : "192.168.69.100"
 remote_publisher_ips: # IPs of Brokers to listen to for data on some of desired topics
   - "192.168.69.103"
 
-is_remote_kill: False
+is_remote_kill: True
+remote_kill_ip: null
 
-remote_subscriber_ips: [] # If current Broker produces data that other Brokers can listen to
+remote_subscriber_ips: []
+
 
 logging_spec:
   # Choose whether to periodically write data to files.
@@ -117,9 +119,12 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         pupil_capture_port    : "50020"
         video_image_format    : "bgr"
         gaze_estimate_stale_s : 0.2
-        stream_video_world    : True # the world video
-        stream_video_eye      : False # video of the eye
-        is_binocular          : True # uses both eyes for gaze data and for video
+        is_binocular            : True # uses both eyes for gaze data and for video
+        is_stream_video_world   : True
+        is_stream_video_eye     : False
+        is_stream_fixation      : False
+        is_stream_blinks        : False
+        is_stream_head_pose     : False # TODO: requires looking into markers!
         shape_video_world: 
           - 720
           - 1280

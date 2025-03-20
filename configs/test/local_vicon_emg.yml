@@ -36,10 +36,12 @@ print_debug   : True
 
 
 host_ip : "127.0.0.1"
-remote_broker_ips: []
+
+remote_publisher_ips: []
+remote_subscriber_ips: []
 
 is_remote_kill: False
-is_expose_to_remote_sub: False # If current Broker produces data that other Brokers can listen to
+remote_kill_ip: null
 
 
 logging_spec:

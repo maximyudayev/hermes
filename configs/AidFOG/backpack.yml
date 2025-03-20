@@ -41,7 +41,7 @@ remote_publisher_ips: []
 is_remote_kill: True
 remote_kill_ip: "192.168.69.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 
-remote_subscriber_ips:
+remote_subscriber_ips: 
   - "192.168.69.100"
 
 
@@ -93,9 +93,12 @@ producer_specs:
     pupil_capture_port    : "50020"
     video_image_format    : "bgr"
     gaze_estimate_stale_s : 0.2
-    stream_video_world    : True # the world video
-    stream_video_eye      : False # video of the eye
-    is_binocular          : True # uses both eyes for gaze data and for video
+    is_binocular            : True # uses both eyes for gaze data and for video
+    is_stream_video_world   : True
+    is_stream_video_eye     : False
+    is_stream_fixation      : False
+    is_stream_blinks        : False
+    is_stream_head_pose     : False # TODO: requires looking into markers!
     shape_video_world: 
       - 720
       - 1280
