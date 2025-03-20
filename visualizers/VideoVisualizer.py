@@ -76,12 +76,12 @@ class VideoVisualizer(Visualizer):
                                        stream_name=stream_name,
                                        starting_index=-1)
       if new_data is not None:
-        img = new_data['data']
+        img = new_data['data'][0]
         if self._color_format: 
           img = cv2.cvtColor(src=img, 
                              code=self._color_format)
         fig = px.imshow(img=img)
-        fig.update(title_text=self._legend_name)
+        # fig.update(title_text=self._legend_name)
         fig.update_layout(coloraxis_showscale=False)
         fig.update_xaxes(showticklabels=False)
         fig.update_yaxes(showticklabels=False)

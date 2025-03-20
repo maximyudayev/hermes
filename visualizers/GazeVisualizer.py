@@ -85,12 +85,12 @@ class GazeVisualizer(Visualizer):
           world_data = cv2.cvtColor(src=world_data, 
                                     code=self._color_format)
         fig = px.imshow(img=world_data)
-        fig.update(title_text=self._legend_name)
+        # fig.update(title_text=self._legend_name)
         fig.update_layout(coloraxis_showscale=False)
         fig.update_xaxes(showticklabels=False)
         fig.update_yaxes(showticklabels=False)
         # Overlay scene gaze point onto the image.
-        gaze_device_name, gaze_stream_name = self._gaze_data_path.items()[0]
+        gaze_device_name, gaze_stream_name = list(self._gaze_data_path.items())[0]
         new_gaze_data = self._stream.get_data(device_name=gaze_device_name,
                                           stream_name=gaze_stream_name,
                                           starting_index=-1)
