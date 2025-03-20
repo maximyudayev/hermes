@@ -30,7 +30,7 @@ from typing import Callable
 import xsensdeviceapi as xda
 import time
 
-from utils.datastructures import TimestampAlignedFifoBuffer
+from utils.datastructures import NonOverflowingCounterAlignedFifoBuffer
 
 
 class AwindaDataCallback(xda.XsCallback):
@@ -64,18 +64,16 @@ class XsensFacade:
                device_mapping: dict[str, str],
                radio_channel: int,
                sampling_rate_hz: int,
-               timesteps_before_stale: int = 10) -> None:
+               timesteps_before_stale: int = 100) -> None:
     # Queue used to synchronize current main thread and callback handler thread listening 
     #   to device connections when all expected devices connected before continuing
     self._is_all_connected_queue = queue.Queue(maxsize=1)
     self._device_connection_status = dict.fromkeys(list(device_mapping.values()), False)
     self._radio_channel = radio_channel
     self._sampling_rate_hz = sampling_rate_hz
-    sampling_period = round(1/sampling_rate_hz * 10000)
-    self._buffer = TimestampAlignedFifoBuffer(keys=device_mapping.values(),
-                                              timesteps_before_stale=timesteps_before_stale,
-                                              sampling_period=sampling_period,
-                                              num_bits_timestamp=32)
+    self._buffer = NonOverflowingCounterAlignedFifoBuffer(keys=device_mapping.values(),
+                                                          timesteps_before_stale=timesteps_before_stale,
+                                                          num_bits_timestamp=16)
 
 
   def initialize(self) -> bool:
@@ -118,9 +116,9 @@ class XsensFacade:
         "quaternion":           quaternion, 
         "toa_s":                toa_s,                              # float
         "timestamp_fine":       timestamp_fine,                     # uint32
-        "counter_onboard":      counter,                            # uint16
+        "counter_onboard":      counter,
       }
-      self._buffer.plop(key=device_id, data=data, timestamp=timestamp_fine)
+      self._buffer.plop(key=device_id, data=data, counter=counter)
 
     # Register event handler on the main device
     self._conn_callback = AwindaConnectivityCallback(on_wireless_device_connected=on_wireless_device_connected)
