@@ -198,7 +198,7 @@ class SyncState(BrokerState):
       for ip in remote_subscribers:
         sync_remote_socket.connect('tcp://%s:%s'%(ip, PORT_SYNC_HOST))
       for _ in remote_subscribers:
-        sync_remote_socket.send_multipart([host_ip.encode('utf-8'), CMD_HELLO.encode('utf-8')])
+        sync_remote_socket.send_multipart([b'', host_ip.encode('utf-8'), CMD_HELLO.encode('utf-8')])
       num_left_to_acknowledge = len(remote_subscribers)
       while num_left_to_acknowledge:
         address, _, node_name, cmd = sync_remote_socket.recv_multipart()
@@ -259,7 +259,8 @@ class JoinState(BrokerState):
     self._sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
     self._sync_remote_socket: zmq.SyncSocket = self._context._get_sync_remote_socket()
     # register sync poller to listen for signals from brokers
-    self._context._register_sync_socket_poller()
+    if self._context._get_remote_publishers():
+      self._context._register_sync_socket_poller()
 
   # Wait for all processes (local and remote) to send the last messages before closing.
   #   Continue brokering packets until signalled by all publishers that there will be no more packets.
@@ -271,7 +272,7 @@ class JoinState(BrokerState):
     if self._is_finished(): self._notify_remote_subscribers()
 
   def is_continue(self) -> bool:
-    return not not self._num_left_to_join
+    return True
 
   # Callback to decrement the number of publishers left to join.
   #   Will get trigerred at most once per publisher/backend, so not needed to keep track.
@@ -310,10 +311,10 @@ class JoinState(BrokerState):
     # If no more Nodes are connected to the Broker, 
     #   send SYNC for permission to exit if registered with any remote subscribers. 
     for _ in self._remote_subscribers:
-      self._sync_remote_socket.send_multipart([self._context._get_host_ip().encode('utf-8'), CMD_END.encode('utf-8')])
+      self._sync_remote_socket.send_multipart([b'', self._context._get_host_ip().encode('utf-8'), CMD_END.encode('utf-8')])
     num_left_to_acknowledge = len(self._remote_subscribers)
     while num_left_to_acknowledge:
-      address, _, node_name, cmd = self._sync_remote_socket.recv_multipart()
+      _, node_name, cmd = self._sync_remote_socket.recv_multipart()
       num_left_to_acknowledge -= 1
       node_name = node_name.decode('utf-8')
       print("%s responded to %s with %s response" % (node_name, 

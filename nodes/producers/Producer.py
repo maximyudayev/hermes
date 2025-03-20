@@ -179,7 +179,7 @@ class Producer(Node):
     if self._transmit_delay_sample_period_s:
       self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
-    self._sync.send_string('') # no need to read contents of the message.
+    # self._sync.send_string('') # no need to read contents of the message.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.

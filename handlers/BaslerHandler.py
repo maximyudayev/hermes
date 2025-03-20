@@ -59,7 +59,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
-      print(e)
+      pass
 
   def OnImagesSkipped(self, camera, countOfSkippedImages):
     print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {countOfSkippedImages} images.")
