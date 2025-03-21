@@ -39,17 +39,21 @@ from utils.sensor_utils import estimate_transmission_delay
 
 class PupilFacade:
   def __init__(self,
+               is_binocular: bool,
+               is_stream_video_world: bool,
+               is_stream_video_eye: bool,
+               is_stream_fixation: bool,
+               is_stream_blinks: bool,
                pupil_capture_ip: str,
                pupil_capture_port: str,
-               video_image_format: str,
                gaze_estimate_stale_s: float,
-               stream_video_world: bool,
-               stream_video_eye: bool,
-               is_binocular: bool) -> None:
+               video_image_format: str) -> None:
     
-    self._stream_video_world = stream_video_world
-    self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
+    self._is_stream_video_world = is_stream_video_world
+    self._is_stream_video_eye = is_stream_video_eye
+    self._is_stream_fixation = is_stream_fixation
+    self._is_stream_blinks = is_stream_blinks
     self._pupil_capture_ip = pupil_capture_ip
     self._pupil_capture_port = pupil_capture_port
     self._video_image_format = video_image_format
@@ -69,15 +73,18 @@ class PupilFacade:
 
     # Subscribe to the desired topics.
     self._topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')]
-    if self._stream_video_world:
+    if self._is_stream_video_world:
       self._topics.append('frame.world')
-    if self._stream_video_eye:
+    if self._is_stream_video_eye:
       self._topics.append('frame.eye.')
+    if self._is_stream_fixation:
+      self._topics.append('fixations')
+    if self._is_stream_blinks:
+      self._topics.append('blinks')
 
     self._receiver: zmq.SyncSocket = self._zmq_context.socket(zmq.SUB)
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in self._topics: self._receiver.subscribe(t)
-    # self._log_debug('Subscribed to eye tracking topics')
 
 
   # Receive data and return a parsed dictionary.
@@ -92,6 +99,8 @@ class PupilFacade:
 
     gaze_items = None
     pupil_items = None
+    fixation_items = None
+    blinks_items = None
     video_world_items = None
     video_eye_items = None
     time_items = [
@@ -145,6 +154,27 @@ class PupilFacade:
           ('ellipse_angle_deg', [pupil['ellipse']['angle'] for pupil in pupil_data]),  # degrees
         ])
 
+    # Process fixations data
+    elif topic == 'fixations':
+      payload = msgpack.load(data[1])
+      fixation_items = [
+        ('id'             , payload['id']),             # int
+        ('timestamp'      , payload['timestamp']),      # float
+        ('norm_pos'       , payload['norm_pos']),       # float[2]
+        ('dispersion'     , payload['dispersion']),     # float
+        ('duration'       , payload['duration']),       # float
+        ('confidence'     , payload['confidence']),     # float
+        ('gaze_point_3d'  , payload['gaze_point_3d']),  # float[3]
+      ]
+
+    # Process blinks data
+    elif topic == 'blinks': 
+      payload = msgpack.loads(data[1])
+      blinks_items = [
+        ('timestamp'  , payload['timestamp']),  # float
+        ('confidence' , payload['confidence']), # float
+      ]
+
     # Process world video data
     elif topic == 'frame.world':
       metadata = msgpack.loads(data[1])
@@ -157,11 +187,12 @@ class PupilFacade:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
 
-      if self._stream_video_world: # we might be here because we want 'worldGaze' and not 'world'
+      if self._is_stream_video_world: # we might be here because we want 'worldGaze' and not 'world'
         video_world_items = [
           ('frame_timestamp', frame_timestamp),
           ('frame_index', metadata['index']), # world view frame index used for annotation
           ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
+          # ('frame', img),
         ]
 
     # Process eye video data
@@ -179,6 +210,7 @@ class PupilFacade:
         ('frame_timestamp', frame_timestamp),
         ('frame_index', metadata['index']), # world view frame index used for annotation
         ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
+        # ('frame', img)
       ]
       eye_id = int(topic.split('.')[2])
 
@@ -187,6 +219,8 @@ class PupilFacade:
     data = OrderedDict([
       ('eye-gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
       ('eye-pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
+      ('eye-fixations', OrderedDict(fixation_items) if fixation_items is not None else None),
+      ('eye-blinks', OrderedDict(blinks_items) if blinks_items is not None else None),
       ('eye-video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
       ('eye-video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
       ('eye-video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
@@ -220,6 +254,8 @@ class PupilFacade:
     #   So instead, we can at least check that the world is streamed.
     gaze_data = None
     pupil_data = None
+    fixations_data = None
+    blinks_data = None
     video_world_data = None
     video_eye0_data = None
     video_eye1_data = None
@@ -227,24 +263,29 @@ class PupilFacade:
     wait_timeout_s = 5
     while (gaze_data is None
             or pupil_data is None
-            or (video_world_data is None and self._stream_video_world)
-            or (video_eye0_data is None and self._stream_video_eye)
-            or (video_eye1_data is None and self._stream_video_eye and self._is_binocular)) \
+            or fixations_data is None
+            or blinks_data is None
+            or (video_world_data is None and self._is_stream_video_world)
+            or (video_eye0_data is None and self._is_stream_video_eye)
+            or (video_eye1_data is None and self._is_stream_video_eye and self._is_binocular)) \
           and (time.time() - wait_start_time_s < wait_timeout_s):
       time_s, data = self.process_data()
       gaze_data = gaze_data or data['gaze']
       pupil_data = pupil_data or data['pupil']
+      fixations_data = fixations_data or data['eye-fixations']
+      blinks_data = blinks_data or data['eye-blinks']
       video_world_data = video_world_data or data['video-world']
       video_eye0_data = video_eye0_data or data['video-eye0']
       video_eye1_data = video_eye1_data or data['video-eye1']
     if (time.time() - wait_start_time_s >= wait_timeout_s):
       msg = 'ERROR: Eye tracking did not detect all expected streams as active'
-      msg+= '\n Gaze  data  is streaming? %s' % (gaze_data is not None)
-      msg+= '\n Pupil data  is streaming? %s' % (pupil_data is not None)
-      msg+= '\n Video world is streaming? %s' % (video_world_data is not None)
-      msg+= '\n Video eye0   is streaming? %s' % (video_eye0_data is not None)
-      msg+= '\n Video eye1   is streaming? %s' % (video_eye1_data is not None)
-      # self._log_error(msg)
+      msg+= '\n Gaze  data      is streaming? %s' % (gaze_data is not None)
+      msg+= '\n Pupil data      is streaming? %s' % (pupil_data is not None)
+      msg+= '\n Fixations data  is streaming? %s' % (fixations_data is not None)
+      msg+= '\n Blinks data     is streaming? %s' % (blinks_data is not None)
+      msg+= '\n Video world     is streaming? %s' % (video_world_data is not None)
+      msg+= '\n Video eye0      is streaming? %s' % (video_eye0_data is not None)
+      msg+= '\n Video eye1      is streaming? %s' % (video_eye1_data is not None)
       raise AssertionError(msg)
 
     # Estimate the video frame rates
@@ -252,7 +293,6 @@ class PupilFacade:
     fps_video_eye0 = None
     fps_video_eye1 = None
     def _get_fps(data_key, duration_s=0.1):
-      # self._log_status('Estimating the eye-tracking frame rate for %s... ' % data_key, end='')
       # Wait for a new data entry, so we start timing close to a frame boundary.
       data = {data_key: None}
       while data[data_key] is not None:
@@ -266,19 +306,18 @@ class PupilFacade:
           frame_count = frame_count+1
       # Since we both started and ended timing right after a sample, no need to do (frame_count-1).
       frame_rate = frame_count/(time.time() - time_start_s)
-      # self._log_status('estimated frame rate as %0.2f for %s' % (frame_rate, data_key))
       return frame_rate
-    if self._stream_video_world:
+    if self._is_stream_video_world:
       fps_video_world = _get_fps('video-world')
-    if self._stream_video_eye:
+    if self._is_stream_video_eye:
       fps_video_eye0 = _get_fps('video-eye0')
       fps_video_eye1 = _get_fps('video-eye1') if self._is_binocular else None
-
-    # self._log_status('Started eye tracking streamer')
 
     data = {
       "gaze_data": gaze_data,
       "pupil_data": pupil_data,
+      "fixations_data": fixations_data,
+      "blinks_data": blinks_data,
       "video_world_data": video_world_data,
       "video_eye0_data": video_eye0_data,
       "video_eye1_data": video_eye1_data,

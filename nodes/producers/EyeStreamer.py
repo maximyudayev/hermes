@@ -50,9 +50,11 @@ class EyeStreamer(Producer):
                pupil_capture_port: str = PORT_EYE,
                video_image_format: str = "bgr", # bgr or jpeg
                gaze_estimate_stale_s: float = 0.2, # how long before a gaze estimate is considered stale (changes color in the world-gaze video)
-               stream_video_world: bool = False, 
-               stream_video_eye: bool = False, 
                is_binocular: bool = True,
+               is_stream_video_world: bool = False, 
+               is_stream_video_eye: bool = False, 
+               is_stream_fixation: bool = False,
+               is_stream_blinks: bool = False,
                shape_video_world: tuple[int] = (1080,720,3),
                shape_video_eye0: tuple[int] = (192,192,3),
                shape_video_eye1: tuple[int] = (192,192,3),
@@ -68,9 +70,12 @@ class EyeStreamer(Producer):
                timesteps_before_solidified: int = 0,
                **_) -> None:
 
-    self._stream_video_world = stream_video_world
-    self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
+    self._is_stream_video_world = is_stream_video_world
+    self._is_stream_video_eye = is_stream_video_eye
+    self._is_stream_fixation = is_stream_fixation
+    self._is_stream_blinks = is_stream_blinks
+
     self._pupil_capture_ip = pupil_capture_ip
     self._pupil_capture_port = pupil_capture_port
     self._video_image_format = video_image_format
@@ -78,9 +83,11 @@ class EyeStreamer(Producer):
     self._port_pause = port_pause
 
     stream_info = {
-      "stream_video_world": stream_video_world,
-      "stream_video_eye": stream_video_eye,
       "is_binocular": is_binocular,
+      "is_stream_video_world": is_stream_video_world,
+      "is_stream_video_eye": is_stream_video_eye,
+      "is_stream_fixation": is_stream_fixation,
+      "is_stream_blinks": is_stream_blinks,
       "gaze_estimate_stale_s": gaze_estimate_stale_s,
       "shape_video_world": shape_video_world,
       "shape_video_eye0": shape_video_eye0,
@@ -110,9 +117,11 @@ class EyeStreamer(Producer):
 
 
   def _connect(self) -> bool:
-    self._handler: PupilFacade = PupilFacade(stream_video_world=self._stream_video_world,
-                                             stream_video_eye=self._stream_video_eye,
-                                             is_binocular=self._is_binocular,
+    self._handler: PupilFacade = PupilFacade(is_binocular=self._is_binocular,
+                                             is_stream_video_world=self._is_stream_video_world,
+                                             is_stream_video_eye=self._is_stream_video_eye,
+                                             is_stream_fixation=self._is_stream_fixation,
+                                             is_stream_blinks=self._is_stream_blinks,
                                              pupil_capture_ip=self._pupil_capture_ip,
                                              pupil_capture_port=self._pupil_capture_port,
                                              video_image_format=self._video_image_format,

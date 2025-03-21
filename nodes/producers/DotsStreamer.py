@@ -116,12 +116,10 @@ class DotsStreamer(Producer):
 
 
   def _process_data(self) -> None:
-    # Stamps full-body snapshot with system time of start of processing, not time-of-arrival.
-    # NOTE: time-of-arrival available with each packet.
-    process_time_s: float = time.time()
     # Retrieve the oldest enqueued packet for each sensor.
     snapshot = self._handler.get_snapshot()
     if snapshot is not None:
+      process_time_s: float = time.time()
       acceleration = np.empty((self._num_joints, 3), dtype=np.float32)
       acceleration.fill(np.nan)
       gyroscope = np.empty((self._num_joints, 3), dtype=np.float32)
