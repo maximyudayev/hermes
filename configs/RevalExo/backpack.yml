@@ -42,6 +42,7 @@ remote_subscriber_ips: []
 is_remote_kill: False
 remote_kill_ip: null
 
+
 logging_spec:
   # Choose whether to periodically write data to files.
   stream_hdf5     : True # recommended over CSV since it creates a single file
@@ -60,10 +61,9 @@ logging_spec:
   
   # Additional configuration.
   #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
   videos_in_hdf5  : False
   videos_in_csv   : False
-  videos_is_use_intel_api : False
+
   audio_format    : "wav" # currently only supports WAV
   audio_in_hdf5   : False
   audio_in_csv    : False
@@ -99,10 +99,9 @@ consumer_specs:
       
       # Additional configuration.
       #   Choose whether to save media separately or as part of HDF5/CSV files.
-      videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
       videos_in_hdf5  : False
       videos_in_csv   : False
-      videos_is_use_intel_api : False
+
       audio_format    : "wav" # currently only supports WAV
       audio_in_hdf5   : False
       audio_in_csv    : False

@@ -77,7 +77,6 @@ class PupilFacade:
     self._receiver: zmq.SyncSocket = self._zmq_context.socket(zmq.SUB)
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in self._topics: self._receiver.subscribe(t)
-    # self._log_debug('Subscribed to eye tracking topics')
 
 
   # Receive data and return a parsed dictionary.
@@ -161,7 +160,8 @@ class PupilFacade:
         video_world_items = [
           ('frame_timestamp', frame_timestamp),
           ('frame_index', metadata['index']), # world view frame index used for annotation
-          ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
+          # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
+          ('frame', img),
         ]
 
     # Process eye video data
@@ -178,7 +178,8 @@ class PupilFacade:
       video_eye_items = [
         ('frame_timestamp', frame_timestamp),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
+        # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
+        ('frame', img)
       ]
       eye_id = int(topic.split('.')[2])
 

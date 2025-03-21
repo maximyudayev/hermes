@@ -32,7 +32,9 @@ import os
 import time
 import wave
 
+import av.container
 import cv2
+import av
 import h5py
 import numpy as np
 from streams.Stream import Stream
@@ -188,8 +190,6 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._videos_in_csv = videos_in_csv
     self._videos_in_hdf5 = videos_in_hdf5
-    self._videos_format = videos_format
-    self._videos_is_use_intel_api = videos_is_use_intel_api
     self._audio_in_csv = audio_in_csv
     self._audio_in_hdf5 = audio_in_hdf5
     self._audio_format = audio_format
@@ -201,6 +201,7 @@ class Logger(LoggerInterface):
     self._csv_writer_metadata = None
     self._hdf5_file = None
     self._video_writers = None
+    self._video_encoders = None
     self._audio_writers = None
     # Create the log directory if needed.
     if self._stream_csv or self._stream_hdf5 or self._stream_video or self._stream_audio \
@@ -488,6 +489,7 @@ class Logger(LoggerInterface):
 
     # Create a video writer for each video stream of each device.
     self._video_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
+    self._video_encoders = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, streamer) in self._streams.items():
       for (device_name, device_info) in streamer.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
@@ -498,29 +500,21 @@ class Logger(LoggerInterface):
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
-          if self._videos_format.lower() == 'mp4':
-            extension = 'mp4'
-            fourcc = 'MP4V'
-          elif self._videos_format.lower() == 'avi':
-            extension = 'avi'
-            fourcc = 'MJPG'
-          else:
-            raise AssertionError('Unsupported video format %s.  Can be mp4 or avi.' % self._videos_format)
-          filename_video = '%s_%s_%s.%s' % (filename_base, device_name, stream_name, extension)
+
+          filename_video = '%s_%s_%s.mp4' % (filename_base, device_name, stream_name)
           filepath_video = os.path.join(self._log_dir, filename_video)
-          writer_params = {
-            'filename'  : filepath_video,
-            'fourcc'    : cv2.VideoWriter_fourcc(*fourcc),
-            'fps'       : fps,
-            'frameSize' : (frame_width, frame_height)
-          }
-          # if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_OPENCV_MJPEG
-          # if self._videos_is_use_intel_api: writer_params['apiPreference'] = cv2.CAP_INTEL_MFX
-          video_writer = cv2.VideoWriter(**writer_params)
+          
+          video_writer = av.open(filepath_video, mode='w')
+          video_stream = video_writer.add_stream('h264', rate=int(fps))
+          video_stream.width = frame_width
+          video_stream.height = frame_height
+          video_stream.pix_fmt = 'bgr24' # Data format to convert TO. 
+
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
           self._video_writers[streamer_name][device_name][stream_name] = video_writer
+          self._video_encoders[streamer_name][device_name][stream_name] = video_stream
 
 
   # Create and initialize audio writers.
@@ -637,18 +631,16 @@ class Logger(LoggerInterface):
                         device_name: str,
                         stream_name: str,
                         new_data: dict):
-    stream = self._streams[streamer_name]
     try:
-      video_writer: cv2.VideoWriter = self._video_writers[streamer_name][device_name][stream_name]
+      video_writer: av.container.OutputContainer = self._video_writers[streamer_name][device_name][stream_name]
+      video_encoder: av.VideoStream = self._video_encoders[streamer_name][device_name][stream_name]
       for frame in new_data['data']:
-        # Assume the data is the frame.
-        # If a custom video format was specified, convert the frame before writing it to file. 
         frame = cv2.imdecode(frame, cv2.IMREAD_UNCHANGED)
-        if stream._streams_info[device_name][stream_name]['data_notes'] and \
-          'color_format' in stream._streams_info[device_name][stream_name]['data_notes']:
-            frame = cv2.cvtColor(frame,
-                                 stream._streams_info[device_name][stream_name]['data_notes']['color_format'])
-        video_writer.write(frame)
+        
+        # Convert NumPy array image to an PyAV frame.
+        av_frame = av.VideoFrame.from_ndarray(frame, format='') # TODO: select format to convert FROM
+        # Encode the frame and flush it to the container.
+        video_writer.mux(video_encoder.encode(av_frame))
     except KeyError: # a writer was not created for this stream
       return
 
@@ -676,6 +668,7 @@ class Logger(LoggerInterface):
 
   # Write metadata from each streamer to CSV and/or HDF5 files.
   # Will include device-level metadata and any lower-level data notes.
+  # TODO: provide metadata on video.
   def _log_metadata(self):
     for (streamer_name, stream) in self._streams.items():
       for (device_name, device_info) in stream.get_stream_info_all().items():
@@ -756,8 +749,13 @@ class Logger(LoggerInterface):
       for (streamer_name, stream) in self._streams.items():
         for (device_name, video_writers) in self._video_writers[streamer_name].items():
           for (stream_name, video_writer) in video_writers.items():
-            video_writer.release()
+            # Flush the encoder to properly complete the writing of the file.
+            video_encoder: av.VideoStream = self._video_writers[streamer_name][device_name][stream_name]
+            video_writer.mux(video_encoder.encode())
+            # Close the container
+            video_writer.close()
       self._video_writers = None
+      self._video_encoders = None
 
     # Flush/close all of the audio writers.
     if self._audio_writers is not None:

@@ -76,7 +76,8 @@ producer_specs:
     resolution:
       - 1440
       - 2560
-    color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
+      - 3
+    color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
     camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
 
 

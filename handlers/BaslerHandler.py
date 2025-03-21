@@ -25,11 +25,9 @@
 #
 # ############
 
-from collections import OrderedDict
 import queue
-from threading import Lock
-from typing import Generator
 from pypylon import pylon
+import cv2
 import numpy as np
 
 from utils.print_utils import *
@@ -42,33 +40,45 @@ from utils.print_utils import *
 # NOTE: may be interesting to actually align them in a snapshot buffer, similar to IMUs,
 #   To make multi-angle computer vision algorithms possible. 
 class ImageEventHandler(pylon.ImageEventHandler):
-  def __init__(self, cam_array):
+  def __init__(self, 
+               cam_array: pylon.InstantCameraArray, 
+               color_format: str):
     super().__init__()
     self._cam_array = cam_array
+    self._color_format = getattr(cv2, color_format)
+    cam: pylon.InstantCamera
+    # Register with the pylon loop, specify strategy for frame grabbing.
     for cam in cam_array: 
-      # Register with the pylon loop, specify strategy for frame grabbing.
       cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
     self._buffer = queue.Queue()
 
 
-  def OnImageGrabbed(self, camera, res: pylon.GrabResultData):
+  def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult):
     # Gets called on every image.
     #   Runs in a pylon thread context, always wrap in the `try .. except`
     #   to capture errors inside the grabbing as this can't be properly 
     #   reported from the background thread to the foreground python code.
     try:
       if res.GrabSucceeded():
-        frame = res.Array
+        # Convert the contents of the image buffer to BGR 
+        #   before passing to the rest of our code.
+        with res.GetArrayZeroCopy() as frame_by_ref:
+          frame = cv2.cvtColor(frame_by_ref, self._color_format)
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
+        # Release the buffer for Pylon to reuse for the next frame.
+        res.Release()
+        # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
+        # TODO: pass object to it by reference to avoid memcopy of large image objects.
         self._buffer.put((camera_id, frame, timestamp, sequence_id))
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
       pass
 
-  def OnImagesSkipped(self, camera, num_images_skipped):
+
+  def OnImagesSkipped(self, camera: pylon.InstantCamera, num_images_skipped: int):
     print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {num_images_skipped} images.")
 
 
