@@ -81,12 +81,12 @@ producer_specs:
       basler_east  : "40549960"
       basler_south : "40549975"
       basler_west  : "40549976"
-    fps: 20
+    fps: 30
     resolution:
-      - 1944
-      - 2592
+      - 1440
+      - 2560
     color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-    camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
+    camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
 
 
 consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select only one.
@@ -164,12 +164,12 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           basler_east  : "40549960"
           basler_south : "40549975"
           basler_west  : "40549976"
-        fps: 20
+        fps: 30
         resolution:
-          - 1944
-          - 2592
+          - 1440
+          - 2560
         color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-        camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
+        camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
       
       - class: "InsoleStreamer"
         sampling_rate_hz: 100
