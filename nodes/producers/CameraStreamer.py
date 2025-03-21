@@ -48,6 +48,7 @@ class CameraStreamer(Producer):
 
 
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
@@ -55,11 +56,12 @@ class CameraStreamer(Producer):
                resolution: tuple[int],
                camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False,
+               timesteps_before_solidified: int = 0,
                **_):
 
     # Initialize general state.
@@ -73,9 +75,11 @@ class CameraStreamer(Producer):
       "fps": fps,
       "resolution": resolution,
       "color_format": color_format,
+      "timesteps_before_solidified": timesteps_before_solidified
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,

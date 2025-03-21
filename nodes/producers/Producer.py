@@ -46,16 +46,21 @@ from utils.zmq_utils import *
 ###########################################################
 ###########################################################
 class Producer(Node):
-  def __init__(self, 
+  def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
-    super().__init__(port_sync, port_killsig, print_status, print_debug)
+    super().__init__(host_ip=host_ip, 
+                     port_sync=port_sync, 
+                     port_killsig=port_killsig, 
+                     print_status=print_status, 
+                     print_debug=print_debug)
     self._port_pub = port_pub
     self._is_continue_capture = True
     self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
@@ -174,7 +179,7 @@ class Producer(Node):
     if self._transmit_delay_sample_period_s:
       self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
-    self._sync.send_string('') # no need to read contents of the message.
+    # self._sync.send_string('') # no need to read contents of the message.
     self._sync.recv() # no need to read contents of the message.
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.

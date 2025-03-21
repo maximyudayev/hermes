@@ -113,7 +113,7 @@ class SyncState(NodeState):
     self._sync = context._get_sync_socket()
 
   def run(self):
-    self._sync.send(self._context._log_source_tag().encode('utf-8'))
+    self._sync.send_multipart([self._context._log_source_tag().encode('utf-8'), CMD_HELLO.encode('utf-8')])
     self._sync.recv()
     self._context._set_state(RunningState(self._context))
 
@@ -155,12 +155,14 @@ class JoinState(NodeState):
 
 class Node(NodeInterface):
   def __init__(self,
-               port_sync: str = PORT_SYNC,
+               host_ip: str = DNS_LOCALHOST,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     self._print_status = print_status
     self._print_debug = print_debug
+    self._host_ip = host_ip
     self._port_sync = port_sync
     self._port_killsig = port_killsig
     self.__is_done = False
@@ -216,7 +218,7 @@ class Node(NodeInterface):
 
     # Socket to indicate to broker that the subscriber is ready
     self._sync: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
-    self._sync.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sync))
+    self._sync.connect("tcp://%s:%s" % (self._host_ip, self._port_sync))
     # Socket to indicate to broker that the Node caught interrupt signal
     self._babykillsig: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
     self._babykillsig.connect("tcp://%s:%s" % (DNS_LOCALHOST, PORT_KILL_BTN))

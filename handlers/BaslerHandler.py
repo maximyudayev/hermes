@@ -31,7 +31,6 @@ from threading import Lock
 from typing import Generator
 from pypylon import pylon
 import numpy as np
-import cv2
 
 from utils.print_utils import *
 
@@ -67,7 +66,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
-      print(e)
+      pass
 
   def OnImagesSkipped(self, camera, num_images_skipped):
     print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {num_images_skipped} images.")

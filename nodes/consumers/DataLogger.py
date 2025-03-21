@@ -44,10 +44,11 @@ class DataLogger(Consumer):
 
 
   def __init__(self,
+               host_ip: str,
                stream_specs: list[dict],
                logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                log_history_filepath: str = None,
                print_status: bool = True,
@@ -55,7 +56,8 @@ class DataLogger(Consumer):
                **_):
 
     # Inherits FSM and Consumer ZeroMQ functionality.
-    super().__init__(stream_specs=stream_specs,
+    super().__init__(host_ip=host_ip,
+                     stream_specs=stream_specs,
                      logging_spec=logging_spec,
                      port_sub=port_sub,
                      port_sync=port_sync,

@@ -30,6 +30,7 @@ from nodes.Node import Node
 
 
 def launch(spec: dict,
+           host_ip: str,
            port_backend: str,
            port_frontend: str,
            port_sync: str,
@@ -38,6 +39,7 @@ def launch(spec: dict,
   class_name: str = spec['class']
   class_args = spec.copy()
   del (class_args['class'])
+  class_args['host_ip'] = host_ip
   class_args['port_pub'] = port_backend
   class_args['port_sub'] = port_frontend
   class_args['port_sync'] = port_sync

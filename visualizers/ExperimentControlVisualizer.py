@@ -90,7 +90,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("experiment-stop-btn", "disabled"),
       Output("eye-toggle-btn", "disabled"),
-      Input("experiment-stop-btn", "n_clicks")
+      Input("experiment-stop-btn", "n_clicks"),
+      prevent_initial_call=True
     )
     def stop_experiment(n):
       return True, True
@@ -98,7 +99,8 @@ class ExperimentControlVisualizer(Visualizer):
 
     @app.callback(
       Output("experiment-status-indicator", "children"),
-      Input("experiment-stop-btn", "disabled")
+      Input("experiment-stop-btn", "disabled"),
+      prevent_initial_call=True
     )
     def on_stop_experiment(is_end):
       if is_end:
@@ -114,7 +116,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("eye-toggle-btn", "children"),
       Output("eye-toggle-btn", "color"),
-      Input("eye-toggle-btn", "n_clicks")
+      Input("eye-toggle-btn", "n_clicks"),
+      prevent_initial_call=True
     )
     def toggle_eye(n):
       self._eye_pause.send_string(MSG_OK)
@@ -128,7 +131,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("current-activity-indicator", "children"),
       Input("activity-mark-btn", "n_clicks"),
-      State("activity-radio", "value")
+      State("activity-radio", "value"),
+      prevent_initial_call=True
     )
     def mark_activity(n, activity):
       self._stream.append_data(time_s=time.time(), data={"experiment": {"activity": activity}})

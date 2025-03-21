@@ -31,13 +31,16 @@ subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
 duration_s    : null
 
-host_ip       : "127.0.0.1"
-remote_broker_ips: []
-is_expose_to_remote_sub : False
-is_remote_kill : False
-
 print_status  : True
 print_debug   : True
+
+host_ip : "127.0.0.1"
+
+remote_publisher_ips: []
+remote_subscriber_ips: []
+
+is_remote_kill: False
+remote_kill_ip: null
 
 logging_spec:
   # Choose whether to periodically write data to files.
@@ -103,6 +106,7 @@ consumer_specs:
       audio_format    : "wav" # currently only supports WAV
       audio_in_hdf5   : False
       audio_in_csv    : False
+    
     stream_specs:
       - class: "MoxyStreamer"
         devices: 

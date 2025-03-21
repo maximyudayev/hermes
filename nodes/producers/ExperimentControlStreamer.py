@@ -46,11 +46,12 @@ class ExperimentControlStreamer(Producer):
 
   
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                activities: list[str],
 
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False,
@@ -60,7 +61,8 @@ class ExperimentControlStreamer(Producer):
       "activities": activities
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,

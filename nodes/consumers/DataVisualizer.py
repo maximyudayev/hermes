@@ -47,18 +47,20 @@ class DataVisualizer(Consumer):
     return 'visualizer'
 
 
-  def __init__(self, 
+  def __init__(self,
+               host_ip: str,
                stream_specs: list[dict],
                logging_spec: dict,
                log_history_filepath: str = None,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True, 
                print_debug: bool = False, 
                **_):
 
-    super().__init__(stream_specs=stream_specs,
+    super().__init__(host_ip=host_ip,
+                     stream_specs=stream_specs,
                      logging_spec=logging_spec,
                      port_sub=port_sub,
                      port_sync=port_sync,
@@ -69,16 +71,16 @@ class DataVisualizer(Consumer):
 
     # Init all Dash widgets before launching the server and the GUI thread.
     # NOTE: order Dash widgets in the order of streamer specs provided upstream.
-    self._layout = dbc.Container([
-      *[visualizer := stream.build_visulizer() for stream in self._streams.values() if visualizer],
+    app.layout = dbc.Container([
+      visualizer for visualizer in [stream.build_visulizer() for stream in self._streams.values()] if visualizer is not None
     ])
 
     # Launch Dash GUI thread.
-    self._flask_server = make_server(DNS_LOCALHOST, PORT_GUI, server)
+    self._flask_server = make_server(DNS_LOCALHOST, int(PORT_GUI), server)
     self._flask_server_thread = threading.Thread(target=self._flask_server.serve_forever)
     self._flask_server_thread.start()
 
-    self._dash_app_thread = threading.Thread(target=app.run, kwargs={'debug': True})
+    self._dash_app_thread = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
     self._dash_app_thread.start()
 
 

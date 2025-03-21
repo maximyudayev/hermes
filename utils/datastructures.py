@@ -41,6 +41,43 @@ class BufferInterface(ABC):
     pass
 
 
+class NonOverflowingCounterConverter:
+  def __init__(self,
+               keys: Iterable,
+               num_bits_counter: int):
+    self._counter_limit = 2**num_bits_counter
+    self._counter_to_nonoverflowing_counter_fn: Callable = self._foo
+    self._start_counters = OrderedDict([(k, None) for k in keys])
+    self._previous_counters = OrderedDict([(k, None) for k in keys])
+    self._counters = OrderedDict([(k, None) for k in keys])
+    self._start_counter = None
+
+
+  def _foo(self, key, counter) -> int | None:
+    if self._start_counter is None:
+      self._start_counter = counter
+      self._start_counters[key] = counter
+      self._previous_counters[key] = counter
+      self._counters[key] = 0
+    elif self._previous_counters[key] is None:
+      self._start_counters[key] = counter
+      self._previous_counters[key] = counter
+      dc = (counter - self._start_counter) % self._counter_limit
+      self._counters[key] = dc
+    else:
+      self._bar(key=key, counter=counter)
+    if all([counter is not None for counter in self._start_counters.values()]):
+      self._counter_to_nonoverflowing_counter_fn = self._bar
+    return self._counters[key]
+
+
+  def _bar(self, key, counter) -> int | None:
+    dc = (counter - self._previous_counters[key]) % self._counter_limit
+    self._previous_counters[key] = counter
+    self._counters[key] += dc
+    return self._counters[key]
+
+
 class TimestampToCounterConverter:
   def __init__(self,
                keys: Iterable,
@@ -183,3 +220,23 @@ class TimestampAlignedFifoBuffer(AlignedFifoBuffer):
       self._plop(key=key, data=data, counter=counter)
     self._lock.release()
 
+
+class NonOverflowingCounterAlignedFifoBuffer(AlignedFifoBuffer):
+  def __init__(self,
+               keys: Iterable,
+               timesteps_before_stale: int,
+               num_bits_timestamp: int):
+    super().__init__(keys=keys, 
+                     timesteps_before_stale=timesteps_before_stale)
+    self._converter = NonOverflowingCounterConverter(keys=keys, 
+                                                     num_bits_counter=num_bits_timestamp)
+
+
+  # Override parent method.
+  def plop(self, key, data, counter) -> None:
+    # Calculate counter from timestamp and local datastructure to avoid race condition.
+    self._lock.acquire()
+    counter = self._converter._counter_to_nonoverflowing_counter_fn(key, counter)
+    if counter is not None:
+      self._plop(key=key, data=data, counter=counter)
+    self._lock.release()

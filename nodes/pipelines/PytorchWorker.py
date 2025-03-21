@@ -44,12 +44,13 @@ class PytorchWorker(Pipeline):
 
 
   def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                stream_specs: list[dict],
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False,
@@ -60,7 +61,8 @@ class PytorchWorker(Pipeline):
       
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      stream_specs=stream_specs,
                      port_pub=port_pub,
