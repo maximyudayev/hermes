@@ -31,9 +31,9 @@ from utils.gui_utils import app
 from dash import Output, Input, State, dcc
 import dash_bootstrap_components as dbc
 import plotly.express as px
-import cv2
 
 
+# NOTE: Expects data in BGR
 class VideoVisualizer(Visualizer):
   def __init__(self,
                stream: Stream,
@@ -41,7 +41,6 @@ class VideoVisualizer(Visualizer):
                data_path: dict[str, str],
                legend_name: str,
                update_interval_ms: int,
-               color_format: int,
                col_width: int = 6):
     super().__init__(stream=stream,
                      col_width=col_width)
@@ -50,7 +49,6 @@ class VideoVisualizer(Visualizer):
     self._legend_name = legend_name
     self._update_interval_ms = update_interval_ms
     self._unique_id = unique_id
-    self._color_format = color_format
 
     self._image = dcc.Graph(id="%s-video"%(self._unique_id))
     self._interval = dcc.Interval(id="%s-video-interval"%(self._unique_id), interval=self._update_interval_ms, n_intervals=0)
@@ -77,9 +75,6 @@ class VideoVisualizer(Visualizer):
                                        starting_index=-1)
       if new_data is not None:
         img = new_data['data'][0]
-        if self._color_format: 
-          img = cv2.cvtColor(src=img, 
-                             code=self._color_format)
         fig = px.imshow(img=img)
         # fig.update(title_text=self._legend_name)
         fig.update_layout(coloraxis_showscale=False)
