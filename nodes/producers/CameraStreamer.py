@@ -70,6 +70,9 @@ class CameraStreamer(Producer):
     self._color_format = color_format
     self._pylon_max_buffer_size = pylon_max_buffer_size
     self._camera_config_filepath = camera_config_filepath
+    self._fps = fps
+    self._get_frame_fn = self._get_frame
+    self._stop_time_s = None
 
     stream_info = {
       "camera_mapping": camera_mapping,
@@ -122,7 +125,10 @@ class CameraStreamer(Producer):
       cam.UserSetLoad.Execute()
 
       # Optionally configure ring buffer size if grabbing is slowed down by color conversion.
-      cam.MaxNumBuffer = self._pylon_max_buffer_size
+      # cam.OutputQueueSize = 2*self._fps # The size of the grab result buffer output queue
+      # cam.MaxNumGrabResults = ? # The maximum number of grab results available at any time during a grab session
+      # cam.MaxNumQueuedBuffer = self._pylon_max_buffer_size # The maximum number of buffers that are queued in the stream grabber input queue.
+      # cam.MaxNumBuffer = self._pylon_max_buffer_size # The maximum number of buffers that are allocated and used for grabbingam.MaxNumBuffer = self._pylon_max_buffer_size
 
       # Preload persistent feature configurations saved to a file (easier configuration of all cameras)
       if self._camera_config_filepath is not None: 
@@ -145,30 +151,53 @@ class CameraStreamer(Producer):
                                             color_format=self._color_format)
 
     # Start asynchronously capturing images with a background loop
+    # https://docs.baslerweb.com/pylonapi/cpp/pylon_programmingguide#the-default-grab-strategy-one-by-one
     self._cam_array.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
     return True
 
 
-  def _process_data(self):
-    if frame := self._image_handler.get_frame():
-      camera_id, frame, timestamp, sequence_id = frame
-      time_s = time.time()
-      tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
-      data = {
-        # 'frame': cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1],
-        'frame': frame, # NOTE: image in BGR format
-        'timestamp': timestamp,
-        'frame_sequence': sequence_id
-      }
-      self._publish(tag=tag, time_s=time_s, data={camera_id: data})
-    elif not self._is_continue_capture:
+  def _process_data(self) -> None:
+    self._get_frame_fn()
+
+
+  def _get_frame(self) -> None:
+    if buf := self._image_handler.get_frame():
+      self._process_frame(*buf)
+
+
+  def _get_frame_stopped(self) -> None:
+    is_timeout = (time.time() - self._stop_time_s) < 5
+    if buf := self._image_handler.get_frame():
+      self._process_frame(*buf)
+    elif is_timeout and not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
 
 
-  def _stop_new_data(self):
+  def _process_frame(self, 
+                     camera_id: str, 
+                     frame: np.ndarray,
+                     is_keyframe: bool,
+                     pts: int,
+                     timestamp: np.uint64, 
+                     sequence_id: np.int64) -> None:
+    time_s = time.time()
+    tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
+    data = {
+      # 'frame': cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1],
+      'frame': (frame, is_keyframe, pts), # NOTE: image in BGR format
+      'timestamp': timestamp,
+      'frame_sequence': sequence_id
+    }
+    self._publish(tag=tag, time_s=time_s, data={camera_id: data})
+
+
+  def _stop_new_data(self) -> None:
     # Stop capturing data
     self._cam_array.StopGrabbing()
+    # Change the callback to use a timeout for checking the queue for new packets
+    self._stop_time_s = time.time()
+    self._get_frame_fn = self._get_frame_stopped
 
 
   def _cleanup(self) -> None:

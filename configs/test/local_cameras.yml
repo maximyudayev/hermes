@@ -55,10 +55,8 @@ logging_spec:
   dump_hdf5       : False
   dump_video      : False
   dump_audio      : False
-  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
   videos_in_hdf5  : False
   videos_in_csv   : False
-  videos_is_use_intel_api : True
   audio_format    : "wav" # currently only supports WAV
   audio_in_hdf5   : False
   audio_in_csv    : False
@@ -78,7 +76,7 @@ producer_specs:
       - 2560
       - 3
     color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
-    camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
+    camera_config_filepath: "resources/AidFOG/pylon_30fps_2K.pfs"
 
 
 consumer_specs: [] # DataVisualizer and DataLogger are mutually exclusive, select only one.

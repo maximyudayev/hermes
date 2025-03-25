@@ -55,6 +55,10 @@ class PupilFacade:
     self._video_image_format = video_image_format
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
     self._is_ipc_capturing = True
+    self._start_index_eye = [None] * (2 if is_binocular else 1)
+    self._start_index_world = None
+    self._previous_index_eye = [0] * (2 if is_binocular else 1)
+    self._previous_index_world = 0
 
     # Connect to the Pupil Capture socket.
     self._zmq_context = zmq.Context.instance()
@@ -146,42 +150,58 @@ class PupilFacade:
 
     # Process world video data
     elif topic == 'frame.world':
+      # Prepare the metadata for the frame.
       metadata = msgpack.loads(data[1])
+      if self._start_index_world is None: 
+        self._start_index_world = metadata['index']
+        is_keyframe = True
+      else:
+        is_keyframe = (metadata['index'] - self._previous_index_world) > 1 # TODO: not safe against overflow, but uint64
+      self._previous_index_world = metadata['index']
+      pts = metadata['index'] - self._start_index_world
+      # Decode the frame.
       payload = data[2]
-      frame_timestamp = float(metadata['timestamp'])
       img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
-
-      if self._stream_video_world: # we might be here because we want 'worldGaze' and not 'world'
-        video_world_items = [
-          ('frame_timestamp', frame_timestamp),
-          ('frame_index', metadata['index']), # world view frame index used for annotation
-          # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
-          ('frame', img),
-        ]
+      # Prepare the output for the file writer.
+      video_world_items = [
+        ('frame_timestamp', float(metadata['timestamp'])),
+        ('frame_index', metadata['index']), # world view frame index used for annotation
+        # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
+        ('frame', (img, is_keyframe, pts)),
+      ]
 
     # Process eye video data
     elif topic in ['frame.eye.0', 'frame.eye.1']:
+      # Prepare the metadata for the frame.
+      eye_id = int(topic.split('.')[2])
       metadata = msgpack.loads(data[1])
+      if self._start_index_eye[eye_id] is None: 
+        self._start_index_eye[eye_id] = metadata['index']
+        is_keyframe = True
+      else:
+        is_keyframe = (metadata['index'] - self._previous_index_eye[eye_id]) > 1 # TODO: not safe against overflow, but uint64
+      self._previous_index_eye[eye_id] = metadata['index']
+      pts = metadata['index'] - self._start_index_eye[eye_id]
+      # Decode the frame.
       payload = data[2]
-      frame_timestamp = float(metadata['timestamp'])
       img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
+      # Prepare the output for the file writer.
       video_eye_items = [
-        ('frame_timestamp', frame_timestamp),
+        ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
         # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
-        ('frame', img)
+        ('frame', (img, is_keyframe, pts))
       ]
-      eye_id = int(topic.split('.')[2])
 
     # Create a data dictionary.
     # The keys should correspond to device names after the 'eye-tracking-' prefix.

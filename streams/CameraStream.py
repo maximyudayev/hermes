@@ -30,7 +30,6 @@ from typing import Any
 from streams import Stream
 from visualizers import VideoVisualizer
 import dash_bootstrap_components as dbc
-import cv2
 
 
 ############################################

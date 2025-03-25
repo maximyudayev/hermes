@@ -168,8 +168,6 @@ class Logger(LoggerInterface):
                dump_audio: bool = False,
                videos_in_csv: bool = False, 
                videos_in_hdf5: bool = False, 
-               videos_format: str = "avi",
-               videos_is_use_intel_api: bool = False,
                audio_in_csv: bool = False, 
                audio_in_hdf5: bool = False, 
                audio_format: str = "wav",
@@ -270,16 +268,15 @@ class Logger(LoggerInterface):
 
 
   def _start_stream_logging(self) -> None:
-    log_start_time_s = time.time()
     # Set up CSV/HDF5 file writers for stream-logging if desired.
     if self._stream_csv:
-      self._init_writing_csv(log_start_time_s)
+      self._init_writing_csv()
     if self._stream_hdf5:
-      self._init_writing_hdf5(log_start_time_s)
+      self._init_writing_hdf5()
     if self._stream_video:
-      self._init_writing_videos(log_start_time_s)
+      self._init_writing_videos()
     if self._stream_audio:
-      self._init_writing_audio(log_start_time_s)
+      self._init_writing_audio()
     self._init_log_indices()
     self._is_streaming = True
     self._is_flush = False
@@ -297,13 +294,13 @@ class Logger(LoggerInterface):
 
   def _start_dump_logging(self) -> None:
     if self._dump_csv:
-      self._init_writing_csv(self._log_stop_time_s)
+      self._init_writing_csv()
     if self._dump_hdf5:
-      self._init_writing_hdf5(self._log_stop_time_s)
+      self._init_writing_hdf5()
     if self._dump_video:
-      self._init_writing_videos(self._log_stop_time_s)
+      self._init_writing_videos()
     if self._dump_audio:
-      self._init_writing_audio(self._log_stop_time_s)
+      self._init_writing_audio()
     # Log all data.
     # Will basically enable periodic stream-logging,
     #  but will set self._is_flush and self._is_streaming such that
@@ -330,14 +327,6 @@ class Logger(LoggerInterface):
   #############################
   ###### FILE OPERATIONS ######
   #############################
-  # Helper to get a base prefix for logging filenames.
-  # Will indicate the logging start time and whether it's streaming or post-experiment.
-  def _get_filename_base(self, log_time_s: float):
-    log_datetime_str = get_time_str(log_time_s, '%Y-%m-%d_%H-%M-%S')
-    filename_base = '%s_%s' % (log_datetime_str, self._log_tag)
-    return filename_base
-
-
   # Initialize the data indices to fetch for logging.
   # Will record the next data indices that should be fetched for each stream,
   #  and the number of timesteps that each streamer needs before data is solidified.
@@ -354,9 +343,7 @@ class Logger(LoggerInterface):
   # Create and initialize CSV files.
   # Will have a separate file for each stream of each device.
   # Currently assumes that device names are unique across all streamers.
-  def _init_writing_csv(self, log_time_s: float):
-    filename_base = self._get_filename_base(log_time_s=log_time_s)
-
+  def _init_writing_csv(self):
     # Open a writer for each CSV data file.
     csv_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, streamer) in self._streams.items():
@@ -369,12 +356,12 @@ class Logger(LoggerInterface):
           # Skip saving audio in a CSV.
           if stream_info['is_audio'] and not self._audio_in_csv:
             continue
-          filename_csv = '%s_%s_%s.csv' % (filename_base, device_name, stream_name)
+          filename_csv = '%s_%s_%s.csv' % (self._log_tag, device_name, stream_name)
           filepath_csv = os.path.join(self._log_dir, filename_csv)
           csv_writers[streamer_name][device_name][stream_name] = open(filepath_csv, 'w')
 
     # Open a writer for a CSV metadata file.
-    filename_csv = '%s__metadata.csv' % (filename_base)
+    filename_csv = '%s__metadata.csv' % (self._log_tag)
     filepath_csv = os.path.join(self._log_dir, filename_csv)
     csv_writer_metadata = open(filepath_csv, 'w')
 
@@ -422,7 +409,6 @@ class Logger(LoggerInterface):
                 header = header.strip('-')
                 extra_data_headers.append(header)
             stream_writer.write(',%s' % ','.join(extra_data_headers))
-
     # Store the writers
     self._csv_writers = csv_writers
     self._csv_writer_metadata = csv_writer_metadata
@@ -431,17 +417,15 @@ class Logger(LoggerInterface):
   # Create and initialize an HDF5 file.
   # Will have a single file for all streams from all devices.
   # Currently assumes that device names are unique across all streamers.
-  def _init_writing_hdf5(self, log_time_s: float):
-    filename_base = self._get_filename_base(log_time_s=log_time_s)
-
+  def _init_writing_hdf5(self):
     # Open an HDF5 file writer
-    filename_hdf5 = '%s.hdf5' % filename_base
+    filename_hdf5 = '%s.hdf5' % self._log_tag
     filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
-    num_to_append = 1
+    num_to_append = 0
     while os.path.exists(filepath_hdf5):
-      filename_hdf5 = '%s_%02d.hdf5' % (filename_base, num_to_append)
+      num_to_append += 1
+      filename_hdf5 = '%s_%02d.hdf5' % (self._log_tag, num_to_append)
       filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
-      num_to_append = num_to_append+1
     hdf5_file = h5py.File(filepath_hdf5, 'w')
     # Create a dataset for each data key of each stream of each device.
     for (streamer_name, stream) in self._streams.items():
@@ -484,9 +468,7 @@ class Logger(LoggerInterface):
 
 
   # Create and initialize video writers.
-  def _init_writing_videos(self, log_time_s: float):
-    filename_base = self._get_filename_base(log_time_s=log_time_s)
-
+  def _init_writing_videos(self):
     # Create a video writer for each video stream of each device.
     self._video_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     self._video_encoders = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
@@ -496,31 +478,48 @@ class Logger(LoggerInterface):
           # Skip non-video streams.
           if not stream_info['is_video']:
             continue
+          # Create a unique file.
+          filename_base = '%s_%s' % (self._log_tag, device_name)
+          filename_video = '%s.mp4' % (filename_base)
+          filepath_video = os.path.join(self._log_dir, filename_video)
+          num_to_append = 0
+          while os.path.exists(filepath_video):
+            num_to_append += 1
+            filename_video = '%s_%02d.mp4' % (filename_base, num_to_append)
+            filepath_video = os.path.join(self._log_dir, filename_video)
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
 
-          filename_video = '%s_%s_%s.mp4' % (filename_base, device_name, stream_name)
-          filepath_video = os.path.join(self._log_dir, filename_video)
-          
           video_writer = av.open(filepath_video, mode='w')
-          video_stream = video_writer.add_stream('h264', rate=int(fps))
-          video_stream.width = frame_width
-          video_stream.height = frame_height
-          video_stream.pix_fmt = 'bgr24' # Data format to convert TO. 
-
+          # Dictionary to specify quality, speed, hardware acceleration, etc.
+          #   Check ffmpeg -encoders output for capabilities.
+          #   Test the different settings to choose the tradeoff that works for you.
+          video_stream_options = {
+            '-crf': '18', # constant quality mode factor [0, 51], higher factor == lower quality. Varies bit rate for constant quality.
+            '-preset': 'medium', # {ultrafast, superfast, veryfast, faster, fast, medium (default), slow, slower, veryslow} -> speed of encoding vs quality.
+          }
+          video_stream = video_writer.add_stream('libx264',                     # One of supported by the system CODECs.
+                                                 rate=int(fps),                 # Playback rate.
+                                                 options=video_stream_options,  # CODEC configurations of its all available settings.
+                                                 width=frame_width,
+                                                 height=frame_height,
+                                                 time_base=1/fps,               # Time base for video to align data w.r.t.
+                                                 thread_type='FRAME',           # Uses multiple threads for separate frames instead of the same -> should ~5x writing performance.
+                                                 pix_fmt='yuv420p',)            # Data format to convert TO, must be supported by selected CODEC.
+                                                                                #   yuv420p, yuvj420p, yuv422p, yuvj422p, yuv444p, yuvj444p, nv12, nv16, nv21, 
+                                                                                #   yuv420p10le, yuv422p10le, yuv444p10le, nv20le, gray, gray10le
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
+            self._video_encoders[streamer_name][device_name] = {}
           self._video_writers[streamer_name][device_name][stream_name] = video_writer
           self._video_encoders[streamer_name][device_name][stream_name] = video_stream
 
 
   # Create and initialize audio writers.
-  def _init_writing_audio(self, log_time_s: float):
-    filename_base = self._get_filename_base(log_time_s=log_time_s)
-
+  def _init_writing_audio(self):
     # Create an audio writer for each audio stream of each device.
     self._audio_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, stream) in self._streams.items():
@@ -530,13 +529,19 @@ class Logger(LoggerInterface):
           if not stream_info['is_audio']:
             continue
           # Create an audio writer.
-          filename_audio = '%s_%s_%s.wav' % (filename_base, device_name, stream_name)
+          filename_base = '%s_%s' % (self._log_tag, device_name)
+          filename_audio = '%s.wav' % (filename_base)
           filepath_audio = os.path.join(self._log_dir, filename_audio)
-          audioStreaming_info = stream.get_audioStreaming_info()
+          num_to_append = 0
+          while os.path.exists(filepath_audio):
+            num_to_append += 1
+            filename_audio = '%s_%02d.wav' % (filename_base, num_to_append)
+            filepath_audio = os.path.join(self._log_dir, filename_audio)
           audio_writer = wave.open(filepath_audio, 'wb')
-          audio_writer.setnchannels(audioStreaming_info['num_channels'])
-          audio_writer.setsampwidth(audioStreaming_info['sample_width'])
-          audio_writer.setframerate(audioStreaming_info['sampling_rate'])
+          audio_streaming_info = stream.get_audioStreaming_info()
+          audio_writer.setnchannels(audio_streaming_info['num_channels'])
+          audio_writer.setsampwidth(audio_streaming_info['sample_width'])
+          audio_writer.setframerate(audio_streaming_info['sampling_rate'])
           # Store the writer.
           if device_name not in self._audio_writers[streamer_name]:
             self._audio_writers[streamer_name][device_name] = {}
@@ -560,18 +565,19 @@ class Logger(LoggerInterface):
       stream_writer: TextIOWrapper = self._csv_writers[streamer_name][device_name][stream_name]
     except KeyError: # a writer was not created for this stream
       return
+    # TODO: not safe for video. `data_to_write` would be a tuple.
     for entry_index in range(num_new_entries):
       # Create a list of column entries to write.
       # Note that they should match the heading order in _init_writing_csv().
       to_write = []
       to_write.append(new_data['time_s'][entry_index])
-      data_toWrite = new_data['data'][entry_index]
-      if isinstance(data_toWrite, (list, tuple)):
-        to_write.extend(data_toWrite)
-      elif isinstance(data_toWrite, np.ndarray):
-        to_write.extend(list(np.atleast_1d(data_toWrite.reshape(1, -1).squeeze())))
+      data_to_write = new_data['data'][entry_index]
+      if isinstance(data_to_write, (list, tuple)):
+        to_write.extend(data_to_write)
+      elif isinstance(data_to_write, np.ndarray):
+        to_write.extend(list(np.atleast_1d(data_to_write.reshape(1, -1).squeeze())))
       else:
-        to_write.append(data_toWrite)
+        to_write.append(data_to_write)
       for extra_data_header in stream.get_stream_info(device_name, stream_name)['extra_data_info'].keys():
         to_write.append(new_data[extra_data_header][entry_index])
       # Write the new row
@@ -624,7 +630,7 @@ class Logger(LoggerInterface):
   # Note that this can be called during streaming (periodic writing)
   #  or during post-experiment dumping.
   # @param new_data is a dict with 'data' (all other keys will be ignored).
-  #   The 'data' entry must contain raw frames as a matrix.
+  #   The 'data' entry must be a list of tuples containing raw frame as a matrix and a boolean to indicate if it's to be encoded as a keyframe.
   #   The data may contain multiple timesteps (a list of matrices).
   def _write_data_video(self,
                         streamer_name: str,
@@ -634,14 +640,20 @@ class Logger(LoggerInterface):
     try:
       video_writer: av.container.OutputContainer = self._video_writers[streamer_name][device_name][stream_name]
       video_encoder: av.VideoStream = self._video_encoders[streamer_name][device_name][stream_name]
-      for frame in new_data['data']:
-        frame = cv2.imdecode(frame, cv2.IMREAD_UNCHANGED)
-        
+      for frame, is_keyframe, pts in new_data['data']:
         # Convert NumPy array image to an PyAV frame.
-        av_frame = av.VideoFrame.from_ndarray(frame, format='') # TODO: select format to convert FROM
+        av_frame = av.VideoFrame.from_ndarray(frame, format='bgr24') # Format to convert FROM (in our case, all video appended to Stream is in 'bgr24').
+        # Encodes this frame without looking at previous images (speeds up encoding if multiple image grabbing was skipped by camera handler).
+        av_frame.key_frame = is_keyframe
+        # Frame presentation time in the units of the stream's timebase.
+        #   Ensures smooth playback in case of variable throughput and skipped images:
+        #     Will display the same frame longer if there were missed images, without duplicating the frame in the recording.
+        av_frame.pts = pts
+        # av_frame.dts = dts (could also be important)
         # Encode the frame and flush it to the container.
-        video_writer.mux(video_encoder.encode(av_frame))
-    except KeyError: # a writer was not created for this stream
+        for packet in video_encoder.encode(av_frame):
+          video_writer.mux(packet)
+    except KeyError: # a video writer was not created for this stream.
       return
 
 
@@ -656,7 +668,6 @@ class Logger(LoggerInterface):
                         device_name: str, 
                         stream_name: str, 
                         new_data: dict):
-    stream = self._streams[streamer_name]
     try:
       audio_writer: wave.Wave_write = self._audio_writers[streamer_name][device_name][stream_name]
     except KeyError: # a writer was not created for this stream

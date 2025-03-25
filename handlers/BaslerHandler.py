@@ -25,7 +25,7 @@
 #
 # ############
 
-import queue
+from collections import OrderedDict, deque
 from pypylon import pylon
 import cv2
 import numpy as np
@@ -50,7 +50,8 @@ class ImageEventHandler(pylon.ImageEventHandler):
     # Register with the pylon loop, specify strategy for frame grabbing.
     for cam in cam_array: 
       cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
-    self._buffer = queue.Queue()
+    self._start_sequence_id = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), None) for cam in cam_array])
+    self._buffer = deque()
 
 
   def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult):
@@ -67,24 +68,31 @@ class ImageEventHandler(pylon.ImageEventHandler):
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
+        # Presentation time in the units of the timebase of the stream, w.r.t. the start of the video recording.
+        if self._start_sequence_id[camera_id] is None:
+          self._start_sequence_id[camera_id] = sequence_id
+        pts = sequence_id - self._start_sequence_id[camera_id] # TODO: not safe against overflow, but int64
+        # If there are any skipped images in between, it will take encoder a lot of processing.
+        #   Mark the frame as keyframe so it encodes the frame as a whole, not differentially.
+        is_keyframe: bool = res.GetNumberOfSkippedImages() > 0
         # Release the buffer for Pylon to reuse for the next frame.
         res.Release()
         # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
         # TODO: pass object to it by reference to avoid memcopy of large image objects.
-        self._buffer.put((camera_id, frame, timestamp, sequence_id))
+        self._buffer.append((camera_id, 
+                             frame, 
+                             is_keyframe, 
+                             pts, 
+                             timestamp, 
+                             sequence_id))
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
       pass
 
 
-  def OnImagesSkipped(self, camera: pylon.InstantCamera, num_images_skipped: int):
-    print(f"{camera.GetDeviceInfo().GetSerialNumber()} skipped {num_images_skipped} images.")
-
-
-  def get_frame(self) -> tuple[str, np.ndarray, np.uint64, np.int64] | None:
+  def get_frame(self) -> tuple[str, np.ndarray, bool, int, np.uint64, np.int64] | None:
     try:
-      oldest_frame = self._buffer.get_nowait()
-      return oldest_frame
-    except queue.Empty:
+      return self._buffer.popleft()
+    except IndexError:
       return None
