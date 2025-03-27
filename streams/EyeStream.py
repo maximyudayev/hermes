@@ -374,7 +374,6 @@ class EyeStream(Stream):
                                 gaze_data_path={'eye-gaze': 'position'},
                                 legend_name=device,
                                 update_interval_ms=self._update_interval_ms,
-                                color_format=None,
                                 col_width=6)
                     for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
 
@@ -383,7 +382,6 @@ class EyeStream(Stream):
                                  data_path={device: 'frame'},
                                  legend_name=device,
                                  update_interval_ms=self._update_interval_ms,
-                                 color_format=None,
                                  col_width=6)
                     for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
     

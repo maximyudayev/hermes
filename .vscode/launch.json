@@ -17,7 +17,7 @@
       "request": "launch",
       "program": "main.py",
       "args": [
-        "configs/test/local_pupil.yml"
+        "configs/test/local_cameras.yml"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
