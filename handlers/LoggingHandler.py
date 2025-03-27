@@ -27,6 +27,7 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from fractions import Fraction
 from io import TextIOWrapper
 import os
 import time
@@ -492,24 +493,25 @@ class Logger(LoggerInterface):
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
 
-          video_writer = av.open(filepath_video, mode='w')
           # Dictionary to specify quality, speed, hardware acceleration, etc.
           #   Check ffmpeg -encoders output for capabilities.
           #   Test the different settings to choose the tradeoff that works for you.
           video_stream_options = {
-            '-crf': '18', # constant quality mode factor [0, 51], higher factor == lower quality. Varies bit rate for constant quality.
-            '-preset': 'medium', # {ultrafast, superfast, veryfast, faster, fast, medium (default), slow, slower, veryslow} -> speed of encoding vs quality.
+            '-preset': 'medium', # {veryfast, faster, fast, medium (default), slow, slower, veryslow} -> speed of encoding vs quality.
+            '-profile': 'high', # {unknown, baseline, main, high}
+            '-skip_frame': '0', # {no_skip, insert_dummy, insert_nothing, brc_only}
           }
-          video_stream = video_writer.add_stream('libx264',                     # One of supported by the system CODECs.
+          # These settings give x2 on hardware-only encoding, leaving CPU free and good quality video.
+          video_writer = av.open(filepath_video, mode='w')
+          video_stream = video_writer.add_stream('h264_qsv',                     # One of supported by the system CODECs.
                                                  rate=int(fps),                 # Playback rate.
-                                                 options=video_stream_options,  # CODEC configurations of its all available settings.
                                                  width=frame_width,
                                                  height=frame_height,
-                                                 time_base=1/fps,               # Time base for video to align data w.r.t.
+                                                 time_base=Fraction(1, fps),    # Time base for video to align data w.r.t.
                                                  thread_type='FRAME',           # Uses multiple threads for separate frames instead of the same -> should ~5x writing performance.
-                                                 pix_fmt='yuv420p',)            # Data format to convert TO, must be supported by selected CODEC.
-                                                                                #   yuv420p, yuvj420p, yuv422p, yuvj422p, yuv444p, yuvj444p, nv12, nv16, nv21, 
-                                                                                #   yuv420p10le, yuv422p10le, yuv444p10le, nv20le, gray, gray10le
+                                                 pix_fmt='nv12',             # Data format to convert TO, must be supported by selected CODEC.
+                                                 options=video_stream_options)   # CODEC configurations of its all available settings.
+
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
@@ -649,9 +651,12 @@ class Logger(LoggerInterface):
         #   Ensures smooth playback in case of variable throughput and skipped images:
         #     Will display the same frame longer if there were missed images, without duplicating the frame in the recording.
         av_frame.pts = pts
+        av_frame.time_base = video_encoder.time_base
         # av_frame.dts = dts (could also be important)
         # Encode the frame and flush it to the container.
         for packet in video_encoder.encode(av_frame):
+          packet.pts = pts
+          packet.time_base = video_encoder.time_base
           video_writer.mux(packet)
     except KeyError: # a video writer was not created for this stream.
       return
@@ -761,8 +766,9 @@ class Logger(LoggerInterface):
         for (device_name, video_writers) in self._video_writers[streamer_name].items():
           for (stream_name, video_writer) in video_writers.items():
             # Flush the encoder to properly complete the writing of the file.
-            video_encoder: av.VideoStream = self._video_writers[streamer_name][device_name][stream_name]
-            video_writer.mux(video_encoder.encode())
+            video_encoder: av.VideoStream = self._video_encoders[streamer_name][device_name][stream_name]
+            for packet in video_encoder.encode():
+              video_writer.mux(packet)
             # Close the container
             video_writer.close()
       self._video_writers = None
