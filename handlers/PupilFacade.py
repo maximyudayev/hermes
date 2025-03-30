@@ -264,91 +264,6 @@ class PupilFacade:
     self._get_latest_stream_data_fn = fn
 
 
-  # Get some sample data to determine what gaze/pupil streams are present.
-  def get_available_info(self) -> dict:
-    # Will validate that all expected streams are present, and will also
-    #  determine whether 2D or 3D processing is being used.
-    # self._log_status('Waiting for initial eye tracking data to determine streams')
-    # Temporarily set self._stream_video_world to True if we want self._stream_video_worldGaze.
-    #   Gaze data is not stored yet, so video_worldGaze won't be created yet.
-    #   So instead, we can at least check that the world is streamed.
-    gaze_data = None
-    pupil_data = None
-    fixations_data = None
-    blinks_data = None
-    video_world_data = None
-    video_eye0_data = None
-    video_eye1_data = None
-    wait_start_time_s = time.time()
-    wait_timeout_s = 5
-    while (gaze_data is None
-            or pupil_data is None
-            or fixations_data is None
-            or blinks_data is None
-            or (video_world_data is None and self._is_stream_video_world)
-            or (video_eye0_data is None and self._is_stream_video_eye)
-            or (video_eye1_data is None and self._is_stream_video_eye and self._is_binocular)) \
-          and (time.time() - wait_start_time_s < wait_timeout_s):
-      time_s, data = self.process_data()
-      gaze_data = gaze_data or data['gaze']
-      pupil_data = pupil_data or data['pupil']
-      fixations_data = fixations_data or data['eye-fixations']
-      blinks_data = blinks_data or data['eye-blinks']
-      video_world_data = video_world_data or data['video-world']
-      video_eye0_data = video_eye0_data or data['video-eye0']
-      video_eye1_data = video_eye1_data or data['video-eye1']
-    if (time.time() - wait_start_time_s >= wait_timeout_s):
-      msg = 'ERROR: Eye tracking did not detect all expected streams as active'
-      msg+= '\n Gaze  data      is streaming? %s' % (gaze_data is not None)
-      msg+= '\n Pupil data      is streaming? %s' % (pupil_data is not None)
-      msg+= '\n Fixations data  is streaming? %s' % (fixations_data is not None)
-      msg+= '\n Blinks data     is streaming? %s' % (blinks_data is not None)
-      msg+= '\n Video world     is streaming? %s' % (video_world_data is not None)
-      msg+= '\n Video eye0      is streaming? %s' % (video_eye0_data is not None)
-      msg+= '\n Video eye1      is streaming? %s' % (video_eye1_data is not None)
-      raise AssertionError(msg)
-
-    # Estimate the video frame rates
-    fps_video_world = None
-    fps_video_eye0 = None
-    fps_video_eye1 = None
-    def _get_fps(data_key, duration_s=0.1):
-      # Wait for a new data entry, so we start timing close to a frame boundary.
-      data = {data_key: None}
-      while data[data_key] is not None:
-        time_s, data = self.process_data()
-      # Receive/process messages for the desired duration.
-      time_start_s = time.time()
-      frame_count = 0
-      while time.time() - time_start_s < duration_s:
-        time_s, data = self.process_data()
-        if data[data_key] is not None:
-          frame_count = frame_count+1
-      # Since we both started and ended timing right after a sample, no need to do (frame_count-1).
-      frame_rate = frame_count/(time.time() - time_start_s)
-      return frame_rate
-    if self._is_stream_video_world:
-      fps_video_world = _get_fps('video-world')
-    if self._is_stream_video_eye:
-      fps_video_eye0 = _get_fps('video-eye0')
-      fps_video_eye1 = _get_fps('video-eye1') if self._is_binocular else None
-
-    data = {
-      "gaze_data": gaze_data,
-      "pupil_data": pupil_data,
-      "fixations_data": fixations_data,
-      "blinks_data": blinks_data,
-      "video_world_data": video_world_data,
-      "video_eye0_data": video_eye0_data,
-      "video_eye1_data": video_eye1_data,
-      "fps_video_world": fps_video_world,
-      "fps_video_eye0": fps_video_eye0,
-      "fps_video_eye1": fps_video_eye1
-    }
-
-    return data
-
-
   # Close sockets used by the Facade, destroy the ZeroMQ context in the SensorStreamer
   def close(self) -> None:
     self._zmq_requester.close()
@@ -451,4 +366,4 @@ class PupilFacade:
     # TODO: remove outliers before averaging
     return np.mean(clock_offsets_s)
 
-  # TODO: periodically sync the glasses data?
+  # TODO: periodically sync the glasses time?

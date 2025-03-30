@@ -78,7 +78,6 @@ class ImageEventHandler(pylon.ImageEventHandler):
         # Release the buffer for Pylon to reuse for the next frame.
         res.Release()
         # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
-        # TODO: pass object to it by reference to avoid memcopy of large image objects.
         self._buffer.append((camera_id, 
                              frame, 
                              is_keyframe, 
