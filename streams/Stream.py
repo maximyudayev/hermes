@@ -200,10 +200,16 @@ class Stream(ABC):
         self._streams_info[device_name][stream_name]['dt_running_sum']
 
 
-  # Deque popping is thread-safe while appending.
+  # Pop FIFO data starting with the first timestep that hasn't been logged yet,
+  #   and ending at the most recent data (or back by a few timesteps
+  #   if the streamer may still edit the most recent timesteps).
+  # NOTE: Deque popping is thread-safe while appending.
   # Cleans up the oldest data in the FIFO, so can be called only once. 
   #   for x in pop_data(..., num_to_pop):
   # Returns an iterator over the same data elements placed using 'append'.
+  # Passing an iterator to either method, will consume all available data in that stream,
+  #   so if HDF5 and CSV requested from the same stream, only HDF5 will be written.
+  #   This will effectively clear logged data from memory.
   def pop_data(self, 
                device_name: str, 
                stream_name: str,
