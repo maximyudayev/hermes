@@ -126,7 +126,7 @@ class EyeStreamer(Producer):
                                              pupil_capture_port=self._pupil_capture_port,
                                              video_image_format=self._video_image_format,
                                              gaze_estimate_stale_s=self._gaze_estimate_stale_s)
-    self._handler.set_stream_data_getter(fn=self._stream.get_data_multiple_streams)
+    self._handler.set_stream_data_getter(fn=self._stream.peek_data_new)
     return True
 
 
