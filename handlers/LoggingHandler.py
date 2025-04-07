@@ -27,15 +27,13 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from fractions import Fraction
 from io import TextIOWrapper
 import os
 import time
 from typing import Any, Iterator
 import wave
 
-import av
-import av.container
+import ffmpeg
 import asyncio
 import concurrent.futures
 import h5py
@@ -204,8 +202,7 @@ class Logger(LoggerInterface):
     self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
     self._csv_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, TextIOWrapper]]] = None
     self._csv_writer_metadata: TextIOWrapper = None
-    self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, av.container.OutputContainer]]] = None
-    self._video_encoders: OrderedDict[str, OrderedDict[str, OrderedDict[str, av.VideoStream]]] = None
+    self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = None
     self._audio_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, wave.Wave_write]]] = None
     self._hdf5_file: h5py.File = None
   
@@ -461,36 +458,28 @@ class Logger(LoggerInterface):
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
-          # Dictionary to specify quality, speed, hardware acceleration, etc.
-          #   Check ffmpeg -encoders output for capabilities.
-          #   Test the different settings to choose the tradeoff that works for you.
-          video_stream_options = {
-            # '-preset': 'medium', # {veryfast, faster, fast, medium (default), slow, slower, veryslow} -> speed of encoding vs quality.
-            # '-profile': 'high', # {unknown, baseline, main, high}
-            # '-skip_frame': '0', # {no_skip, insert_dummy, insert_nothing, brc_only}
-            # '-g': str(int(fps)), # set every second an I-frame for easier sweeping through the video (can play from anywhere in the video, not only from start)
-          }
-          # These settings give x2 on hardware-only encoding, leaving CPU free and good quality video.
-          video_writer = av.open(filepath_video, mode='w')
-          video_stream = video_writer.add_stream('h264_amf',                     # One of supported by the system CODECs.
-                                                 rate=int(fps),                 # Playback rate.
-                                                 width=frame_width,
-                                                 height=frame_height,
-                                                 time_base=Fraction(1, int(fps)),    # Time base for video to align data w.r.t.
-                                                #  thread_type='FRAME',           # Uses multiple threads for separate frames instead of the same -> should ~5x writing performance.
-                                                 pix_fmt='nv12',             # Data format to convert TO, must be supported by selected CODEC.
-                                                 options=video_stream_options)   # CODEC configurations of its all available settings.
+          pix_fmt: str = stream_info['color_format']['av']
+
+          # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
+          # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
+          # ffmpeg.setpts()
+          video_writer = (
+            ffmpeg
+            .input('pipe:', format='rawvideo', pix_fmt=pix_fmt, s='{}x{}'.format(frame_width, frame_height))
+            .output(filepath_video, vcodec='h264_amf', pix_fmt='nv12')
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+          )
+
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}
-            self._video_encoders[streamer_name][device_name] = {}
           self._video_writers[streamer_name][device_name][stream_name] = video_writer
-          self._video_encoders[streamer_name][device_name][stream_name] = video_stream
 
 
   # Create and initialize audio writers.
   # TODO: implement audio streaming info on the Stream object.
-  # TODO: switch to PyAV for audio file writing.
+  # TODO: switch to ffmpeg for audio file writing.
   def _init_files_audio(self) -> None:
     # Create an audio writer for each audio stream of each device.
     self._audio_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
@@ -640,12 +629,8 @@ class Logger(LoggerInterface):
       for (streamer_name, stream) in self._streams.items():
         for (device_name, video_writers) in self._video_writers[streamer_name].items():
           for (stream_name, video_writer) in video_writers.items():
-            # Flush the encoder to properly complete the writing of the file.
-            video_encoder = self._video_encoders[streamer_name][device_name][stream_name]
-            for packet in video_encoder.encode():
-              video_writer.mux(packet)
-            # Close the container
-            video_writer.close()
+            video_writer.stdin.close()
+            video_writer.wait()
       self._video_writers = None
       self._video_encoders = None
 
@@ -710,27 +695,18 @@ class Logger(LoggerInterface):
                         stream_name: str):
     try:
       video_writer = self._video_writers[streamer_name][device_name][stream_name]
-      video_encoder = self._video_encoders[streamer_name][device_name][stream_name]
     except KeyError: # a video writer was not created for this stream.
       return
-    color_format: dict[str, Any] = self._streams[streamer_name].get_stream_info(device_name=device_name, stream_name=stream_name)['color_format']
-    # Write all available video frames to file. 
-    new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
+    # Write all available video frames to file.
+    new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
+                                                                                             stream_name=stream_name, 
+                                                                                             is_flush=self._is_flush)
     for frame, is_keyframe, pts in new_data:
-      # Convert NumPy array image to an PyAV frame.
-      av_frame = av.VideoFrame.from_ndarray(frame, format=color_format['av'])
-      # Encodes this frame without looking at previous images (speeds up encoding if multiple image grabbing was skipped by camera handler).
-      # av_frame.key_frame = is_keyframe
-      # Frame presentation time in the units of the stream's timebase.
-      #   Ensures smooth playback in case of variable throughput and skipped images:
-      #     Will display the same frame longer if there were missed images, without duplicating the frame in the recording.
-      # av_frame.pts = pts
-      # av_frame.time_base = video_encoder.time_base
-      # Encode the frame and flush it to the container.
-      for packet in video_encoder.encode(av_frame):
-        packet.pts = pts
-        # packet.time_base = video_encoder.time_base
-        video_writer.mux(packet)
+      # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
+      video_writer.stdin.write(
+        frame
+        .tobytes()
+      )
 
 
   # Write provided data to the CSV file.
