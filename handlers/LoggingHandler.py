@@ -168,14 +168,16 @@ class Logger(LoggerInterface):
                stream_hdf5: bool = False,
                stream_video: bool = False,
                stream_audio: bool = False,
-               dump_csv: bool = False, 
-               dump_hdf5: bool = False, 
-               dump_video: bool = False, 
+               dump_csv: bool = False,
+               dump_hdf5: bool = False,
+               dump_video: bool = False,
                dump_audio: bool = False,
-               videos_in_csv: bool = False, 
-               videos_in_hdf5: bool = False, 
-               audio_in_csv: bool = False, 
-               audio_in_hdf5: bool = False, 
+               videos_in_csv: bool = False,
+               videos_in_hdf5: bool = False,
+               video_codec: str = "h264",
+               video_pix_format: str = "nv12",
+               audio_in_csv: bool = False,
+               audio_in_hdf5: bool = False,
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -192,6 +194,8 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._videos_in_csv = videos_in_csv
     self._videos_in_hdf5 = videos_in_hdf5
+    self._video_codec = video_codec
+    self._output_video_pix_fmt = video_pix_format
     self._audio_in_csv = audio_in_csv
     self._audio_in_hdf5 = audio_in_hdf5
     self._audio_format = audio_format
@@ -458,15 +462,15 @@ class Logger(LoggerInterface):
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
-          pix_fmt: str = stream_info['color_format']['av']
+          input_stream_pix_fmt: str = stream_info['color_format']['av']
 
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
           # ffmpeg.setpts()
           video_writer = (
             ffmpeg
-            .input('pipe:', format='rawvideo', pix_fmt=pix_fmt, s='{}x{}'.format(frame_width, frame_height))
-            .output(filepath_video, vcodec='h264_amf', pix_fmt='nv12')
+            .input('pipe:', format='rawvideo', pix_fmt=input_stream_pix_fmt, s='{}x{}'.format(frame_width, frame_height))
+            .output(filepath_video, vcodec=self._video_codec, pix_fmt=self._output_video_pix_fmt)
             .overwrite_output()
             .run_async(pipe_stdin=True)
           )

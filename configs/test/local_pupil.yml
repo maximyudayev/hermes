@@ -58,6 +58,7 @@ logging_spec:
 
   videos_in_hdf5  : False
   videos_in_csv   : False
+  video_codec     : 'h264_amf'
 
   audio_format    : "wav" # currently only supports WAV
   audio_in_hdf5   : False
