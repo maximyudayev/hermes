@@ -53,8 +53,7 @@ logging_spec:
   stream_video    : True
   stream_audio    : False
   stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-  
+
   # Choose whether to write all data at the end.
   #   Seems to be mutually exclusive with `stream_` options.
   dump_csv        : False
@@ -103,25 +102,24 @@ producer_specs:
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
   - class: "EyeStreamer"
-    pupil_capture_ip      : "localhost"
-    pupil_capture_port    : "50020"
-    video_image_format    : "bgr"
-    gaze_estimate_stale_s : 0.2
+    pupil_capture_ip        : "localhost"
+    pupil_capture_port      : "50020"
+    video_image_format      : "bgr"
+    gaze_estimate_stale_s   : 0.2
     is_binocular            : True # uses both eyes for gaze data and for video
     is_stream_video_world   : True
     is_stream_video_eye     : False
     is_stream_fixation      : False
     is_stream_blinks        : False
-    is_stream_head_pose     : False # TODO: requires looking into markers!
-    shape_video_world: 
+    shape_video_world:
       - 720
       - 1280
       - 3
-    shape_video_eye0: 
+    shape_video_eye0:
       - 400
       - 400
       - 3
-    shape_video_eye1: 
+    shape_video_eye1:
       - 400
       - 400
       - 3
@@ -136,12 +134,10 @@ producer_specs:
       basler_east  : "40549960"
       basler_south : "40549975"
       basler_west  : "40549976"
-    fps: 20
     resolution:
       - 1944
       - 2592
       - 3
-    color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
     camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
 
   # Moticon insole pressure.
@@ -179,7 +175,7 @@ producer_specs:
   
   # Dummy producer.
   - class': "DummyStreamer"
-
+    sampling_rate_hz: 1
 
 consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select only one.
   - class: "DataVisualizer"
@@ -224,16 +220,15 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         is_sync_devices   : True
       
       - class: "EyeStreamer"
-        pupil_capture_ip      : "localhost"
-        pupil_capture_port    : "50020"
-        video_image_format    : "bgr"
-        gaze_estimate_stale_s : 0.2
+        pupil_capture_ip        : "localhost"
+        pupil_capture_port      : "50020"
+        video_image_format      : "bgr"
+        gaze_estimate_stale_s   : 0.2
         is_binocular            : True # uses both eyes for gaze data and for video
         is_stream_video_world   : True
         is_stream_video_eye     : False
         is_stream_fixation      : False
         is_stream_blinks        : False
-        is_stream_head_pose     : False # TODO: requires looking into markers!
         shape_video_world: 
           - 720
           - 1280
@@ -261,7 +256,6 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           - 1944
           - 2592
           - 3
-        color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
         camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
       
       - class: "InsoleStreamer"
@@ -293,6 +287,7 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         vicon_ip: "192.168.0.104"
       
       - class': "DummyStreamer"
+        sampling_rate_hz: 1
     
     logging_spec:
       # Choose whether to periodically write data to files.
@@ -301,7 +296,6 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
       stream_video    : False
       stream_audio    : False
       stream_period_s : 10 # how often to save streamed data to disk
-      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
 
       # Choose whether to write all data at the end.
       #   Seems to be mutually exclusive with `stream_` options.

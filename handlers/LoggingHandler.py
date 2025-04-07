@@ -713,11 +713,12 @@ class Logger(LoggerInterface):
       video_encoder = self._video_encoders[streamer_name][device_name][stream_name]
     except KeyError: # a video writer was not created for this stream.
       return
-    new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
+    color_format: dict[str, Any] = self._streams[streamer_name].get_stream_info(device_name=device_name, stream_name=stream_name)['color_format']
     # Write all available video frames to file. 
+    new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
     for frame, is_keyframe, pts in new_data:
       # Convert NumPy array image to an PyAV frame.
-      av_frame = av.VideoFrame.from_ndarray(frame, format='bgr24') # Format to convert FROM (in our case, all video appended to Stream is in 'bgr24').
+      av_frame = av.VideoFrame.from_ndarray(frame, format=color_format['av'])
       # Encodes this frame without looking at previous images (speeds up encoding if multiple image grabbing was skipped by camera handler).
       # av_frame.key_frame = is_keyframe
       # Frame presentation time in the units of the stream's timebase.
@@ -727,7 +728,7 @@ class Logger(LoggerInterface):
       # av_frame.time_base = video_encoder.time_base
       # Encode the frame and flush it to the container.
       for packet in video_encoder.encode(av_frame):
-        # packet.pts = pts
+        packet.pts = pts
         # packet.time_base = video_encoder.time_base
         video_writer.mux(packet)
 

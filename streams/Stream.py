@@ -30,6 +30,7 @@ from abc import ABC, abstractmethod
 import copy
 from collections import OrderedDict, deque
 from typing import Any, Iterator
+import cv2
 import dash_bootstrap_components as dbc
 from threading import Lock
 import numpy as np
@@ -102,27 +103,26 @@ class Stream(ABC):
   #     streamer class may infer a timestamp for the previous reading when
   #     a new pair of readings arrive.  A timestamp is thus not 'final' until the next timestep.
   # @param extra_data_info is used to specify additional data keys that will be streamed
-  #   along with the default 'data' and 'time_s'.
+  #   along with the default 'data'.
   #   It should be a dict, where each extra data key maps to a dict with at least 'data_type' and 'sample_size'.
   # @param data_notes can be a string or a dict of relevant info.
   #   If it's a dict, the key 'Data headings' is recommended and will be used by DataLogger for headers.
   #     In that case, 'Data headings' should map to a list of strings of length sample_size.
-  def add_stream(self, 
-                 device_name: str, 
-                 stream_name: str, 
-                 data_type: type, 
-                 sample_size: list[int] | tuple[int], 
-                 sampling_rate_hz: float, 
+  def add_stream(self,
+                 device_name: str,
+                 stream_name: str,
+                 data_type: type,
+                 sample_size: list[int] | tuple[int],
+                 sampling_rate_hz: float,
                  is_measure_rate_hz: bool = False,
                  data_notes: str | dict = {},
                  is_video: bool = False,
-                 is_audio: bool = False, 
+                 color_format: str = None,
+                 is_audio: bool = False,
                  timesteps_before_solidified: int = 0,
                  extra_data_info: dict[str, dict[str, Any]] = {}) -> None:
-    self._streams_info.setdefault(device_name, OrderedDict())
     self._locks.setdefault(device_name, Lock())
-    if not isinstance(sample_size, (list, tuple)):
-      sample_size = [sample_size]
+    self._streams_info.setdefault(device_name, OrderedDict())
     self._streams_info[device_name][stream_name] = OrderedDict([
                                                     ('data_type', data_type),
                                                     ('sample_size', sample_size),
@@ -134,6 +134,20 @@ class Stream(ABC):
                                                     ('timesteps_before_solidified', timesteps_before_solidified),
                                                     ('extra_data_info', extra_data_info),
                                                     ])
+    # Record color formats to use by PyAV and OpenCV, for saving and displaying frames.
+    if is_video:
+      try:
+        # Must be a tuple of (<PyAV write format>, <OpenCV display format>):
+        #   one of the supported PyAV pixel formats: https://github.com/PyAV-Org/PyAV/blob/main/av/video/frame.pyx
+        #   one of the supported OpenCV pixel conversion formats: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
+        av_color, cv2_color = {
+          'bgr': ('bgr24', cv2.COLOR_BGR2RGB),
+          'bayer_rg8': ('bayer_rggb8', cv2.COLOR_BAYER_RG2RGB),
+        }[color_format]
+        self._streams_info[device_name][stream_name]['color_format'] = {'av': av_color, 'cv2': cv2_color}
+      except KeyError:
+        print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
+    # Some metadata to keep track of during running to measure the actual frame rate.
     if is_measure_rate_hz:
       # Set at start actual rate equal to desired sample rate
       self._streams_info[device_name][stream_name]['actual_rate_hz'] = self._streams_info[device_name][stream_name]['sampling_rate_hz']
@@ -162,20 +176,15 @@ class Stream(ABC):
   # @param time_s and @param data should each be a single value.
   # @param extra_data should be a dict mapping each extra data key to a single value.
   #   The extra data keys should match what was specified in add_stream() or set_streams_info().
-  def _append(self, 
-              device_name: str, 
-              stream_name: str, 
-              time_s: float, 
-              data: Any, 
-              extra_data: dict[str, dict] = None) -> None:
+  def _append(self,
+              device_name: str,
+              stream_name: str,
+              time_s: float,
+              data: Any) -> None:
     self._data[device_name][stream_name].append(data)
 
-    # TODO: expand the extra_data
-    if extra_data is not None:
-      for (extra_key, extra_value) in extra_data.items():
-        self._data[device_name][stream_name][extra_key].append(extra_value)
-
     # If stream set to measure actual fps
+    # TODO: cleanup to use a fixed-length Deque instead.
     if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
       # Make intermediate variables for current and previous samples' time-of-arrival
       new_toa = time.time()
@@ -238,11 +247,13 @@ class Stream(ABC):
                     stream_name: str,
                     num_newest_to_peek: int = None) -> Iterator[Any]:
     self._locks[device_name].acquire()
-    num_peekable: int = min(self._streams_info[device_name][stream_name]['timesteps_before_solidified'], len(self._data[device_name][stream_name]))
+    num_peekable: int = min(self._streams_info[device_name][stream_name]['timesteps_before_solidified'], 
+                            len(self._data[device_name][stream_name]))
     if num_newest_to_peek is None:
       num_newest_to_peek = num_peekable
     else:
-      num_newest_to_peek = min(num_newest_to_peek, self._streams_info[device_name][stream_name]['timesteps_before_solidified'])
+      num_newest_to_peek = min(num_newest_to_peek, 
+                               self._streams_info[device_name][stream_name]['timesteps_before_solidified'])
     num_peeked: int = 0
     stream_reversed = reversed(self._data[device_name][stream_name])
     while num_peeked < num_newest_to_peek:

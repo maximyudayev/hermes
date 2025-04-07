@@ -52,8 +52,7 @@ logging_spec:
   stream_video    : True
   stream_audio    : False
   stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-  
+
   # Choose whether to write all data at the end.
   #   Seems to be mutually exclusive with `stream_` options.
   dump_csv        : False
@@ -97,7 +96,6 @@ producer_specs:
     is_stream_video_eye     : False
     is_stream_fixation      : False
     is_stream_blinks        : False
-    is_stream_head_pose     : False # TODO: requires looking into markers!
     shape_video_world: 
       - 720
       - 1280

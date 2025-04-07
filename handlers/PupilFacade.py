@@ -202,7 +202,6 @@ class PupilFacade:
       video_world_items = [
         ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
         ('frame', (img, is_keyframe, pts)),
       ]
 
@@ -230,7 +229,6 @@ class PupilFacade:
       video_eye_items = [
         ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        # ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
         ('frame', (img, is_keyframe, pts))
       ]
 

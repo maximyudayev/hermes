@@ -50,7 +50,7 @@ logging_spec:
   stream_video    : False
   stream_audio    : False
   stream_period_s : 10
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+
   dump_csv        : False
   dump_hdf5       : False
   dump_video      : False

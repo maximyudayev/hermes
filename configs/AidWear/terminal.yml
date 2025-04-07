@@ -53,8 +53,7 @@ logging_spec:
   stream_video    : True
   stream_audio    : False
   stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-  
+
   # Choose whether to write all data at the end.
   #   Seems to be mutually exclusive with `stream_` options.
   dump_csv        : False
@@ -85,7 +84,6 @@ producer_specs:
       - 1440
       - 2560
       - 3
-    color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
     camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
 
 
@@ -132,16 +130,15 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         is_sync_devices   : True
       
       - class: "EyeStreamer"
-        pupil_capture_ip      : "localhost"
-        pupil_capture_port    : "50020"
-        video_image_format    : "bgr"
-        gaze_estimate_stale_s : 0.2
+        pupil_capture_ip        : "localhost"
+        pupil_capture_port      : "50020"
+        video_image_format      : "bgr"
+        gaze_estimate_stale_s   : 0.2
         is_binocular            : True # uses both eyes for gaze data and for video
         is_stream_video_world   : True
         is_stream_video_eye     : False
         is_stream_fixation      : False
         is_stream_blinks        : False
-        is_stream_head_pose     : False # TODO: requires looking into markers!
         shape_video_world: 
           - 720
           - 1280
@@ -169,7 +166,6 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           - 1440
           - 2560
           - 3
-        color_format: "COLOR_BAYER_RG2BGR" # Must be a valid OpenCV color format
         camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
       
       - class: "InsoleStreamer"
@@ -184,7 +180,6 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
       stream_video    : True
       stream_audio    : False
       stream_period_s : 10 # how often to save streamed data to disk
-      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
 
       # Choose whether to write all data at the end.
       #   Seems to be mutually exclusive with `stream_` options.

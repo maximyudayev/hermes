@@ -52,8 +52,7 @@ logging_spec:
   stream_video    : False
   stream_audio    : False
   stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-  
+
   # Choose whether to write all data at the end.
   #   Seems to be mutually exclusive with `stream_` options.
   dump_csv        : False

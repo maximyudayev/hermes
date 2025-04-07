@@ -58,6 +58,7 @@ class CameraStream(Stream):
       self.add_stream(device_name=camera_id,
                       stream_name='frame',
                       is_video=True,
+                      color_format='bayer_rg8',
                       data_type='uint8',
                       sample_size=resolution,
                       sampling_rate_hz=fps,

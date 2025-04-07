@@ -295,6 +295,7 @@ class EyeStream(Stream):
                       data_notes=self._data_notes['eye-video-world']['frame'],
                       is_measure_rate_hz=True,
                       is_video=True,
+                      color_format='bgr',
                       timesteps_before_solidified=self._timesteps_before_solidified)
 
     if is_stream_video_eye:
@@ -318,6 +319,7 @@ class EyeStream(Stream):
                       data_notes=self._data_notes['eye-video-eye0']['frame'],
                       is_measure_rate_hz=True,
                       is_video=True,
+                      color_format='bgr',
                       timesteps_before_solidified=self._timesteps_before_solidified)
       if is_binocular:
         self.add_stream(device_name='eye-video-eye1', 
@@ -340,6 +342,7 @@ class EyeStream(Stream):
                         data_notes=self._data_notes['eye-video-eye1']['frame'],
                         is_measure_rate_hz=True,
                         is_video=True,
+                        color_format='bgr',
                         timesteps_before_solidified=self._timesteps_before_solidified)
 
 

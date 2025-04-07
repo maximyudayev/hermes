@@ -29,7 +29,7 @@ project       : "DummyTest"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
-duration_s    : 60
+duration_s    : null
 
 print_status  : True
 print_debug   : True
@@ -50,7 +50,6 @@ logging_spec:
   stream_video    : False
   stream_audio    : False
   stream_period_s : 30
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
 
   dump_csv        : False
   dump_hdf5       : False

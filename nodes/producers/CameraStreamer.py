@@ -51,7 +51,6 @@ class CameraStreamer(Producer):
                logging_spec: dict,
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
                fps: float,
-               color_format: str,
                resolution: tuple[int],
                camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup
                pylon_max_buffer_size: int = 10,
@@ -67,7 +66,6 @@ class CameraStreamer(Producer):
     # Initialize general state.
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
-    self._color_format = color_format
     self._pylon_max_buffer_size = pylon_max_buffer_size
     self._camera_config_filepath = camera_config_filepath
     self._fps = fps
@@ -147,8 +145,7 @@ class CameraStreamer(Producer):
         time.sleep(2)
 
     # Instantiate callback handler
-    self._image_handler = ImageEventHandler(cam_array=self._cam_array,
-                                            color_format=self._color_format)
+    self._image_handler = ImageEventHandler(cam_array=self._cam_array)
 
     # Start asynchronously capturing images with a background loop
     # https://docs.baslerweb.com/pylonapi/cpp/pylon_programmingguide#the-default-grab-strategy-one-by-one
@@ -184,8 +181,7 @@ class CameraStreamer(Producer):
     time_s = time.time()
     tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
     data = {
-      # 'frame': cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1],
-      'frame': (frame, is_keyframe, pts), # NOTE: image in BGR format
+      'frame': (frame, is_keyframe, pts),
       'timestamp': timestamp,
       'frame_sequence': sequence_id
     }
