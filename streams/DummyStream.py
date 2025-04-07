@@ -35,7 +35,7 @@ import dash_bootstrap_components as dbc
 ###############################################
 class DummyStream(Stream):
   def __init__(self, 
-               sampling_rate_hz: int = 100,
+               sampling_rate_hz: int = 1,
                **_) -> None:
     super().__init__()
 
