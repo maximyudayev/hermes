@@ -911,7 +911,9 @@ class Logger(LoggerInterface):
       while (last_log_time_s is not None
             and (time_to_next_period := (last_log_time_s + self._stream_period_s - time.time())) > 0
             and self._is_streaming):
-        await asyncio.sleep(time_to_next_period)
+        # Will wake up periodically to check if the experiment had been ended.
+        #   Will proceed only if time for next logging or if experiment ended.
+        await asyncio.sleep(min(1, time_to_next_period))
       # If running Logger in dump mode, wait until _is_flush is set externally.
       if not self._is_streaming and not self._is_flush:
         continue
