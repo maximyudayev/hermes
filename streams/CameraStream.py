@@ -69,14 +69,14 @@ class CameraStream(Stream):
                       stream_name='timestamp',
                       is_video=False,
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=[1],
                       sampling_rate_hz=fps,
                       data_notes=self._data_notes[camera_id]["timestamp"])
       self.add_stream(device_name=camera_id,
                       stream_name='frame_sequence',
                       is_video=False,
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=[1],
                       sampling_rate_hz=fps,
                       data_notes=self._data_notes[camera_id]["frame_sequence"])
 

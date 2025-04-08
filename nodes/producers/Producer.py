@@ -26,6 +26,7 @@
 # ############
 
 from abc import abstractmethod
+import time
 
 import zmq
 import threading
@@ -111,11 +112,13 @@ class Producer(Node):
   #   That way network threadcan alradystart processing the packet.
   def _publish(self, tag: str, **kwargs) -> None:
     # Get serialized object to send over ZeroMQ.
-    msg = serialize(**kwargs)
-    # Send the data packet on the PUB socket.
-    self._pub.send_multipart([tag.encode('utf-8'), msg])
+    # msg = serialize(**kwargs)
+    # # Send the data packet on the PUB socket.
+    # self._pub.send_multipart([tag.encode('utf-8'), msg])
     # Store the captured data into the data structure.
+    # time_start = time.time()
     self._stream.append_data(**kwargs)
+    # print(time.time() - time_start, flush=True)
 
 
   # Initialize backend parameters specific to Producer.

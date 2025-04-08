@@ -119,7 +119,7 @@ class CameraStreamer(Producer):
     # Configure the cameras according to the user settings
     for idx, cam in enumerate(self._cam_array):
       # For consistency factory reset the devices
-      cam.UserSetSelector = "Default"
+      cam.UserSetSelector = "UserSet1"
       cam.UserSetLoad.Execute()
 
       # Optionally configure ring buffer size if grabbing is slowed down by color conversion.
@@ -129,20 +129,20 @@ class CameraStreamer(Producer):
       # cam.MaxNumBuffer = self._pylon_max_buffer_size # The maximum number of buffers that are allocated and used for grabbingam.MaxNumBuffer = self._pylon_max_buffer_size
 
       # Preload persistent feature configurations saved to a file (easier configuration of all cameras)
-      if self._camera_config_filepath is not None: 
-        pylon.FeaturePersistence.Load(self._camera_config_filepath, cam.GetNodeMap())
+      # if self._camera_config_filepath is not None: 
+      #   pylon.FeaturePersistence.Load(self._camera_config_filepath, cam.GetNodeMap())
       
       # Assign an ID to each grabbed frame, corresponding to the host device
       cam.SetCameraContext(idx)
       
-      # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate
-      cam.PtpEnable.SetValue(True)
+      # # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate
+      # cam.PtpEnable.SetValue(True)
 
-      # Verify that the slave device are sufficiently synchronized
-      while cam.PtpServoStatus.GetValue() != "Locked":
-        # Execute clock latch 
-        cam.PtpDataSetLatch.Execute()
-        time.sleep(2)
+      # # Verify that the slave device are sufficiently synchronized
+      # while cam.PtpServoStatus.GetValue() != "Locked":
+      #   # Execute clock latch 
+      #   cam.PtpDataSetLatch.Execute()
+      #   time.sleep(2)
 
     # Instantiate callback handler
     self._image_handler = ImageEventHandler(cam_array=self._cam_array)

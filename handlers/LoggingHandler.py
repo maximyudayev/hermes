@@ -203,7 +203,7 @@ class Logger(LoggerInterface):
     self._log_dir = log_dir
 
     # Initialize the logging writers.
-    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=15)
     self._csv_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, TextIOWrapper]]] = None
     self._csv_writer_metadata: TextIOWrapper = None
     self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = None

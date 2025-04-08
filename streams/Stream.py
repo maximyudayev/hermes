@@ -224,18 +224,11 @@ class Stream(ABC):
                stream_name: str,
                num_oldest_to_pop: int = None,
                is_flush: bool = False) -> Iterator[Any]:
-    num_available: int = len(self._data[device_name][stream_name])
-    num_poppable: int = num_available - self._streams_info[device_name][stream_name]['timesteps_before_solidified']
-    if is_flush:
-      num_oldest_to_pop = num_available
-    elif num_oldest_to_pop is None:
-      num_oldest_to_pop = num_poppable
-    else:
-      num_oldest_to_pop = min(num_oldest_to_pop, num_poppable)
-    num_popped: int = 0
-    while num_popped < num_oldest_to_pop:
-      yield self._data[device_name][stream_name].popleft()
-      num_popped += 1
+    try:
+      while True:
+        yield self._data[device_name][stream_name].popleft()
+    except IndexError:
+      pass
 
 
   # Look at the N newest data elements.
