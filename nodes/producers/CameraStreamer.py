@@ -32,7 +32,6 @@ from handlers.BaslerHandler import ImageEventHandler
 import pypylon.pylon as pylon
 from utils.print_utils import *
 from utils.zmq_utils import *
-import cv2
 from collections import OrderedDict
 
 
@@ -50,11 +49,11 @@ class CameraStreamer(Producer):
   def __init__(self,
                host_ip: str,
                logging_spec: dict,
-               camera_mapping: dict[str, str], # a dict mapping camera names to device indexes
+               camera_mapping: dict[str, str], # a dict mapping camera names to device indexes.
                fps: float,
-               color_format: str,
                resolution: tuple[int],
-               camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup
+               camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup.
+               pylon_max_buffer_size: int = 10,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -67,14 +66,16 @@ class CameraStreamer(Producer):
     # Initialize general state.
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
-
+    self._pylon_max_buffer_size = pylon_max_buffer_size
     self._camera_config_filepath = camera_config_filepath
+    self._fps = fps
+    self._get_frame_fn = self._get_frame
+    self._stop_time_s = None
 
     stream_info = {
       "camera_mapping": camera_mapping,
       "fps": fps,
       "resolution": resolution,
-      "color_format": color_format,
       "timesteps_before_solidified": timesteps_before_solidified
     }
 
@@ -100,74 +101,106 @@ class CameraStreamer(Producer):
   def _connect(self) -> bool:
     tlf: pylon.TlFactory = pylon.TlFactory.GetInstance()
 
-    # Get Transport Layer for just the GigE Basler cameras
+    # Get Transport Layer for just the GigE Basler cameras.
     self._tl: pylon.TransportLayer = tlf.CreateTl('BaslerGigE')
 
-    # Filter discovered cameras by user-defined serial numbers
-    devices: list[pylon.DeviceInfo] = [d for d in self._tl.EnumerateAllDevices() if d.GetSerialNumber() in self._camera_mapping.keys()]
+    # Filter discovered cameras by user-defined serial numbers.
+    devices: list[pylon.DeviceInfo] = [d for d in self._tl.EnumerateDevices() if d.GetSerialNumber() in self._camera_mapping.keys()]
 
-    # Instantiate cameras
+    # Instantiate cameras.
+    cam: pylon.InstantCamera
     self._cam_array: pylon.InstantCameraArray = pylon.InstantCameraArray(len(devices))
     for idx, cam in enumerate(self._cam_array):
       cam.Attach(self._tl.CreateDevice(devices[idx]))
 
-    # Connect to the cameras
+    # Connect to the cameras.
     self._cam_array.Open()
 
-    # Configure the cameras according to the user settings
+    # Configure the cameras according to the user settings.
     for idx, cam in enumerate(self._cam_array):
-      # For consistency factory reset the devices
-      cam.UserSetSelector = "Default"
+      # For consistency load persistent settings stored in the camera.
+      # NOTE: avoid overwriting this user set in Pylon viewer.
+      cam.UserSetSelector = "UserSet1"
       cam.UserSetLoad.Execute()
 
-      # Preload persistent feature configurations saved to a file (easier configuration of all cameras)
-      if self._camera_config_filepath is not None: 
-        pylon.FeaturePersistence.Load(self._camera_config_filepath, cam.GetNodeMap())
+      # Preload persistent feature configurations saved to a file (easier configuration of all cameras).
+      # if self._camera_config_filepath is not None: 
+      #   pylon.FeaturePersistence.Load(self._camera_config_filepath, cam.GetNodeMap())
+      # Optionally configure ring buffer size if grabbing is slowed down by color conversion.
+      # cam.OutputQueueSize = 2*self._fps # The size of the grab result buffer output queue.
+      # cam.MaxNumGrabResults = ? # The maximum number of grab results available at any time during a grab session.
+      # cam.MaxNumQueuedBuffer = self._pylon_max_buffer_size # The maximum number of buffers that are queued in the stream grabber input queue.
+      # cam.MaxNumBuffer = self._pylon_max_buffer_size # The maximum number of buffers that are allocated and used for grabbingam.MaxNumBuffer = self._pylon_max_buffer_size.
       
-      # Assign an ID to each grabbed frame, corresponding to the host device
+      # Assign an ID to each grabbed frame, corresponding to the host device.
       cam.SetCameraContext(idx)
       
-      # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate
-      cam.PtpEnable.SetValue(True)
+      # # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate.
+      # cam.PtpEnable.SetValue(True)
 
-      # Verify that the slave device are sufficiently synchronized
-      while cam.PtpServoStatus.GetValue() != "Locked":
-        # Execute clock latch 
-        cam.PtpDataSetLatch.Execute()
-        time.sleep(2)
+      # # Verify that the slave device are sufficiently synchronized.
+      # while cam.PtpServoStatus.GetValue() != "Locked":
+      #   # Execute clock latch.
+      #   cam.PtpDataSetLatch.Execute()
+      #   time.sleep(2)
 
-    # Instantiate callback handler
+    # Instantiate callback handler.
     self._image_handler = ImageEventHandler(cam_array=self._cam_array)
 
-    # Start asynchronously capturing images with a background loop
+    # Start asynchronously capturing images with a background loop.
+    # https://docs.baslerweb.com/pylonapi/cpp/pylon_programmingguide#the-default-grab-strategy-one-by-one.
     self._cam_array.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
     return True
 
 
-  def _process_data(self):
-    if self._image_handler.is_data_available():
-      time_s = time.time()
-      for camera_id, frame, timestamp, sequence_id in self._image_handler.get_frame():
-        tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
-        data = {
-          'frame': cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1],
-          'timestamp': timestamp,
-          'frame_sequence': sequence_id
-        }
-        self._publish(tag=tag, time_s=time_s, data={camera_id: data})
-    elif not self._is_continue_capture:
+  def _process_data(self) -> None:
+    self._get_frame_fn()
+
+
+  def _get_frame(self) -> None:
+    if buf := self._image_handler.get_frame():
+      self._process_frame(*buf)
+
+
+  def _get_frame_stopped(self) -> None:
+    is_timeout = (time.time() - self._stop_time_s) < 5
+    if buf := self._image_handler.get_frame():
+      self._process_frame(*buf)
+    elif is_timeout and not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
 
 
-  def _stop_new_data(self):
-    # Stop capturing data
+  def _process_frame(self, 
+                     camera_id: str, 
+                     frame: np.ndarray,
+                     is_keyframe: bool,
+                     pts: int,
+                     timestamp: np.uint64, 
+                     sequence_id: np.int64) -> None:
+    time_s = time.time()
+    tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
+    data = {
+      'frame': (frame, is_keyframe, pts),
+      'timestamp': timestamp,
+      'frame_sequence': sequence_id
+    }
+    self._publish(tag=tag, time_s=time_s, data={camera_id: data})
+
+
+  def _stop_new_data(self) -> None:
+    # Stop capturing data.
     self._cam_array.StopGrabbing()
+    # Change the callback to use a timeout for checking the queue for new packets.
+    self._stop_time_s = time.time()
+    self._get_frame_fn = self._get_frame_stopped
 
 
   def _cleanup(self) -> None:
-    # Remove background loop event listener
-    for cam in self._cam_array: cam.DeregisterImageEventHandler(self._image_handler)
-    # Disconnect from the camera
+    # Remove background loop event listener.
+    cam: pylon.InstantCamera
+    for cam in self._cam_array: 
+      cam.DeregisterImageEventHandler(self._image_handler)
+    # Disconnect from the camera.
     self._cam_array.Close()
     super()._cleanup()

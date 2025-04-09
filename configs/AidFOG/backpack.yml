@@ -41,35 +41,28 @@ remote_publisher_ips: []
 is_remote_kill: True
 remote_kill_ip: "192.168.69.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 
-remote_subscriber_ips:
+remote_subscriber_ips: 
   - "192.168.69.100"
 
 
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : True
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+  stream_period_s     : 10
   
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
-  
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
-  videos_in_hdf5  : False
-  videos_in_csv   : False
-  videos_is_use_intel_api : False
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : True
+  stream_audio        : False
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
@@ -89,13 +82,15 @@ producer_specs:
   
   # Stream from the Pupil Labs eye tracker, including gaze and video data.
   - class: "EyeStreamer"
-    pupil_capture_ip      : "localhost"
-    pupil_capture_port    : "50020"
-    video_image_format    : "bgr"
-    gaze_estimate_stale_s : 0.2
-    stream_video_world    : True # the world video
-    stream_video_eye      : False # video of the eye
-    is_binocular          : True # uses both eyes for gaze data and for video
+    pupil_capture_ip        : "localhost"
+    pupil_capture_port      : "50020"
+    video_image_format      : "bgr"
+    gaze_estimate_stale_s   : 0.2
+    is_binocular            : True # uses both eyes for gaze data and for video
+    is_stream_video_world   : True
+    is_stream_video_eye     : False
+    is_stream_fixation      : False
+    is_stream_blinks        : False
     shape_video_world: 
       - 720
       - 1280

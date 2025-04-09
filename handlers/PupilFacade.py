@@ -39,22 +39,30 @@ from utils.sensor_utils import estimate_transmission_delay
 
 class PupilFacade:
   def __init__(self,
+               is_binocular: bool,
+               is_stream_video_world: bool,
+               is_stream_video_eye: bool,
+               is_stream_fixation: bool,
+               is_stream_blinks: bool,
                pupil_capture_ip: str,
                pupil_capture_port: str,
-               video_image_format: str,
                gaze_estimate_stale_s: float,
-               stream_video_world: bool,
-               stream_video_eye: bool,
-               is_binocular: bool) -> None:
+               video_image_format: str) -> None:
     
-    self._stream_video_world = stream_video_world
-    self._stream_video_eye = stream_video_eye
     self._is_binocular = is_binocular
+    self._is_stream_video_world = is_stream_video_world
+    self._is_stream_video_eye = is_stream_video_eye
+    self._is_stream_fixation = is_stream_fixation
+    self._is_stream_blinks = is_stream_blinks
     self._pupil_capture_ip = pupil_capture_ip
     self._pupil_capture_port = pupil_capture_port
     self._video_image_format = video_image_format
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
     self._is_ipc_capturing = True
+    self._start_index_eye = [None] * (2 if is_binocular else 1)
+    self._start_index_world = None
+    self._previous_index_eye = [0] * (2 if is_binocular else 1)
+    self._previous_index_world = 0
 
     # Connect to the Pupil Capture socket.
     self._zmq_context = zmq.Context.instance()
@@ -69,15 +77,18 @@ class PupilFacade:
 
     # Subscribe to the desired topics.
     self._topics = ['notify.', 'gaze.3d.%s'%('01.' if self._is_binocular else '0.')]
-    if self._stream_video_world:
+    if self._is_stream_video_world:
       self._topics.append('frame.world')
-    if self._stream_video_eye:
+    if self._is_stream_video_eye:
       self._topics.append('frame.eye.')
+    if self._is_stream_fixation:
+      self._topics.append('fixations')
+    if self._is_stream_blinks:
+      self._topics.append('blinks')
 
     self._receiver: zmq.SyncSocket = self._zmq_context.socket(zmq.SUB)
     self._receiver.connect('tcp://%s:%s' % (self._pupil_capture_ip, self._ipc_sub_port))
     for t in self._topics: self._receiver.subscribe(t)
-    # self._log_debug('Subscribed to eye tracking topics')
 
 
   # Receive data and return a parsed dictionary.
@@ -92,6 +103,8 @@ class PupilFacade:
 
     gaze_items = None
     pupil_items = None
+    fixation_items = None
+    blinks_items = None
     video_world_items = None
     video_eye_items = None
     time_items = [
@@ -145,48 +158,87 @@ class PupilFacade:
           ('ellipse_angle_deg', [pupil['ellipse']['angle'] for pupil in pupil_data]),  # degrees
         ])
 
+    # Process fixations data
+    elif topic == 'fixations':
+      payload = msgpack.load(data[1])
+      fixation_items = [
+        ('id'             , payload['id']),             # int
+        ('timestamp'      , payload['timestamp']),      # float
+        ('norm_pos'       , payload['norm_pos']),       # float[2]
+        ('dispersion'     , payload['dispersion']),     # float
+        ('duration'       , payload['duration']),       # float
+        ('confidence'     , payload['confidence']),     # float
+        ('gaze_point_3d'  , payload['gaze_point_3d']),  # float[3]
+      ]
+
+    # Process blinks data
+    elif topic == 'blinks': 
+      payload = msgpack.loads(data[1])
+      blinks_items = [
+        ('timestamp'  , payload['timestamp']),  # float
+        ('confidence' , payload['confidence']), # float
+      ]
+
     # Process world video data
     elif topic == 'frame.world':
+      # Prepare the metadata for the frame.
       metadata = msgpack.loads(data[1])
+      if self._start_index_world is None: 
+        self._start_index_world = metadata['index']
+        is_keyframe = True
+      else:
+        is_keyframe = (metadata['index'] - self._previous_index_world) > 1 # TODO: not safe against overflow, but uint64
+      self._previous_index_world = metadata['index']
+      pts = metadata['index'] - self._start_index_world
+      # Decode the frame.
       payload = data[2]
-      frame_timestamp = float(metadata['timestamp'])
       img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
-
-      if self._stream_video_world: # we might be here because we want 'worldGaze' and not 'world'
-        video_world_items = [
-          ('frame_timestamp', frame_timestamp),
-          ('frame_index', metadata['index']), # world view frame index used for annotation
-          ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1]),
-        ]
+      # Prepare the output for the file writer.
+      video_world_items = [
+        ('frame_timestamp', float(metadata['timestamp'])),
+        ('frame_index', metadata['index']), # world view frame index used for annotation
+        ('frame', (img, is_keyframe, pts)),
+      ]
 
     # Process eye video data
     elif topic in ['frame.eye.0', 'frame.eye.1']:
+      # Prepare the metadata for the frame.
+      eye_id = int(topic.split('.')[2])
       metadata = msgpack.loads(data[1])
+      if self._start_index_eye[eye_id] is None: 
+        self._start_index_eye[eye_id] = metadata['index']
+        is_keyframe = True
+      else:
+        is_keyframe = (metadata['index'] - self._previous_index_eye[eye_id]) > 1 # TODO: not safe against overflow, but uint64
+      self._previous_index_eye[eye_id] = metadata['index']
+      pts = metadata['index'] - self._start_index_eye[eye_id]
+      # Decode the frame.
       payload = data[2]
-      frame_timestamp = float(metadata['timestamp'])
       img_data = np.frombuffer(payload, dtype=np.uint8)
       if self._video_image_format == 'bgr':
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
       else:
         img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
         img = img_data.reshape(metadata['height'], metadata['width'], 3)
+      # Prepare the output for the file writer.
       video_eye_items = [
-        ('frame_timestamp', frame_timestamp),
+        ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        ('frame', cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1])
+        ('frame', (img, is_keyframe, pts))
       ]
-      eye_id = int(topic.split('.')[2])
 
     # Create a data dictionary.
     # The keys should correspond to device names after the 'eye-tracking-' prefix.
     data = OrderedDict([
       ('eye-gaze',  OrderedDict(gaze_items) if gaze_items  is not None else None),
       ('eye-pupil', OrderedDict(pupil_items) if pupil_items is not None else None),
+      ('eye-fixations', OrderedDict(fixation_items) if fixation_items is not None else None),
+      ('eye-blinks', OrderedDict(blinks_items) if blinks_items is not None else None),
       ('eye-video-world', OrderedDict(video_world_items) if video_world_items is not None else None),
       ('eye-video-eye0', OrderedDict(video_eye_items) if video_eye_items is not None and not eye_id else None),
       ('eye-video-eye1', OrderedDict(video_eye_items) if video_eye_items is not None and eye_id else None),
@@ -208,86 +260,6 @@ class PupilFacade:
 
   def set_stream_data_getter(self, fn: Callable) -> None:
     self._get_latest_stream_data_fn = fn
-
-
-  # Get some sample data to determine what gaze/pupil streams are present.
-  def get_available_info(self) -> dict:
-    # Will validate that all expected streams are present, and will also
-    #  determine whether 2D or 3D processing is being used.
-    # self._log_status('Waiting for initial eye tracking data to determine streams')
-    # Temporarily set self._stream_video_world to True if we want self._stream_video_worldGaze.
-    #   Gaze data is not stored yet, so video_worldGaze won't be created yet.
-    #   So instead, we can at least check that the world is streamed.
-    gaze_data = None
-    pupil_data = None
-    video_world_data = None
-    video_eye0_data = None
-    video_eye1_data = None
-    wait_start_time_s = time.time()
-    wait_timeout_s = 5
-    while (gaze_data is None
-            or pupil_data is None
-            or (video_world_data is None and self._stream_video_world)
-            or (video_eye0_data is None and self._stream_video_eye)
-            or (video_eye1_data is None and self._stream_video_eye and self._is_binocular)) \
-          and (time.time() - wait_start_time_s < wait_timeout_s):
-      time_s, data = self.process_data()
-      gaze_data = gaze_data or data['gaze']
-      pupil_data = pupil_data or data['pupil']
-      video_world_data = video_world_data or data['video-world']
-      video_eye0_data = video_eye0_data or data['video-eye0']
-      video_eye1_data = video_eye1_data or data['video-eye1']
-    if (time.time() - wait_start_time_s >= wait_timeout_s):
-      msg = 'ERROR: Eye tracking did not detect all expected streams as active'
-      msg+= '\n Gaze  data  is streaming? %s' % (gaze_data is not None)
-      msg+= '\n Pupil data  is streaming? %s' % (pupil_data is not None)
-      msg+= '\n Video world is streaming? %s' % (video_world_data is not None)
-      msg+= '\n Video eye0   is streaming? %s' % (video_eye0_data is not None)
-      msg+= '\n Video eye1   is streaming? %s' % (video_eye1_data is not None)
-      # self._log_error(msg)
-      raise AssertionError(msg)
-
-    # Estimate the video frame rates
-    fps_video_world = None
-    fps_video_eye0 = None
-    fps_video_eye1 = None
-    def _get_fps(data_key, duration_s=0.1):
-      # self._log_status('Estimating the eye-tracking frame rate for %s... ' % data_key, end='')
-      # Wait for a new data entry, so we start timing close to a frame boundary.
-      data = {data_key: None}
-      while data[data_key] is not None:
-        time_s, data = self.process_data()
-      # Receive/process messages for the desired duration.
-      time_start_s = time.time()
-      frame_count = 0
-      while time.time() - time_start_s < duration_s:
-        time_s, data = self.process_data()
-        if data[data_key] is not None:
-          frame_count = frame_count+1
-      # Since we both started and ended timing right after a sample, no need to do (frame_count-1).
-      frame_rate = frame_count/(time.time() - time_start_s)
-      # self._log_status('estimated frame rate as %0.2f for %s' % (frame_rate, data_key))
-      return frame_rate
-    if self._stream_video_world:
-      fps_video_world = _get_fps('video-world')
-    if self._stream_video_eye:
-      fps_video_eye0 = _get_fps('video-eye0')
-      fps_video_eye1 = _get_fps('video-eye1') if self._is_binocular else None
-
-    # self._log_status('Started eye tracking streamer')
-
-    data = {
-      "gaze_data": gaze_data,
-      "pupil_data": pupil_data,
-      "video_world_data": video_world_data,
-      "video_eye0_data": video_eye0_data,
-      "video_eye1_data": video_eye1_data,
-      "fps_video_world": fps_video_world,
-      "fps_video_eye0": fps_video_eye0,
-      "fps_video_eye1": fps_video_eye1
-    }
-
-    return data
 
 
   # Close sockets used by the Facade, destroy the ZeroMQ context in the SensorStreamer
@@ -392,4 +364,4 @@ class PupilFacade:
     # TODO: remove outliers before averaging
     return np.mean(clock_offsets_s)
 
-  # TODO: periodically sync the glasses data?
+  # TODO: periodically sync the glasses time?

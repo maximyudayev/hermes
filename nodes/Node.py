@@ -113,7 +113,7 @@ class SyncState(NodeState):
     self._sync = context._get_sync_socket()
 
   def run(self):
-    self._sync.send(self._context._log_source_tag().encode('utf-8'))
+    self._sync.send_multipart([self._context._log_source_tag().encode('utf-8'), CMD_HELLO.encode('utf-8')])
     self._sync.recv()
     self._context._set_state(RunningState(self._context))
 

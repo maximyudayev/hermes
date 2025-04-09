@@ -27,6 +27,7 @@
 
 # ZeroMQ topics and message strings
 TOPIC_KILL  = 'KILL'
+CMD_HELLO   = 'HELLO'
 CMD_GO      = 'GO'
 CMD_END     = 'END'
 CMD_BYE     = 'BYE'

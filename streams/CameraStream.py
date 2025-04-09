@@ -29,7 +29,6 @@ from collections import OrderedDict
 from streams import Stream
 from visualizers import VideoVisualizer
 import dash_bootstrap_components as dbc
-import cv2
 
 
 ############################################
@@ -42,7 +41,6 @@ class CameraStream(Stream):
                camera_mapping: dict[str, str],
                fps: float,
                resolution: tuple[int],
-               color_format: str,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                **_) -> None:
@@ -50,7 +48,6 @@ class CameraStream(Stream):
 
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
-    self._color_format = getattr(cv2, color_format)
     self._update_interval_ms = update_interval_ms
     self._timesteps_before_solidified = timesteps_before_solidified
 
@@ -61,6 +58,7 @@ class CameraStream(Stream):
       self.add_stream(device_name=camera_id,
                       stream_name='frame',
                       is_video=True,
+                      color_format='bayer_rg8',
                       data_type='uint8',
                       sample_size=resolution,
                       sampling_rate_hz=fps,
@@ -71,14 +69,14 @@ class CameraStream(Stream):
                       stream_name='timestamp',
                       is_video=False,
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=[1],
                       sampling_rate_hz=fps,
                       data_notes=self._data_notes[camera_id]["timestamp"])
       self.add_stream(device_name=camera_id,
                       stream_name='frame_sequence',
                       is_video=False,
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=[1],
                       sampling_rate_hz=fps,
                       data_notes=self._data_notes[camera_id]["frame_sequence"])
 
@@ -93,7 +91,6 @@ class CameraStream(Stream):
                                     data_path={camera_id: 'frame'},
                                     legend_name=camera_name,
                                     update_interval_ms=self._update_interval_ms,
-                                    color_format=self._color_format,
                                     col_width=6)
                     for camera_id, camera_name in self._camera_mapping.items()]
     return dbc.Row([camera_plot.layout for camera_plot in camera_plots])
@@ -107,7 +104,6 @@ class CameraStream(Stream):
       self._data_notes[camera_id]["frame"] = OrderedDict([
         ('Serial Number', camera_id),
         (Stream.metadata_data_headings_key, camera_name),
-        ('color_format', self._color_format),
       ])
       self._data_notes[camera_id]["timestamp"] = OrderedDict([
         ('Notes', 'Time of sampling of the frame w.r.t the camera onboard PTP clock'),

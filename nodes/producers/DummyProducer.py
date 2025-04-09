@@ -42,7 +42,7 @@ class DummyProducer(Producer):
   def __init__(self,
                host_ip: str,
                logging_spec: dict,
-               sampling_rate_hz: int = 100,
+               sampling_rate_hz: int = 1,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -80,9 +80,11 @@ class DummyProducer(Producer):
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
+      time.sleep(1.0)
       time_s: float = time.time()
+      print(time_s, flush=True)
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=time_s, data={'dummy-data': time_s})
+      self._publish(tag, time_s=time_s, data={'sensor-emulator': {'toa': time_s}})
     else:
       self._send_end_packet()
 

@@ -36,40 +36,34 @@ print_debug   : True
 
 
 host_ip : "192.168.0.100"
-remote_broker_ips: # IPs of Brokers to listen to for data on some of desired topics
+remote_publisher_ips: # IPs of Brokers to listen to for data on some of desired topics
   - "192.168.0.103"
   - "192.168.0.104"
 
-is_remote_kill: False
+is_remote_kill: True
+remote_kill_ip: null
 
-is_expose_to_remote_sub: False # If current Broker produces data that other Brokers can listen to
+remote_subscriber_ips: []
 
 
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : True
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+  stream_period_s     : 10
   
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
-  
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
-  videos_in_hdf5  : False
-  videos_in_csv   : False
-  videos_is_use_intel_api : False
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : True
+  stream_audio        : False
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
@@ -80,12 +74,11 @@ producer_specs:
       basler_east  : "40549960"
       basler_south : "40549975"
       basler_west  : "40549976"
-    fps: 20
+    fps: 30
     resolution:
-      - 1944
-      - 2592
-    color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-    camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
+      - 1440
+      - 2560
+    camera_config_filepath: "resources/AidWear/pylon_30fps_2K_40478064.pfs"
 
 
 consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select only one.
@@ -131,24 +124,26 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         is_sync_devices   : True
       
       - class: "EyeStreamer"
-        pupil_capture_ip      : "localhost"
-        pupil_capture_port    : "50020"
-        video_image_format    : "bgr"
-        gaze_estimate_stale_s : 0.2
-        stream_video_world    : True # the world video
-        stream_video_eye      : False # video of the eye
-        is_binocular          : True # uses both eyes for gaze data and for video
+        pupil_capture_ip        : "localhost"
+        pupil_capture_port      : "50020"
+        video_image_format      : "bgr"
+        gaze_estimate_stale_s   : 0.2
+        is_binocular            : True # uses both eyes for gaze data and for video
+        is_stream_video_world   : True
+        is_stream_video_eye     : False
+        is_stream_fixation      : False
+        is_stream_blinks        : False
         shape_video_world: 
           - 720
           - 1280
           - 3
         shape_video_eye0: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         shape_video_eye1: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         fps_video_world       : 30.0
         fps_video_eye0        : 120.0
@@ -160,17 +155,35 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           basler_east  : "40549960"
           basler_south : "40549975"
           basler_west  : "40549976"
-        fps: 20
+        fps: 30
         resolution:
-          - 1944
-          - 2592
-        color_format: "COLOR_BAYER_RG2RGB" # Must be a valid OpenCV color format
-        camera_config_filepath: "resources/AidWear/pylon_20fps_maxres.pfs"
+          - 1440
+          - 2560
+        camera_config_filepath: "resources/AidWear/pylon_30fps_2K_40478064.pfs"
       
       - class: "InsoleStreamer"
         sampling_rate_hz: 100
       
       - class': "ViconStreamer"
+
+    logging_spec:
+      stream_period_s     : 1
+  
+      stream_hdf5         : True
+      stream_csv          : False
+      stream_video        : True
+      stream_audio        : False
+
+      dump_csv            : False
+      dump_hdf5           : False
+      dump_video          : False
+      dump_audio          : False
+
+      video_codec         : 'h264_qsv'
+      video_codec_num_cpu : 1
+      video_pix_format    : 'nv12'
+
+      audio_format        : "wav" # currently only supports WAV
 
 
 pipeline_specs: []

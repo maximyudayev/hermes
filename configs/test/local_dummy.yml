@@ -57,7 +57,7 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-  video_codec         : 'h264_qsv'
+  video_codec         : 'h264_amf'
   video_codec_num_cpu : 1
   video_pix_format    : 'nv12'
 
@@ -65,21 +65,12 @@ logging_spec:
 
 
 producer_specs:
-  - class: "ViconStreamer"
-    device_mapping:
-      gluteus_medius_left         : "1" # left upper glute
-      rectus_femoris_left         : "2" # left quad
-      semitendius_left            : "3" # left hamstring
-      medial_gastrocnemius_left   : "4" # left inner calf
-      gluteus_medius_right        : "5" # right upper glute
-      rectus_femoris_right        : "6" # right quad
-      semitendius_right           : "7" # right hamstring
-      medial_gastrocnemius_right  : "8" # right inner calf
-    sampling_rate_hz: 2000
-    vicon_ip: "192.168.0.104"
+  # Stream from one or more cameras.
+  - class: "DummyProducer"
+    sampling_rate_hz: 1
 
 
-consumer_specs: []
+consumer_specs: [] # DataVisualizer and DataLogger are mutually exclusive, select only one.
 
 
 pipeline_specs: []
