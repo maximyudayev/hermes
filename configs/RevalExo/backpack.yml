@@ -44,28 +44,23 @@ remote_kill_ip: null
 
 
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : True
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
-
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
+  stream_period_s     : 30
   
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_in_hdf5  : False
-  videos_in_csv   : False
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
 
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_nvenc'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
@@ -78,40 +73,7 @@ producer_specs:
     sampling_rate_hz: 0.5
 
 
-consumer_specs:
-  - class: "DataLogger"
-    logging_spec:
-      # Choose whether to periodically write data to files.
-      stream_hdf5     : True # recommended over CSV since it creates a single file
-      stream_csv      : False # will create a CSV per stream
-      stream_video    : True
-      stream_audio    : False
-      stream_period_s : 10 # how often to save streamed data to disk
-      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-      
-      # Choose whether to write all data at the end.
-      #   Seems to be mutually exclusive with `stream_` options.
-      dump_csv        : False
-      dump_hdf5       : False
-      dump_video      : False
-      dump_audio      : False
-      
-      # Additional configuration.
-      #   Choose whether to save media separately or as part of HDF5/CSV files.
-      videos_in_hdf5  : False
-      videos_in_csv   : False
-
-      audio_format    : "wav" # currently only supports WAV
-      audio_in_hdf5   : False
-      audio_in_csv    : False
-    
-    stream_specs:
-      - class: "MoxyStreamer"
-        devices: 
-          - "8523"
-          - "8524"
-          - "8525"
-        sampling_rate_hz: 0.5
+consumer_specs: []
 
 
 pipeline_specs: []

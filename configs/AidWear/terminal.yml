@@ -47,28 +47,23 @@ remote_subscriber_ips: []
 
 
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : True
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
+  stream_period_s     : 10
+  
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : True
+  stream_audio        : False
 
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
-  
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_in_hdf5  : False
-  videos_in_csv   : False
-  
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
@@ -83,8 +78,7 @@ producer_specs:
     resolution:
       - 1440
       - 2560
-      - 3
-    camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
+    camera_config_filepath: "resources/AidWear/pylon_30fps_2K_40478064.pfs"
 
 
 consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select only one.
@@ -144,12 +138,12 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
           - 1280
           - 3
         shape_video_eye0: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         shape_video_eye1: 
-          - 400
-          - 400
+          - 192
+          - 192
           - 3
         fps_video_world       : 30.0
         fps_video_eye0        : 120.0
@@ -165,8 +159,7 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
         resolution:
           - 1440
           - 2560
-          - 3
-        camera_config_filepath: "resources/AidWear/pylon_30fps_2K.pfs"
+        camera_config_filepath: "resources/AidWear/pylon_30fps_2K_40478064.pfs"
       
       - class: "InsoleStreamer"
         sampling_rate_hz: 100
@@ -174,28 +167,23 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
       - class': "ViconStreamer"
 
     logging_spec:
-      # Choose whether to periodically write data to files.
-      stream_hdf5     : True # recommended over CSV since it creates a single file
-      stream_csv      : False # will create a CSV per stream
-      stream_video    : True
-      stream_audio    : False
-      stream_period_s : 10 # how often to save streamed data to disk
+      stream_period_s     : 1
+  
+      stream_hdf5         : True
+      stream_csv          : False
+      stream_video        : True
+      stream_audio        : False
 
-      # Choose whether to write all data at the end.
-      #   Seems to be mutually exclusive with `stream_` options.
-      dump_csv        : False
-      dump_hdf5       : False
-      dump_video      : False
-      dump_audio      : False
+      dump_csv            : False
+      dump_hdf5           : False
+      dump_video          : False
+      dump_audio          : False
 
-      # Additional configuration.
-      #   Choose whether to save media separately or as part of HDF5/CSV files.
-      videos_in_hdf5  : False
-      videos_in_csv   : False
+      video_codec         : 'h264_qsv'
+      video_codec_num_cpu : 1
+      video_pix_format    : 'nv12'
 
-      audio_format    : "wav" # currently only supports WAV
-      audio_in_hdf5   : False
-      audio_in_csv    : False
+      audio_format        : "wav" # currently only supports WAV
 
 
 pipeline_specs: []

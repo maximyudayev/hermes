@@ -1,0 +1,42 @@
+project       : "RevalExo"
+trial_type    : "test" # recommend "test" for testing and "real" data
+subject_id    : 0 # UID of the subject
+trial_id      : 0 # UID of the trial
+duration_s    : null
+
+host_ip       : "10.244.21.115"
+remote_publisher_ips: []
+remote_subscriber_ips: []
+is_expose_to_remote_sub : False
+is_remote_kill : False
+
+print_status  : True
+print_debug   : True
+
+logging_spec:
+  stream_period_s     : 10
+  
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
+
+
+producer_specs:
+  - class: "TmsiStreamer"
+   
+
+consumer_specs: []
+
+pipeline_specs: []

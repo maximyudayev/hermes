@@ -224,14 +224,18 @@ class Stream(ABC):
                stream_name: str,
                num_oldest_to_pop: int = None,
                is_flush: bool = False) -> Iterator[Any]:
+    # O(1) complexity to check length of a Deque.
     num_available: int = len(self._data[device_name][stream_name])
+    # Can pop all available data, except what must be kept peekable.
     num_poppable: int = num_available - self._streams_info[device_name][stream_name]['timesteps_before_solidified']
+    # If experiment ended, flush all available data from the Stream.
     if is_flush:
       num_oldest_to_pop = num_available
     elif num_oldest_to_pop is None:
       num_oldest_to_pop = num_poppable
     else:
       num_oldest_to_pop = min(num_oldest_to_pop, num_poppable)
+    # Iterate through the doubly-linked list, clearing popped data, while new data is added to it.
     num_popped: int = 0
     while num_popped < num_oldest_to_pop:
       yield self._data[device_name][stream_name].popleft()
@@ -255,6 +259,7 @@ class Stream(ABC):
       num_newest_to_peek = min(num_newest_to_peek, 
                                self._streams_info[device_name][stream_name]['timesteps_before_solidified'])
     num_peeked: int = 0
+    # Get an iterator to traverse the linked list from the write end (newest data) -> O(1).
     stream_reversed = reversed(self._data[device_name][stream_name])
     while num_peeked < num_newest_to_peek:
       yield next(stream_reversed)

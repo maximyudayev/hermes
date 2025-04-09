@@ -45,23 +45,23 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_hdf5     : True
-  stream_csv      : False
-  stream_video    : False
-  stream_audio    : False
-  stream_period_s : 10
+  stream_period_s     : 30
+  
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
 
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
 
-  videos_in_hdf5  : False
-  videos_in_csv   : False
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
 
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
