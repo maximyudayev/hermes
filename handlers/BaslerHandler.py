@@ -27,7 +27,6 @@
 
 from collections import OrderedDict, deque
 from pypylon import pylon
-import cv2
 import numpy as np
 
 from utils.print_utils import *
@@ -40,12 +39,9 @@ from utils.print_utils import *
 # NOTE: may be interesting to actually align them in a snapshot buffer, similar to IMUs,
 #   To make multi-angle computer vision algorithms possible. 
 class ImageEventHandler(pylon.ImageEventHandler):
-  def __init__(self, 
-               cam_array: pylon.InstantCameraArray, 
-               color_format: str):
+  def __init__(self, cam_array: pylon.InstantCameraArray):
     super().__init__()
     self._cam_array = cam_array
-    self._color_format = getattr(cv2, color_format)
     cam: pylon.InstantCamera
     # Register with the pylon loop, specify strategy for frame grabbing.
     for cam in cam_array: 
@@ -61,10 +57,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
     #   reported from the background thread to the foreground python code.
     try:
       if res.GrabSucceeded():
-        # Convert the contents of the image buffer to BGR 
-        #   before passing to the rest of our code.
-        with res.GetArrayZeroCopy() as frame_by_ref:
-          frame = cv2.cvtColor(frame_by_ref, self._color_format)
+        frame = res.GetArray()
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
@@ -78,7 +71,6 @@ class ImageEventHandler(pylon.ImageEventHandler):
         # Release the buffer for Pylon to reuse for the next frame.
         res.Release()
         # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
-        # TODO: pass object to it by reference to avoid memcopy of large image objects.
         self._buffer.append((camera_id, 
                              frame, 
                              is_keyframe, 

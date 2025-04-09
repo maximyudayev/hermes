@@ -46,34 +46,38 @@ remote_subscriber_ips:
 
 
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : False
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+  stream_period_s     : 30
   
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
-  
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_in_hdf5  : False
-  videos_in_csv   : False
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
 
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec         : 'h264_qsv'
+  video_codec_num_cpu : 1
+  video_pix_format    : 'nv12'
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
-  # Vicon capture system.
   - class': "ViconStreamer"
+    device_mapping:
+      gluteus_medius_left         : "1" # left upper glute
+      rectus_femoris_left         : "2" # left quad
+      semitendius_left            : "3" # left hamstring
+      medial_gastrocnemius_left   : "4" # left inner calf
+      gluteus_medius_right        : "5" # right upper glute
+      rectus_femoris_right        : "6" # right quad
+      semitendius_right           : "7" # right hamstring
+      medial_gastrocnemius_right  : "8" # right inner calf
+    sampling_rate_hz: 2000
+    vicon_ip: "192.168.0.104"
 
 
 consumer_specs: []
