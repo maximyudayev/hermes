@@ -172,12 +172,9 @@ class Logger(LoggerInterface):
                dump_hdf5: bool = False,
                dump_video: bool = False,
                dump_audio: bool = False,
-               videos_in_csv: bool = False,
-               videos_in_hdf5: bool = False,
                video_codec: str = "h264",
+               video_codec_num_cpu: int = 1,
                video_pix_format: str = "nv12",
-               audio_in_csv: bool = False,
-               audio_in_hdf5: bool = False,
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -192,18 +189,15 @@ class Logger(LoggerInterface):
     self._dump_csv = dump_csv
     self._dump_video = dump_video
     self._dump_audio = dump_audio
-    self._videos_in_csv = videos_in_csv
-    self._videos_in_hdf5 = videos_in_hdf5
     self._video_codec = video_codec
-    self._output_video_pix_fmt = video_pix_format
-    self._audio_in_csv = audio_in_csv
-    self._audio_in_hdf5 = audio_in_hdf5
+    self._video_codec_num_cpu = video_codec_num_cpu
+    self._video_output_pix_fmt = video_pix_format
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
 
     # Initialize the logging writers.
-    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=15)
+    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=5)
     self._csv_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, TextIOWrapper]]] = None
     self._csv_writer_metadata: TextIOWrapper = None
     self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = None
@@ -359,11 +353,8 @@ class Logger(LoggerInterface):
       for (device_name, device_info) in streamer.get_stream_info_all().items():
         self._csv_writers[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
-          # Skip saving videos in a CSV.
-          if stream_info['is_video'] and not self._videos_in_csv:
-            continue
-          # Skip saving audio in a CSV.
-          if stream_info['is_audio'] and not self._audio_in_csv:
+          # Skip saving video or audio in a CSV.
+          if stream_info['is_video'] or stream_info['is_audio']:
             continue
           filename_csv = '%s_%s_%s.csv' % (self._log_tag, device_name, stream_name)
           filepath_csv = os.path.join(self._log_dir, filename_csv)
@@ -420,11 +411,8 @@ class Logger(LoggerInterface):
         device_group = self._hdf5_file.create_group(device_name)
         self._next_data_indices_hdf5[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
-          # Skip saving videos in the HDF5.
-          if stream_info['is_video'] and not self._videos_in_hdf5:
-            continue
-          # Skip saving audio in the HDF5.
-          if stream_info['is_audio'] and not self._audio_in_hdf5:
+          # Skip saving video and audio in the HDF5.
+          if stream_info['is_video'] or stream_info['is_audio']:
             continue
           self._next_data_indices_hdf5[streamer_name][device_name][stream_name] = 0
           # The main data has specifications defined by stream_info.
@@ -469,12 +457,25 @@ class Logger(LoggerInterface):
           # ffmpeg.setpts()
           video_writer = (
             ffmpeg
-            .input('pipe:', format='rawvideo', pix_fmt=input_stream_pix_fmt, s='{}x{}'.format(frame_width, frame_height))
-            .output(filepath_video, vcodec=self._video_codec, pix_fmt=self._output_video_pix_fmt)
-            .overwrite_output()
+            .input('pipe:', 
+                   format='rawvideo',
+                   pix_fmt=input_stream_pix_fmt, # color format of Numpy arrays.
+                   s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
+                   framerate=fps,
+                   **{'cpucount': self._video_codec_num_cpu}
+                   )
+            # .filter('scale', 1280, 720)
+            # .filter('deflicker', mode='pm', size=10) # remove line noise from room lights.
+            .output(filepath_video,
+                    vcodec=self._video_codec,
+                    pix_fmt=self._video_output_pix_fmt,
+                    preset='veryfast',
+                    # profile='main',
+                    # scenario='livestreaming',
+                    **{'cpucount': self._video_codec_num_cpu}, # prevent ffmpeg from suffocating the processor.
+                    )
             .run_async(pipe_stdin=True)
           )
-
           # Store the writer.
           if device_name not in self._video_writers[streamer_name]:
             self._video_writers[streamer_name][device_name] = {}

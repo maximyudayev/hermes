@@ -1,20 +1,23 @@
 # {05D8C294-F295-4dfb-9D01-096BD04049F4}
 # GenApi persistence file (version 3.1.0)
-# Device = Basler::vg4_imx334roic_bas -- Basler GigEVision camera interface -- Device version = 1.0.0 -- Product GUID = a2020940-1336-3d3b-a797-705d41cfcfb6 -- Product version GUID = e6ebba39-c5b0-3877-9010-d29fdb3ca9a0
+# Device = Basler::vg4_imx334roic_bas -- Basler GigEVision camera interface -- Device version = 1.0.0 -- Product GUID = a2020940-1336-3d3b-a797-705d41cfcfb6 -- Product version GUID = 0fa4225b-7d1a-3296-8256-41bb74bee1e5
 ReverseX	0
 ReverseY	0
-Width	2592
-Height	1944
-OffsetX	0
-OffsetY	0
+Width	2560
+Height	1440
+OffsetX	28
+OffsetY	260
 PixelFormat	BayerRG8
 TestPattern	Off
 BslAcquisitionStopMode	AbortExposure
+ExposureTimeSelector	Common
 ExposureTime	15000.0
+ExposureTimeSelector	Common
 ExposureAuto	Off
 ExposureMode	Timed
+BslTransferBitDepthMode	Auto
 BslSensorBitDepthMode	Auto
-AcquisitionFrameRate	20.0
+AcquisitionFrameRate	30.0
 AcquisitionFrameRateEnable	1
 TriggerSelector	FrameBurstStart
 TriggerMode	Off
@@ -150,11 +153,11 @@ BslContrastMode	Linear
 BslContrast	0.000
 BslDemosaicingMode	Auto
 BalanceRatioSelector	Red
-BalanceRatio	1.0000
+BalanceRatio	1.0029
 BalanceRatioSelector	Green
-BalanceRatio	1.0435
+BalanceRatio	1.0000
 BalanceRatioSelector	Blue
-BalanceRatio	1.0945
+BalanceRatio	0.7893
 BalanceRatioSelector	Red
 BalanceWhiteAuto	Continuous
 ColorTransformationSelector	RGBtoRGB
@@ -362,6 +365,7 @@ UserDefinedValue	0
 UserDefinedValueSelector	Value1
 DeviceIndicatorMode	Active
 GevSCPSPacketSize	8192
-GevSCPD	7643
+GevSCPD	0
 GevSCFTD	0
-BandwidthReserveMode	Performance
+BandwidthReserveMode	Standard
+BslPtpServoLockedThreshold	50000
