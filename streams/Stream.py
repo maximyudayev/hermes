@@ -123,6 +123,8 @@ class Stream(ABC):
                  extra_data_info: dict[str, dict[str, Any]] = {}) -> None:
     self._locks.setdefault(device_name, Lock())
     self._streams_info.setdefault(device_name, OrderedDict())
+    if not isinstance(sample_size, (list, tuple)):
+      sample_size = [sample_size]
     self._streams_info[device_name][stream_name] = OrderedDict([
                                                     ('data_type', data_type),
                                                     ('sample_size', sample_size),
@@ -134,17 +136,17 @@ class Stream(ABC):
                                                     ('timesteps_before_solidified', timesteps_before_solidified),
                                                     ('extra_data_info', extra_data_info),
                                                     ])
-    # Record color formats to use by PyAV and OpenCV, for saving and displaying frames.
+    # Record color formats to use by FFmpeg and OpenCV, for saving and displaying frames.
     if is_video:
       try:
-        # Must be a tuple of (<PyAV write format>, <OpenCV display format>):
-        #   one of the supported PyAV pixel formats: https://github.com/PyAV-Org/PyAV/blob/main/av/video/frame.pyx
+        # Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
+        #   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
         #   one of the supported OpenCV pixel conversion formats: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
-        av_color, cv2_color = {
+        ffmpeg_color, cv2_color = {
           'bgr': ('bgr24', cv2.COLOR_BGR2RGB),
           'bayer_rg8': ('bayer_rggb8', cv2.COLOR_BAYER_RG2RGB),
         }[color_format]
-        self._streams_info[device_name][stream_name]['color_format'] = {'av': av_color, 'cv2': cv2_color}
+        self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': ffmpeg_color, 'cv2': cv2_color}
       except KeyError:
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
     # Some metadata to keep track of during running to measure the actual frame rate.
