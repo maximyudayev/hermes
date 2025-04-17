@@ -83,12 +83,16 @@ class InsoleStreamer(Producer):
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-      self._sock.settimeout(0.5)
-      self._sock.bind((IP_LOOPBACK, PORT_MOTICON))
+      self._sock.settimeout(10)
+      self._sock.bind((IP_LOOPBACK, int(PORT_MOTICON)))
       self._sock.recv(1024)
       self._sock.settimeout(None)
       return True
     except socket.timeout:
+      print('[ERROR]: Check if OpenGO app and software are ON.\n', flush=True)
+      return False
+    except Exception as e:
+      print('[ERROR]: InsoleStreamer could not connect.\n', e, flush=True)
       return False
 
 

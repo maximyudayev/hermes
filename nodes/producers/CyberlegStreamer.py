@@ -86,7 +86,7 @@ class CyberlegStreamer(Producer):
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      self._sock.connect((IP_PROSTHESIS, PORT_PROSTHESIS))
+      self._sock.connect((IP_PROSTHESIS, int(PORT_PROSTHESIS)))
       self._sock.recv(self._num_packet_bytes)
       return True
     except socket.timeout:
