@@ -52,11 +52,11 @@ from utils.dict_utils import convert_dict_values_to_str
 #     unless all data is expected to be written at the end.
 #   Will treat video/audio data separately, so can choose to stream/clear 
 #     non-AV data but dump AV data or vice versa.
-# Logging currently supports CSV, HDF5, AVI/MP4, and WAV files.
-#   If using HDF5, a single file will be created for all of the SensorStreamers.
-#   If using CSV, a separate file will be created for each SensorStreamer.
+# Logging currently supports CSV, HDF5, MP4, and WAV files.
+#   If using HDF5, a single file will be created for all the Producers and Pipelines.
+#   If using CSV, a separate file will be created for each Producer and Pipeline.
 #     N-D data will be unwrapped so that each entry is its own column.
-#   Videos can be saved as AVI or MP4 files.
+#   Videos can be saved as MP4 files.
 #   Audio can be saved as WAV files.
 # Note that the is_video / is_audio flags of each stream will be used to identify video/audio.
 #   Classes with audio streams will also require a method get_audioStreaming_info()
@@ -174,7 +174,7 @@ class Logger(LoggerInterface):
                dump_audio: bool = False,
                video_codec: str = "h264",
                video_codec_num_cpu: int = 1,
-               video_pix_format: str = "nv12",
+               video_codec_pix_format: str = "nv12",
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -191,13 +191,14 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._video_codec = video_codec
     self._video_codec_num_cpu = video_codec_num_cpu
-    self._video_output_pix_fmt = video_pix_format
+    self._video_output_pix_fmt = video_codec_pix_format
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
 
     # Initialize the logging writers.
     self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+    
     self._csv_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, TextIOWrapper]]] = None
     self._csv_writer_metadata: TextIOWrapper = None
     self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = None
@@ -450,7 +451,7 @@ class Logger(LoggerInterface):
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
-          input_stream_pix_fmt: str = stream_info['color_format']['av']
+          input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
 
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.

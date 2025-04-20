@@ -26,14 +26,17 @@
 # ############
 
 # ZeroMQ topics and message strings
-TOPIC_KILL  = 'KILL'
-CMD_HELLO   = 'HELLO'
-CMD_GO      = 'GO'
-CMD_END     = 'END'
-CMD_BYE     = 'BYE'
-MSG_ON      = 'ON'
-MSG_OFF     = 'OFF'
-MSG_OK      = 'OK'
+TOPIC_KILL      = 'KILL'
+CMD_HELLO       = 'HELLO'
+CMD_ACK         = 'ACK'
+CMD_START_TIME  = 'START_TIME'
+CMD_GO          = 'GO'
+CMD_END         = 'END'
+CMD_EXIT        = 'EXIT?'
+CMD_BYE         = 'BYE'
+MSG_ON          = 'ON'
+MSG_OFF         = 'OFF'
+MSG_OK          = 'OK'
 
 # Ports used for ZeroMQ by our system
 PORT_BACKEND        = '42069'

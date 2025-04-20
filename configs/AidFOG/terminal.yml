@@ -35,9 +35,10 @@ print_status  : True
 print_debug   : True
 
 
-host_ip : "192.168.69.100"
+host_ip : "192.168.0.100"
+is_master_broker: True
 remote_publisher_ips: # IPs of Brokers to listen to for data on some of desired topics
-  - "192.168.69.103"
+  - "192.168.0.103"
 
 is_remote_kill: True
 remote_kill_ip: null
@@ -58,9 +59,9 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-  video_codec         : 'h264_qsv'
-  video_codec_num_cpu : 1
-  video_pix_format    : 'nv12'
+  video_codec             : 'h264_qsv'
+  video_codec_num_cpu     : 1
+  video_codec_pix_format  : 'nv12'
 
   audio_format        : "wav" # currently only supports WAV
 
@@ -162,9 +163,9 @@ consumer_specs: # DataVisualizer and DataLogger are mutually exclusive, select o
       dump_video          : False
       dump_audio          : False
 
-      video_codec         : 'h264_qsv'
-      video_codec_num_cpu : 1
-      video_pix_format    : 'nv12'
+      video_codec             : 'h264_qsv'
+      video_codec_num_cpu     : 1
+      video_codec_pix_format  : 'nv12'
 
       audio_format        : "wav" # currently only supports WAV
 

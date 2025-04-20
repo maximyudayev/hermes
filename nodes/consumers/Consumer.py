@@ -153,5 +153,12 @@ class Consumer(Node):
     # Finish up the file saving before exitting.
     self._logger.cleanup()
     self._logger_thread.join()
+    # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
+    self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 
+    host, cmd = self._sync.recv_multipart() # no need to read contents of the message.
+    print("%s received %s from %s." % (self._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._sub.close()
     super()._cleanup()

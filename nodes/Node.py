@@ -114,7 +114,11 @@ class SyncState(NodeState):
 
   def run(self):
     self._sync.send_multipart([self._context._log_source_tag().encode('utf-8'), CMD_HELLO.encode('utf-8')])
-    self._sync.recv()
+    host, cmd = self._sync.recv_multipart()
+    print("%s received %s from %s." % (self._context._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._context._set_state(RunningState(self._context))
 
 
