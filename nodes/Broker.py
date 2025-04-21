@@ -336,7 +336,6 @@ class RunningState(BrokerState):
   def _on_subscription_added(self, msg: list[bytes]) -> None:
     topic: str = msg[0].decode('utf-8').split('\x01')[1]
     self._context._add_brokered_node(topic=topic)
-    print(msg, topic)
 
 
 # Received the KILL signal, relay it to all Nodes and Brokers and wrap up gracefully.

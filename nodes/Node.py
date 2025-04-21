@@ -83,6 +83,10 @@ class NodeInterface(ABC):
   def _trigger_stop(self) -> None:
     pass
 
+  @abstractmethod
+  def _on_sync_complete(self) -> None:
+    pass
+
 
 class NodeState(ABC):
   def __init__(self, context: NodeInterface):
@@ -126,6 +130,7 @@ class RunningState(NodeState):
   def __init__(self, context):
     super().__init__(context)
     self._context._activate_kill_poller()
+    self._context._on_sync_complete()
 
   def run(self):
     poll_res: tuple[list[zmq.SyncSocket], list[int]] = self._context._poll()

@@ -114,6 +114,10 @@ class Consumer(Node):
     super()._on_poll(poll_res)
 
 
+  def _on_sync_complete(self) -> None:
+    pass
+
+
   # In normal operation mode, all messages are 2-part.
   def _poll_data_packets(self) -> None:
     topic, payload = self._sub.recv_multipart()
