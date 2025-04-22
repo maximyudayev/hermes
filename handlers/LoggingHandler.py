@@ -28,6 +28,7 @@
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from io import TextIOWrapper
+from subprocess import Popen
 import os
 import time
 from typing import Any, Iterator
@@ -137,6 +138,7 @@ class StreamState(BrokerState):
 
   def run(self) -> None:
     asyncio.run(self._context._log_data())
+    self._context._release_thread_pool()
     self._context._set_state(DumpState(self._context))
 
 
@@ -195,15 +197,14 @@ class Logger(LoggerInterface):
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
-
-    # Initialize the logging writers.
-    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=5)
     
-    self._csv_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, TextIOWrapper]]] = None
-    self._csv_writer_metadata: TextIOWrapper = None
-    self._video_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = None
-    self._audio_writers: OrderedDict[str, OrderedDict[str, OrderedDict[str, wave.Wave_write]]] = None
+    # Initialize the logging writers.
+    self._thread_pool: concurrent.futures.ThreadPoolExecutor
     self._hdf5_file: h5py.File = None
+    self._video_writers: list[tuple[Popen, str, str, str]] = []
+    self._audio_writers: list[tuple[wave.Wave_write, str, str, str]] = []
+    self._csv_writers: list[tuple[TextIOWrapper, str, str, str]] = []
+    self._csv_writer_metadata: TextIOWrapper = None
   
     # Create the log directory if needed.
     if self._stream_csv or self._stream_hdf5 or self._stream_video or self._stream_audio \
@@ -271,15 +272,17 @@ class Logger(LoggerInterface):
 
   def _start_stream_logging(self) -> None:
     # Set up CSV/HDF5 file writers for stream-logging if desired.
+    num_workers: int = 0
     if self._stream_csv:
-      self._init_files_csv()
+      num_workers += self._init_files_csv()
     if self._stream_hdf5:
-      self._init_files_hdf5()
+      num_workers += self._init_files_hdf5()
     if self._stream_video:
-      self._init_files_video()
+      num_workers += self._init_files_video()
     if self._stream_audio:
-      self._init_files_audio()
+      num_workers += self._init_files_audio()
     self._init_log_indices()
+    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=num_workers)
     self._is_streaming = True
     self._is_flush = False
     self._is_finished = False
@@ -295,14 +298,15 @@ class Logger(LoggerInterface):
 
 
   def _start_dump_logging(self) -> None:
+    num_workers: int = 0
     if self._dump_csv:
-      self._init_files_csv()
+      num_workers += self._init_files_csv()
     if self._dump_hdf5:
-      self._init_files_hdf5()
+      num_workers += self._init_files_hdf5()
     if self._dump_video:
-      self._init_files_video()
+      num_workers += self._init_files_video()
     if self._dump_audio:
-      self._init_files_audio()
+      num_workers += self._init_files_audio()
     # Log all data.
     # Will basically enable periodic stream-logging,
     #  but will set self._is_flush and self._is_streaming such that
@@ -319,6 +323,7 @@ class Logger(LoggerInterface):
     self._is_finished = False
     # Initialize indexes and log all of the data.
     self._init_log_indices()
+    self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=num_workers)
 
 
   def _wait_till_flush(self) -> None:
@@ -347,8 +352,9 @@ class Logger(LoggerInterface):
   # Create and initialize CSV files.
   # Will have a separate file for each stream of each device.
   # Currently assumes that device names are unique across all streamers.
-  def _init_files_csv(self) -> None:
+  def _init_files_csv(self) -> int:
     # Open a writer for each CSV data file.
+    num_writers: int = 0
     self._csv_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, streamer) in self._streams.items():
       for (device_name, device_info) in streamer.get_stream_info_all().items():
@@ -359,7 +365,9 @@ class Logger(LoggerInterface):
             continue
           filename_csv = '%s_%s_%s.csv' % (self._log_tag, device_name, stream_name)
           filepath_csv = os.path.join(self._log_dir, filename_csv)
-          self._csv_writers[streamer_name][device_name][stream_name] = open(filepath_csv, 'w')
+          csv_writer = open(filepath_csv, 'w')
+          self._csv_writers.append(csv_writer, streamer_name, device_name, stream_name)
+          num_writers += 1
 
     # Open a writer for a CSV metadata file.
     filename_csv = '%s__metadata.csv' % (self._log_tag)
@@ -367,36 +375,35 @@ class Logger(LoggerInterface):
     self._csv_writer_metadata = open(filepath_csv, 'w')
 
     # Write CSV headers.
-    for (streamer_name, streamer) in self._streams.items():
-      for (device_name, stream_writers) in self._csv_writers[streamer_name].items():
-        for (stream_name, stream_writer) in stream_writers.items():
-          # First check if custom header titles have been specified.
-          stream_info = streamer.get_stream_info_all()[device_name][stream_name]
-          sample_size = stream_info['sample_size']
-          if isinstance(stream_info['data_notes'], dict) and Stream.metadata_data_headings_key in stream_info['data_notes']:
-            data_headers = stream_info['data_notes'][Stream.metadata_data_headings_key]
-          else:
-            # Write a number of data headers based on how many values are in each data sample.
-            # Each sample may be a matrix that will be unwrapped into columns,
-            #  so label headers as i-j where i is the original matrix row
-            #  and j is the original matrix column (and if more than 2D keep adding more).
-            data_headers = []
-            subs = np.unravel_index(range(0,np.prod(sample_size)), sample_size)
-            subs = np.stack(subs).T
-            for header_index in range(subs.shape[0]):
-              header = 'Data Entry '
-              for sub_index in range(subs.shape[1]):
-                header += '%d-' % subs[header_index, sub_index]
-              header = header.strip('-')
-              data_headers.append(header)
-          stream_writer.write(',')
-          stream_writer.write(','.join(data_headers))
+    for (stream_writer, streamer_name, device_name, stream_name) in self._csv_writers:
+      # First check if custom header titles have been specified.
+      stream_info = streamer.get_stream_info_all()[device_name][stream_name]
+      sample_size = stream_info['sample_size']
+      if isinstance(stream_info['data_notes'], dict) and Stream.metadata_data_headings_key in stream_info['data_notes']:
+        data_headers = stream_info['data_notes'][Stream.metadata_data_headings_key]
+      else:
+        # Write a number of data headers based on how many values are in each data sample.
+        # Each sample may be a matrix that will be unwrapped into columns,
+        #  so label headers as i-j where i is the original matrix row
+        #  and j is the original matrix column (and if more than 2D keep adding more).
+        data_headers = []
+        subs = np.unravel_index(range(0,np.prod(sample_size)), sample_size)
+        subs = np.stack(subs).T
+        for header_index in range(subs.shape[0]):
+          header = 'Data Entry '
+          for sub_index in range(subs.shape[1]):
+            header += '%d-' % subs[header_index, sub_index]
+          header = header.strip('-')
+          data_headers.append(header)
+      stream_writer.write(',')
+      stream_writer.write(','.join(data_headers))
+    return num_writers
 
 
   # Create and initialize an HDF5 file.
   # Will have a single file for all streams from all devices.
   # Currently assumes that device names are unique across all streamers.
-  def _init_files_hdf5(self) -> None:
+  def _init_files_hdf5(self) -> int:
     # Open an HDF5 file writerю
     filename_hdf5 = '%s.hdf5' % self._log_tag
     filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
@@ -425,13 +432,13 @@ class Logger(LoggerInterface):
                                       maxshape=(None, *sample_size),
                                       dtype=data_type,
                                       chunks=True)
+    return 1
 
 
   # Create and initialize video writers.
-  def _init_files_video(self) -> None:
+  def _init_files_video(self) -> int:
     # Create a video writer for each video stream of each device.
-    self._video_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
-    self._video_encoders = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
+    num_writers: int = 0
     for (streamer_name, streamer) in self._streams.items():
       for (device_name, device_info) in streamer.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
@@ -456,7 +463,7 @@ class Logger(LoggerInterface):
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
           # ffmpeg.setpts()
-          video_writer = (
+          video_writer: Popen = (
             ffmpeg
             .input('pipe:', 
                    format='rawvideo',
@@ -478,16 +485,17 @@ class Logger(LoggerInterface):
             .run_async(pipe_stdin=True)
           )
           # Store the writer.
-          if device_name not in self._video_writers[streamer_name]:
-            self._video_writers[streamer_name][device_name] = {}
-          self._video_writers[streamer_name][device_name][stream_name] = video_writer
+          self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
+          num_writers += 1
+    return num_writers
 
 
   # Create and initialize audio writers.
   # TODO: implement audio streaming info on the Stream object.
   # TODO: switch to ffmpeg for audio file writing.
-  def _init_files_audio(self) -> None:
+  def _init_files_audio(self) -> int:
     # Create an audio writer for each audio stream of each device.
+    num_writers: int = 0
     self._audio_writers = OrderedDict([(k, OrderedDict()) for k in self._streams.keys()])
     for (streamer_name, stream) in self._streams.items():
       for (device_name, streams_info) in stream.get_stream_info_all().items():
@@ -512,9 +520,9 @@ class Logger(LoggerInterface):
           audio_writer.setsampwidth(audio_streaming_info['sample_width'])
           audio_writer.setframerate(audio_streaming_info['sampling_rate'])
           # Store the writer.
-          if device_name not in self._audio_writers[streamer_name]:
-            self._audio_writers[streamer_name][device_name] = {}
-          self._audio_writers[streamer_name][device_name][stream_name] = audio_writer
+          self._audio_writers.append((audio_writer, streamer_name, device_name, stream_name))
+          num_writers += 1
+    return num_writers
 
 
   def _log_metadata_csv(self) -> None:
@@ -600,18 +608,7 @@ class Logger(LoggerInterface):
     self._log_metadata_audio()
 
 
-  # Flush/close all of the CSV writers
-  def _close_files_csv(self) -> None:
-    if self._csv_writers is not None:
-      for (streamer_name, stream) in self._streams.items():
-        for (device_name, stream_writers) in self._csv_writers[streamer_name].items():
-          for (stream_name, stream_writer) in stream_writers.items():
-            stream_writer.close()
-      self._csv_writers = None
-      self._csv_writer_metadata = None
-
-
-  # Flush/close the HDF5 file.
+  # Flush/close the HDF5 file writer.
   def _close_files_hdf5(self) -> None:
     # Also resize datasets to remove extra empty rows.
     if self._hdf5_file is not None:
@@ -631,24 +628,27 @@ class Logger(LoggerInterface):
 
   # Flush/close all of the video writers.
   def _close_files_video(self) -> None:
-    if self._video_writers is not None:
-      for (streamer_name, stream) in self._streams.items():
-        for (device_name, video_writers) in self._video_writers[streamer_name].items():
-          for (stream_name, video_writer) in video_writers.items():
-            video_writer.stdin.close()
-            video_writer.wait()
-      self._video_writers = None
-      self._video_encoders = None
+    for (video_writer, *_) in self._video_writers:
+      video_writer.stdin.close()
+      video_writer.wait()
+    self._video_writers = []
+
+
+  # Flush/close all of the CSV writers.
+  def _close_files_csv(self) -> None:
+    for (stream_writer, *_) in self._csv_writers:
+      stream_writer.close()
+    self._csv_writers = []
+    if self._csv_writer_metadata is not None:
+      self._csv_writer_metadata.close()
+      self._csv_writer_metadata = None
 
 
   # Flush/close all of the audio writers.
   def _close_files_audio(self) -> None:
-    if self._audio_writers is not None:
-      for (streamer_name, stream) in self._streams.items():
-        for (device_name, audio_writers) in self._audio_writers[streamer_name].items():
-          for (stream_name, audio_writer) in audio_writers.items():
-            audio_writer.close()
-      self._audio_writers = None
+    for (audio_writer, *_) in self._audio_writers:
+      audio_writer.close()
+    self._audio_writers = []
 
 
   # Flush/close CSV, HDF5, and video file writers.
@@ -696,13 +696,10 @@ class Logger(LoggerInterface):
   # Note that this can be called during streaming (periodic writing)
   #   or during post-experiment dumping.
   def _sync_write_video(self,
+                        video_writer: Popen,
                         streamer_name: str,
                         device_name: str,
                         stream_name: str):
-    try:
-      video_writer = self._video_writers[streamer_name][device_name][stream_name]
-    except KeyError: # a video writer was not created for this stream.
-      return
     # Write all available video frames to file.
     new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
                                                                                              stream_name=stream_name, 
@@ -718,14 +715,11 @@ class Logger(LoggerInterface):
   # Write provided data to the CSV file.
   # Note that this can be called during streaming (periodic writing)
   #  or during post-experiment dumping.
-  def _sync_write_csv(self, 
+  def _sync_write_csv(self,
+                      stream_writer: TextIOWrapper,
                       streamer_name: str, 
                       device_name: str, 
                       stream_name: str) -> None:
-    try:
-      stream_writer = self._csv_writers[streamer_name][device_name][stream_name]
-    except KeyError: # a writer was not created for this stream.
-      return
     new_data: Iterator[Any] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
     # Write all available data to CSV file.
     for data_to_write in new_data:
@@ -746,14 +740,11 @@ class Logger(LoggerInterface):
   # Write provided data to the audio files.
   # Note that this can be called during streaming (periodic writing)
   #   or during post-experiment dumping.
-  def _sync_write_audio(self, 
+  def _sync_write_audio(self,
+                        audio_writer: wave.Wave_write,
                         streamer_name: str, 
                         device_name: str, 
                         stream_name: str):
-    try:
-      audio_writer = self._audio_writers[streamer_name][device_name][stream_name]
-    except KeyError: # a writer was not created for this stream
-      return
     new_data: Iterator[Any] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
     # Write all available audio frames to file.
     for frame in new_data:
@@ -768,43 +759,54 @@ class Logger(LoggerInterface):
     for (streamer_name, stream) in self._streams.items():
       for (device_name, device_info) in stream.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
-          self._sync_write_hdf5(streamer_name=streamer_name, device_name=device_name, stream_name=stream_name)
+          self._sync_write_hdf5(streamer_name=streamer_name, 
+                                device_name=device_name, 
+                                stream_name=stream_name)
 
 
   # Wraps synchronous writing of multiple asynchronous Stream Deque data structures 
   #   into an asynchronous coroutine used to concurrently write multiple video files.
   async def _write_video(self,
+                         video_writer: Popen,
                          streamer_name: str,
                          device_name: str,
                          stream_name: str):
     await asyncio.get_event_loop().run_in_executor(
       self._thread_pool,
-      lambda: self._sync_write_video(streamer_name=streamer_name, device_name=device_name, stream_name=stream_name)
-    )
+      lambda: self._sync_write_video(video_writer=video_writer,
+                                     streamer_name=streamer_name, 
+                                     device_name=device_name, 
+                                     stream_name=stream_name))
 
 
   # Wraps synchronous writing of multiple asynchronous Stream Deque data structures 
   #   into an asynchronous coroutine used to concurrently write multiple CSV files.
   async def _write_csv(self,
+                       stream_writer: TextIOWrapper,
                        streamer_name: str,
                        device_name: str,
                        stream_name: str):
     await asyncio.get_event_loop().run_in_executor(
       self._thread_pool,
-      lambda: self._sync_write_csv(streamer_name=streamer_name, device_name=device_name, stream_name=stream_name)
-    )
+      lambda: self._sync_write_csv(stream_writer=stream_writer,
+                                   streamer_name=streamer_name, 
+                                   device_name=device_name, 
+                                   stream_name=stream_name))
 
 
   # Wraps synchronous writing of multiple asynchronous Stream Deque data structures 
   #   into an asynchronous coroutine used to concurrently write multiple audio files.
   async def _write_audio(self,
+                         audio_writer: wave.Wave_write,
                          streamer_name: str,
                          device_name: str,
                          stream_name: str):
     await asyncio.get_event_loop().run_in_executor(
       self._thread_pool,
-      lambda: self._sync_write_audio(streamer_name=streamer_name, device_name=device_name, stream_name=stream_name)
-    )
+      lambda: self._sync_write_audio(audio_writer=audio_writer,
+                                     streamer_name=streamer_name, 
+                                     device_name=device_name, 
+                                     stream_name=stream_name))
 
 
   # Wraps synchronous writing to a single HDF5 file, 
@@ -813,8 +815,7 @@ class Logger(LoggerInterface):
   async def _write_files_hdf5(self):
     await asyncio.get_event_loop().run_in_executor(
       self._thread_pool,
-      lambda: self._write_hdf5()
-    )
+      lambda: self._write_hdf5())
 
 
   # Awaits completion from a wrapper that wraps concurrent writing to multiple video files,
@@ -822,14 +823,12 @@ class Logger(LoggerInterface):
   async def _write_files_video(self):
     tasks = []
     # Write new data for each stream of each device of each streamer.
-    for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_stream_info_all().items():
-        for (stream_name, stream_info) in device_info.items():
-          tasks.append(
-            self._write_video(streamer_name=streamer_name, 
-                              device_name=device_name, 
-                              stream_name=stream_name)
-          )
+    for (video_writer, streamer_name, device_name, stream_name) in self._video_writers:
+      tasks.append(
+        self._write_video(video_writer=video_writer,
+                          streamer_name=streamer_name, 
+                          device_name=device_name, 
+                          stream_name=stream_name))
     await asyncio.gather(*tasks) 
 
 
@@ -838,14 +837,12 @@ class Logger(LoggerInterface):
   async def _write_files_csv(self):
     tasks = []
     # Write new data for each stream of each device of each streamer.
-    for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_stream_info_all().items():
-        for (stream_name, stream_info) in device_info.items():
-          tasks.append(
-            self._write_csv(streamer_name=streamer_name, 
-                            device_name=device_name, 
-                            stream_name=stream_name)
-          )
+    for (stream_writer, streamer_name, device_name, stream_name) in self._csv_writers:
+      tasks.append(
+        self._write_csv(stream_writer=stream_writer,
+                        streamer_name=streamer_name, 
+                        device_name=device_name, 
+                        stream_name=stream_name))
     await asyncio.gather(*tasks)
     
 
@@ -854,14 +851,12 @@ class Logger(LoggerInterface):
   async def _write_files_audio(self):
     tasks = []
     # Write new data for each stream of each device of each streamer.
-    for (streamer_name, stream) in self._streams.items():
-      for (device_name, device_info) in stream.get_stream_info_all().items():
-        for (stream_name, stream_info) in device_info.items():
-          tasks.append(
-            self._write_audio(streamer_name=streamer_name, 
-                              device_name=device_name, 
-                              stream_name=stream_name)
-          )
+    for (audio_writer, streamer_name, device_name, stream_name) in self._audio_writers:
+      tasks.append(
+        self._write_audio(audio_writer=audio_writer,
+                          streamer_name=streamer_name, 
+                          device_name=device_name, 
+                          stream_name=stream_name))
     await asyncio.gather(*tasks) 
 
 
