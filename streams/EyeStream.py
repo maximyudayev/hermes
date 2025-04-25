@@ -50,6 +50,7 @@ class EyeStream(Stream):
                fps_video_world: float,
                fps_video_eye0: float,
                fps_video_eye1: float,
+               pixel_format: str, # [bgr, yuv, jpeg]
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                **_) -> None:
@@ -62,6 +63,7 @@ class EyeStream(Stream):
     self._is_stream_blinks = is_stream_blinks
     self._gaze_estimate_stale_s = gaze_estimate_stale_s
     self._update_interval_ms = update_interval_ms
+    self._pixel_format = pixel_format
     self._timesteps_before_solidified = timesteps_before_solidified
 
     # Define data notes that will be associated with streams created below.
@@ -295,7 +297,7 @@ class EyeStream(Stream):
                       data_notes=self._data_notes['eye-video-world']['frame'],
                       is_measure_rate_hz=True,
                       is_video=True,
-                      color_format='bgr',
+                      color_format=self._pixel_format, # can be bgr, jpeg and yuv
                       timesteps_before_solidified=self._timesteps_before_solidified)
 
     if is_stream_video_eye:
@@ -319,7 +321,7 @@ class EyeStream(Stream):
                       data_notes=self._data_notes['eye-video-eye0']['frame'],
                       is_measure_rate_hz=True,
                       is_video=True,
-                      color_format='bgr',
+                      color_format=self._pixel_format,
                       timesteps_before_solidified=self._timesteps_before_solidified)
       if is_binocular:
         self.add_stream(device_name='eye-video-eye1', 
@@ -342,7 +344,7 @@ class EyeStream(Stream):
                         data_notes=self._data_notes['eye-video-eye1']['frame'],
                         is_measure_rate_hz=True,
                         is_video=True,
-                        color_format='bgr',
+                        color_format=self._pixel_format,
                         timesteps_before_solidified=self._timesteps_before_solidified)
 
 

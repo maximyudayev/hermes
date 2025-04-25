@@ -459,6 +459,7 @@ class Logger(LoggerInterface):
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
+          input_stream_format: str = stream_info['ffmpeg_input_format']
 
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
@@ -466,8 +467,8 @@ class Logger(LoggerInterface):
           video_writer: Popen = (
             ffmpeg
             .input('pipe:', 
-                   format='rawvideo',
-                   pix_fmt=input_stream_pix_fmt, # color format of Numpy arrays.
+                   format=input_stream_format,
+                   pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
                    s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
                    framerate=fps,
                    **{'cpucount': self._video_codec_num_cpu}
@@ -701,15 +702,12 @@ class Logger(LoggerInterface):
                         device_name: str,
                         stream_name: str):
     # Write all available video frames to file.
-    new_data: Iterator[tuple[np.ndarray, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
-                                                                                             stream_name=stream_name, 
-                                                                                             is_flush=self._is_flush)
-    for frame, is_keyframe, pts in new_data:
+    new_data: Iterator[tuple[bytes, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
+                                                                                        stream_name=stream_name, 
+                                                                                        is_flush=self._is_flush)
+    for buffer, is_keyframe, pts in new_data:
       # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
-      video_writer.stdin.write(
-        frame
-        .tobytes()
-      )
+      video_writer.stdin.write(buffer)
 
 
   # Write provided data to the CSV file.

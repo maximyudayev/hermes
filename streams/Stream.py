@@ -142,11 +142,14 @@ class Stream(ABC):
         # Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
         #   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
         #   one of the supported OpenCV pixel conversion formats: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
-        ffmpeg_color, cv2_color = {
-          'bgr': ('bgr24', cv2.COLOR_BGR2RGB),
-          'bayer_rg8': ('bayer_rggb8', cv2.COLOR_BAYER_RG2RGB),
+        ffmpeg_format, ffmpeg_color, cv2_color = {
+          'bgr':        ('rawvideo',    'bgr24',        cv2.COLOR_BGR2RGB),
+          'yuv':        ('rawvideo',    'yuv420p',      cv2.COLOR_YUV2RGB),
+          'jpeg':       ('image2pipe',  'yuv420p',      cv2.COLOR_YUV2RGB),
+          'bayer_rg8':  ('rawvideo',    'bayer_rggb8',  cv2.COLOR_BAYER_RG2RGB),
         }[color_format]
         self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': ffmpeg_color, 'cv2': cv2_color}
+        self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = ffmpeg_format
       except KeyError:
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
     # Some metadata to keep track of during running to measure the actual frame rate.

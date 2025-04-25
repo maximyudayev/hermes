@@ -191,18 +191,13 @@ class PupilFacade:
       self._previous_index_world = metadata['index']
       pts = metadata['index'] - self._start_index_world
       # Decode the frame.
-      payload = data[2]
-      img_data = np.frombuffer(payload, dtype=np.uint8)
-      if self._video_image_format == 'bgr':
-        img = img_data.reshape(metadata['height'], metadata['width'], 3)
-      else:
-        img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-        img = img_data.reshape(metadata['height'], metadata['width'], 3)
+      img_buffer = data[2]
+
       # Prepare the output for the file writer.
       video_world_items = [
         ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        ('frame', (img, is_keyframe, pts)),
+        ('frame', (img_buffer, is_keyframe, pts)),
       ]
 
     # Process eye video data
@@ -218,18 +213,12 @@ class PupilFacade:
       self._previous_index_eye[eye_id] = metadata['index']
       pts = metadata['index'] - self._start_index_eye[eye_id]
       # Decode the frame.
-      payload = data[2]
-      img_data = np.frombuffer(payload, dtype=np.uint8)
-      if self._video_image_format == 'bgr':
-        img = img_data.reshape(metadata['height'], metadata['width'], 3)
-      else:
-        img_data = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-        img = img_data.reshape(metadata['height'], metadata['width'], 3)
+      img_buffer = data[2]
       # Prepare the output for the file writer.
       video_eye_items = [
         ('frame_timestamp', float(metadata['timestamp'])),
         ('frame_index', metadata['index']), # world view frame index used for annotation
-        ('frame', (img, is_keyframe, pts))
+        ('frame', (img_buffer, is_keyframe, pts))
       ]
 
     # Create a data dictionary.

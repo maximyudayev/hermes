@@ -57,7 +57,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
     #   reported from the background thread to the foreground python code.
     try:
       if res.GrabSucceeded():
-        frame = res.GetArray()
+        img_buffer = res.GetBuffer()
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
         timestamp: np.uint64 = res.GetTimeStamp()
         sequence_id: np.int64 = res.GetImageNumber()
@@ -72,7 +72,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
         res.Release()
         # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
         self._buffer.append((camera_id, 
-                             frame, 
+                             img_buffer, 
                              is_keyframe, 
                              pts, 
                              timestamp, 
