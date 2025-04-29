@@ -104,7 +104,6 @@ class AwindaStreamer(Producer):
 
 
   def _process_data(self) -> None:
-    process_time_s = time.time()
     snapshot = self._handler.get_snapshot()
     if snapshot is not None:
       process_time_s = get_time()
@@ -114,8 +113,8 @@ class AwindaStreamer(Producer):
       gyroscope.fill(np.nan)
       magnetometer = np.empty((self._num_joints, 3), dtype=np.float32)
       magnetometer.fill(np.nan)
-      orientation = np.empty((self._num_joints, 4), dtype=np.float32)
-      orientation.fill(np.nan)      
+      quaternion = np.empty((self._num_joints, 4), dtype=np.float32)
+      quaternion.fill(np.nan)      
       timestamp = np.zeros((self._num_joints), dtype=np.uint32)
       toa_s = np.empty((self._num_joints), dtype=np.float32)
       toa_s.fill(np.nan)
@@ -128,7 +127,7 @@ class AwindaStreamer(Producer):
           acceleration[id] = packet["acc"]
           gyroscope[id] = packet["gyr"]
           magnetometer[id] = packet["mag"]
-          orientation[id] = packet["quaternion"]
+          quaternion[id] = packet["quaternion"]
           timestamp[id] = packet["timestamp"]
           toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
@@ -144,7 +143,7 @@ class AwindaStreamer(Producer):
         'magnetometer-x': magnetometer[:,0],
         'magnetometer-y': magnetometer[:,1],
         'magnetometer-z': magnetometer[:,2],
-        'orientation': orientation,
+        'quaternion': quaternion,
         'timestamp': timestamp,
         'toa_s': toa_s,
         'counter': counter,
@@ -163,4 +162,5 @@ class AwindaStreamer(Producer):
 
 
   def _cleanup(self) -> None:
+    self._handler.close()
     super()._cleanup()

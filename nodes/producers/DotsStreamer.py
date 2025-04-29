@@ -127,8 +127,8 @@ class DotsStreamer(Producer):
       magnetometer = np.empty((self._num_joints, 3), dtype=np.float32)
       magnetometer.fill(np.nan)
       if self._is_get_orientation:
-        orientation = np.empty((self._num_joints, 4), dtype=np.float32)
-        orientation.fill(np.nan)
+        quaternion = np.empty((self._num_joints, 4), dtype=np.float32)
+        quaternion.fill(np.nan)
       timestamp = np.zeros((self._num_joints), np.uint32)
       toa_s = np.empty((self._num_joints), dtype=np.float32)
       toa_s.fill(np.nan)
@@ -141,7 +141,7 @@ class DotsStreamer(Producer):
           gyroscope[id] = packet["gyr"]
           magnetometer[id] = packet["mag"]
           if self._is_get_orientation:
-            orientation[id] = packet["quaternion"]
+            quaternion[id] = packet["quaternion"]
           timestamp[id] = packet["timestamp_fine"]
           toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
@@ -161,7 +161,7 @@ class DotsStreamer(Producer):
         'counter': counter,
       }
       if self._is_get_orientation:
-        data["orientation"] = orientation
+        data["quaternion"] = quaternion
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'dots-imu': data})
@@ -175,4 +175,5 @@ class DotsStreamer(Producer):
 
 
   def _cleanup(self) -> None:
+    self._handler.close()
     super()._cleanup()
