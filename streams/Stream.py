@@ -28,16 +28,33 @@
 from abc import ABC, abstractmethod
 
 import copy
-from collections import OrderedDict, deque
-from typing import Any, Iterator
+from collections import OrderedDict, deque, namedtuple
+from typing import TypeAlias, Any, Deque, Iterable, Iterator, Mapping, TypedDict, Dict, NamedTuple
 import cv2
 import dash_bootstrap_components as dbc
 from threading import Lock
-import numpy as np
 
-from utils.time_utils import *
-from utils.dict_utils import *
-from utils.print_utils import *
+from utils.dict_utils import convert_dict_values_to_str
+from utils.time_utils import get_time
+
+
+NewDataDict: TypeAlias = Dict[str, Dict[str, Any]]
+DataFifo: TypeAlias = Deque[Any]
+DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
+StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
+DeviceLockDict: TypeAlias = Dict[str, Lock]
+ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
+VideoFormatTuple = namedtuple('VideoFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt', 'cv2_cvt_color'))
+
+# Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
+#   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
+#   one of the supported OpenCV pixel conversion formats: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
+VIDEO_FORMAT = {
+  'bgr':        VideoFormatTuple('rawvideo',    'bgr24',        cv2.COLOR_BGR2RGB),
+  'yuv':        VideoFormatTuple('rawvideo',    'yuv420p',      cv2.COLOR_YUV2RGB),
+  'jpeg':       VideoFormatTuple('image2pipe',  'yuv420p',      cv2.COLOR_YUV2RGB),
+  'bayer_rg8':  VideoFormatTuple('rawvideo',    'bayer_rggb8',  cv2.COLOR_BAYER_RG2RGB),
+}
 
 
 #########################################################################
@@ -63,14 +80,19 @@ class Stream(ABC):
   #   to use for logging purposes and general user information.
   metadata_data_headings_key = 'Data headings'
 
+  _metadata: Mapping
+  _data: DataFifoDict
+  _streams_info: StreamInfoDict
+  _locks: DeviceLockDict
+
   def __init__(self) -> None:
-    self._metadata = OrderedDict()
-    self._data: OrderedDict[str, OrderedDict[str, deque[OrderedDict[str, Any]]]] = OrderedDict()
-    self._streams_info: OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]] = OrderedDict()
+    self._metadata = dict()
+    self._data = dict()
+    self._streams_info = dict()
     # NOTE: Lock used only to delegate access to the start of the FIFO
     #   in case a Consumer is interested in only some freshest data elements.
     #   This allows the end of the FIFO to be saved and discarded by the Logger.
-    self._locks: OrderedDict[str, Lock] = OrderedDict()  
+    self._locks = dict()
 
 
   ############################
@@ -97,6 +119,7 @@ class Stream(ABC):
   ###### GETTERS/SETTERS ######
   #############################
   # Add a new device stream.
+  # Will by default add a stream for each device to mark host time of the arrival of a sample into the foreground thread.
   # @param timesteps_before_solidified allows indication that data/timestamps for
   #   previous timesteps may be altered when a new sample is received.
   #   For example, some sensors may send two samples at the same time, and the
@@ -111,8 +134,8 @@ class Stream(ABC):
   def add_stream(self,
                  device_name: str,
                  stream_name: str,
-                 data_type: type,
-                 sample_size: list[int] | tuple[int],
+                 data_type: str,
+                 sample_size: Iterable[int],
                  sampling_rate_hz: float,
                  is_measure_rate_hz: bool = False,
                  data_notes: str | dict = {},
@@ -120,36 +143,64 @@ class Stream(ABC):
                  color_format: str = None,
                  is_audio: bool = False,
                  timesteps_before_solidified: int = 0,
-                 extra_data_info: dict[str, dict[str, Any]] = {}) -> None:
+                 extra_data_info: ExtraDataInfoDict = {}) -> None:
+    if stream_name == 'process_time_s':
+      raise ValueError('\'process_time_s\' is reserved for Stream internal use.')
+    self._add_stream(device_name=device_name,
+                     stream_name=stream_name,
+                     data_type=data_type,
+                     sample_size=sample_size,
+                     sampling_rate_hz=sampling_rate_hz,
+                     is_measure_rate_hz=is_measure_rate_hz,
+                     data_notes=data_notes,
+                     is_video=is_video,
+                     color_format=color_format,
+                     is_audio=is_audio,
+                     timesteps_before_solidified=timesteps_before_solidified,
+                     extra_data_info=extra_data_info)
+    if 'process_time_s' not in self._data[device_name]:
+      self._add_stream(device_name=device_name,
+                       stream_name='process_time_s',
+                       data_type='float64',
+                       sample_size=(1,),
+                       sampling_rate_hz=0.0,
+                       data_notes='Time of arrival of the data point to the host PC, ' \
+                                  'to be used for aligned idexing of data between distributed hosts.')
+
+
+  def _add_stream(self,
+                  device_name: str,
+                  stream_name: str,
+                  data_type: str,
+                  sample_size: Iterable[int],
+                  sampling_rate_hz: float,
+                  is_measure_rate_hz: bool = False,
+                  data_notes: str | dict = {},
+                  is_video: bool = False,
+                  color_format: str = None,
+                  is_audio: bool = False,
+                  timesteps_before_solidified: int = 0,
+                  extra_data_info: ExtraDataInfoDict = {}) -> None:
     self._locks.setdefault(device_name, Lock())
-    self._streams_info.setdefault(device_name, OrderedDict())
-    if not isinstance(sample_size, (list, tuple)):
+    self._streams_info.setdefault(device_name, dict())
+    if not isinstance(sample_size, Iterable[int]):
       sample_size = [sample_size]
-    self._streams_info[device_name][stream_name] = OrderedDict([
-                                                    ('data_type', data_type),
-                                                    ('sample_size', sample_size),
-                                                    ('data_notes', data_notes),
-                                                    ('sampling_rate_hz', sampling_rate_hz),
-                                                    ('is_measure_rate_hz', is_measure_rate_hz),
-                                                    ('is_video', is_video),
-                                                    ('is_audio', is_audio),
-                                                    ('timesteps_before_solidified', timesteps_before_solidified),
-                                                    ('extra_data_info', extra_data_info),
-                                                    ])
+    self._streams_info[device_name][stream_name] = dict([
+      ('data_type', data_type),
+      ('sample_size', sample_size),
+      ('data_notes', data_notes),
+      ('sampling_rate_hz', sampling_rate_hz),
+      ('is_measure_rate_hz', is_measure_rate_hz),
+      ('is_video', is_video),
+      ('is_audio', is_audio),
+      ('timesteps_before_solidified', timesteps_before_solidified),
+      ('extra_data_info', extra_data_info)])
     # Record color formats to use by FFmpeg and OpenCV, for saving and displaying frames.
     if is_video:
       try:
-        # Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
-        #   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
-        #   one of the supported OpenCV pixel conversion formats: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
-        ffmpeg_format, ffmpeg_color, cv2_color = {
-          'bgr':        ('rawvideo',    'bgr24',        cv2.COLOR_BGR2RGB),
-          'yuv':        ('rawvideo',    'yuv420p',      cv2.COLOR_YUV2RGB),
-          'jpeg':       ('image2pipe',  'yuv420p',      cv2.COLOR_YUV2RGB),
-          'bayer_rg8':  ('rawvideo',    'bayer_rggb8',  cv2.COLOR_BAYER_RG2RGB),
-        }[color_format]
-        self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': ffmpeg_color, 'cv2': cv2_color}
-        self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = ffmpeg_format
+        video_format = VIDEO_FORMAT[color_format]
+        self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = video_format.ffmpeg_input_format
+        self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': video_format.ffmpeg_pix_fmt, 'cv2': video_format.cv2_cvt_color}
       except KeyError:
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
     # Some metadata to keep track of during running to measure the actual frame rate.
@@ -161,19 +212,20 @@ class Stream(ABC):
       self._streams_info[device_name][stream_name]['dt_circular_buffer'] = list([1/sampling_rate_hz] * circular_buffer_len)
       self._streams_info[device_name][stream_name]['dt_circular_index'] = 0
       self._streams_info[device_name][stream_name]['dt_running_sum'] = 1.0
-      self._streams_info[device_name][stream_name]['old_toa'] = time.time()
+      self._streams_info[device_name][stream_name]['old_toa'] = get_time()
     self.clear_data(device_name, stream_name)
 
 
   # Appending data to the Deque is thread-safe,
   #   but need to lock so reverse iterator doesn't throw immutability error
   #   (i.e. when GUI gets the newest N samples, while Node appends new data and Logger pops the oldest).
-  def append_data(self, time_s: float, data: dict[str, OrderedDict[str, Any]]) -> None:
+  def append_data(self, process_time_s: float, data: NewDataDict) -> None:
     for (device_name, streams_data) in data.items():
       if streams_data is not None:
         self._locks[device_name].acquire()
         for (stream_name, stream_data) in streams_data.items():
-          self._append(device_name, stream_name, time_s, stream_data)
+          self._append(device_name, stream_name, stream_data)
+        self._append(device_name, 'process_time_s', process_time_s)
         self._locks[device_name].release()
 
 
@@ -184,7 +236,6 @@ class Stream(ABC):
   def _append(self,
               device_name: str,
               stream_name: str,
-              time_s: float,
               data: Any) -> None:
     self._data[device_name][stream_name].append(data)
 
@@ -192,7 +243,7 @@ class Stream(ABC):
     # TODO: cleanup to use a fixed-length Deque instead.
     if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
       # Make intermediate variables for current and previous samples' time-of-arrival
-      new_toa = time.time()
+      new_toa = get_time()
       old_toa = self._streams_info[device_name][stream_name]['old_toa']
       # Record the new arrival time for the next iteration
       self._streams_info[device_name][stream_name]['old_toa'] = new_toa

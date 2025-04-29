@@ -32,7 +32,7 @@ from collections import OrderedDict
 
 from utils.datastructures import TimestampAlignedFifoBuffer
 from utils.user_settings import *
-import time
+from utils.time_utils import get_time
 
 
 class DotDataCallback(mdda.XsDotCallback):
@@ -43,8 +43,7 @@ class DotDataCallback(mdda.XsDotCallback):
 
 
   def onLiveDataAvailable(self, device, packet):
-    toa_s: float = time.time()
-    self._on_packet_received(toa_s, device, packet)
+    self._on_packet_received(get_time(), device, packet)
 
 
 class DotConnectivityCallback(mdda.XsDotCallback):
@@ -70,8 +69,8 @@ class DotConnectivityCallback(mdda.XsDotCallback):
 
 
 class MovellaFacade:
-  def __init__(self, 
-               device_mapping: dict[str, str], 
+  def __init__(self,
+               device_mapping: dict[str, str],
                master_device: str,
                sampling_rate_hz: int,
                is_get_orientation: bool,
@@ -115,14 +114,14 @@ class MovellaFacade:
       acc = packet.calibratedAcceleration()
       gyr = packet.calibratedGyroscopeData()
       mag = packet.calibratedMagneticField()
-      timestamp_fine = packet.sampleTimeFine()
+      timestamp = packet.sampleTimeFine()
       data = {
-        "device_id":            device_id,                          # str
+        "device_id":            device_id,
         "acc":                  acc,
         "gyr":                  gyr,
         "mag":                  mag,
-        "toa_s":                toa_s,                              # float
-        "timestamp_fine":       timestamp_fine,                     # uint32
+        "toa_s":                toa_s,
+        "timestamp":            timestamp,
       }
       if self._is_get_orientation: data["quaternion"] = packet.orientationQuaternion()
       self._buffer.plop(key=device_id, data=data, timestamp=timestamp_fine)

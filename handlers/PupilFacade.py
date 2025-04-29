@@ -29,12 +29,12 @@ from collections import OrderedDict
 import time
 from typing import Callable
 
-import cv2
 import msgpack
 import numpy as np
 import zmq
 
 from utils.sensor_utils import estimate_transmission_delay
+from utils.time_utils import get_time
 
 
 class PupilFacade:
@@ -98,7 +98,7 @@ class PupilFacade:
   #   Each sub-dict has keys that are stream names.
   def process_data(self) -> tuple[float, OrderedDict]:
     data = self._receiver.recv_multipart()
-    time_s = time.time()
+    time_s = get_time()
     device_time_s = self._get_device_time()
 
     gaze_items = None
@@ -187,7 +187,7 @@ class PupilFacade:
         self._start_index_world = metadata['index']
         is_keyframe = True
       else:
-        is_keyframe = (metadata['index'] - self._previous_index_world) > 1 # TODO: not safe against overflow, but uint64
+        is_keyframe = (metadata['index'] - self._previous_index_world) > 1 # NOTE: not safe against overflow, but uint64
       self._previous_index_world = metadata['index']
       pts = metadata['index'] - self._start_index_world
       # Decode the frame.
@@ -209,7 +209,7 @@ class PupilFacade:
         self._start_index_eye[eye_id] = metadata['index']
         is_keyframe = True
       else:
-        is_keyframe = (metadata['index'] - self._previous_index_eye[eye_id]) > 1 # TODO: not safe against overflow, but uint64
+        is_keyframe = (metadata['index'] - self._previous_index_eye[eye_id]) > 1 # NOTE: not safe against overflow, but uint64
       self._previous_index_eye[eye_id] = metadata['index']
       pts = metadata['index'] - self._start_index_eye[eye_id]
       # Decode the frame.
@@ -312,13 +312,13 @@ class PupilFacade:
       self._send_to_ipc('T %0.8f' % time_s)
 
     # Estimate the network delay when sending the set-time command.
-    transmit_delay_s = estimate_transmission_delay(ping_fn=lambda: set_device_time(time.time()))
+    transmit_delay_s = estimate_transmission_delay(ping_fn=lambda: set_device_time(get_time()))
 
     # self._log_debug('Estimated Pupil Core set clock transmit delay [ms]: mean %0.3f | std %0.3f | min %0.3f | max %0.3f' % \
     #                 (np.mean(transmit_delay_s)*1000.0, np.std(transmit_delay_s)*1000.0,
     #                  np.min(transmit_delay_s)*1000.0, np.max(transmit_delay_s)*1000.0))
     # Check that the sync was successful.
-    set_device_time(time.time() + transmit_delay_s)
+    set_device_time(get_time() + transmit_delay_s)
     clock_offset_ms = self._get_device_clock_offset_s()/1000.0
     if abs(clock_offset_ms) > 5:
       # self._log_warn('WARNING: Pupil Core clock sync may not have been successful. Offset is still %0.3f ms.' % clock_offset_ms)
@@ -341,9 +341,9 @@ class PupilFacade:
       #  (assume symmetric network delays).
       # Note that in practice, this delay is small when
       #  using Pupil Capture via USB (typically 0-1 ms, rarely 5-10 ms).
-      local_time_before = time.time()
+      local_time_before = get_time()
       pupil_time = self._get_device_time()
-      local_time_after = time.time()
+      local_time_after = get_time()
       local_time = (local_time_before + local_time_after) / 2.0
       clock_offsets_s.append(pupil_time - local_time)
     # Average multiple readings to account for variable network delays.

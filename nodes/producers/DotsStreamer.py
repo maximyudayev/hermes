@@ -32,7 +32,7 @@ from handlers.MovellaHandler import MovellaFacade
 from utils.zmq_utils import *
 
 import numpy as np
-import time
+from utils.time_utils import get_time
 from collections import OrderedDict
 
 
@@ -119,7 +119,7 @@ class DotsStreamer(Producer):
     # Retrieve the oldest enqueued packet for each sensor.
     snapshot = self._handler.get_snapshot()
     if snapshot is not None:
-      process_time_s: float = time.time()
+      process_time_s: float = get_time()
       acceleration = np.empty((self._num_joints, 3), dtype=np.float32)
       acceleration.fill(np.nan)
       gyroscope = np.empty((self._num_joints, 3), dtype=np.float32)
@@ -164,7 +164,7 @@ class DotsStreamer(Producer):
         data["orientation"] = orientation
 
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=process_time_s, data={'dots-imu': data})
+      self._publish(tag, process_time_s=process_time_s, data={'dots-imu': data})
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()

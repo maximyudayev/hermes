@@ -133,9 +133,9 @@ class EyeStreamer(Producer):
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      time_s, data = self._handler.process_data()
+      process_time_s, data = self._handler.process_data()
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=time_s, data=data)
+      self._publish(tag, process_time_s=process_time_s, data=data)
     else:
       self._send_end_packet()
 

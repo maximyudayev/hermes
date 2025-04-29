@@ -30,8 +30,8 @@ from streams import CyberlegStream
 
 from utils.print_utils import *
 from utils.zmq_utils import *
+from utils.time_utils import get_time
 import socket
-import time
 import struct
 
 
@@ -96,7 +96,7 @@ class CyberlegStreamer(Producer):
   def _process_data(self) -> None:
     if self._is_continue_capture:
       payload = self._sock.recv(self._num_packet_bytes) 
-      time_s: float = time.time()
+      process_time_s: float = get_time()
       # Interpret smartphone bytes correctly from the prosthesis.
       msg = struct.unpack('ccc', payload) # TODO: unpack the packet.
       data = {
@@ -106,7 +106,7 @@ class CyberlegStreamer(Producer):
         # 'timestamp':    msg[3],
       }
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=time_s, data={'cyberleg-data': data})
+      self._publish(tag, process_time_s=process_time_s, data={'cyberleg-data': data})
     else:
       self._send_end_packet()
 

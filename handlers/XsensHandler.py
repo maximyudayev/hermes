@@ -31,6 +31,7 @@ import xsensdeviceapi as xda
 import time
 
 from utils.datastructures import NonOverflowingCounterAlignedFifoBuffer
+from utils.time_utils import get_time
 
 
 class AwindaDataCallback(xda.XsCallback):
@@ -42,8 +43,7 @@ class AwindaDataCallback(xda.XsCallback):
 
   # How are interpolated packets for previous time steps provided?
   def onLiveDataAvailable(self, device, packet):
-    time_s: float = time.time()
-    self._on_each_packet_received(time_s, device, packet)
+    self._on_each_packet_received(get_time(), device, packet)
 
 
 class AwindaConnectivityCallback(xda.XsCallback):
@@ -106,16 +106,16 @@ class XsensFacade:
       gyr = packet.calibratedGyroscopeData()
       mag = packet.calibratedMagneticField()
       quaternion = packet.orientationQuaternion()
-      timestamp_fine = packet.sampleTimeFine()
+      timestamp = packet.sampleTimeFine()
       counter = packet.packetCounter()
       data = {
-        "device_id":            device_id,                          # str
+        "device_id":            device_id,
         "acc":                  acc,
         "gyr":                  gyr,
         "mag":                  mag,
         "quaternion":           quaternion, 
-        "toa_s":                toa_s,                              # float
-        "timestamp_fine":       timestamp_fine,                     # uint32
+        "toa_s":                toa_s,
+        "timestamp":            timestamp,
         "counter_onboard":      counter,
       }
       self._buffer.plop(key=device_id, data=data, counter=counter)

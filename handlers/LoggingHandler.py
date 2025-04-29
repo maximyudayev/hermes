@@ -31,6 +31,7 @@ from io import TextIOWrapper
 from subprocess import Popen
 import os
 import time
+from utils.time_utils import get_time
 from typing import Any, Iterator
 import wave
 
@@ -236,7 +237,7 @@ class Logger(LoggerInterface):
   def cleanup(self) -> None:
     # Stop stream-logging and wait for it to finish.
     self._stop_stream_logging()
-    self._log_stop_time_s = time.time()
+    self._log_stop_time_s = get_time()
 
 
   ############################
@@ -884,7 +885,7 @@ class Logger(LoggerInterface):
       #  2. It has been at least self._stream_period_s since the last write.
       #  3. Periodic logging has been deactivated.
       while (last_log_time_s is not None
-            and (time_to_next_period := (last_log_time_s + self._stream_period_s - time.time())) > 0
+            and (time_to_next_period := (last_log_time_s + self._stream_period_s - get_time())) > 0
             and self._is_streaming):
         # Will wake up periodically to check if the experiment had been ended.
         #   Will proceed only if time for next logging or if experiment ended.
@@ -897,7 +898,7 @@ class Logger(LoggerInterface):
       #   of time it takes to perform the write would be added to the log period.
       #   This would compound over time, leading to longer delays and more data to write each time.
       #   This becomes more severe as the write duration increases (e.g. videos).
-      last_log_time_s = time.time()
+      last_log_time_s = get_time()
       # If the log should be flushed, record that it is happening during this iteration for ALL streamers.
       if self._is_flush:
         is_flush_all_in_current_iteration = True
