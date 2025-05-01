@@ -27,9 +27,8 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-  video_codec             : 'h264_qsv'
-  video_codec_num_cpu     : 1
-  video_codec_pix_format  : 'nv12'
+  video_codec_config_filepath : "resources/codecs/h264_nvenc.yml" 
+  video_codec_num_cpu : 1
 
   audio_format        : "wav" # currently only supports WAV
 

@@ -42,6 +42,7 @@ import h5py
 import numpy as np
 from streams.Stream import Stream
 from utils.dict_utils import convert_dict_values_to_str
+from utils.types import VideoCodecDict
 
 
 ##############################################################################################
@@ -175,9 +176,8 @@ class Logger(LoggerInterface):
                dump_hdf5: bool = False,
                dump_video: bool = False,
                dump_audio: bool = False,
-               video_codec: str = "h264",
+               video_codec: VideoCodecDict = None,
                video_codec_num_cpu: int = 1,
-               video_codec_pix_format: str = "nv12",
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -194,7 +194,6 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._video_codec = video_codec
     self._video_codec_num_cpu = video_codec_num_cpu
-    self._video_output_pix_fmt = video_codec_pix_format
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
@@ -467,22 +466,20 @@ class Logger(LoggerInterface):
           # ffmpeg.setpts()
           video_writer: Popen = (
             ffmpeg
-            .input('pipe:', 
+            .input('pipe:',
                    format=input_stream_format,
                    pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
                    s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
                    framerate=fps,
-                   **{'cpucount': self._video_codec_num_cpu}
+                   cpucount=self._video_codec_num_cpu
                    )
             # .filter('scale', 1280, 720)
             # .filter('deflicker', mode='pm', size=10) # remove line noise from room lights.
             .output(filepath_video,
-                    vcodec=self._video_codec,
-                    pix_fmt=self._video_output_pix_fmt,
-                    preset='veryfast',
-                    # profile='main',
-                    # scenario='livestreaming',
-                    **{'cpucount': self._video_codec_num_cpu}, # prevent ffmpeg from suffocating the processor.
+                    vcodec=self._video_codec['codec_name'],
+                    pix_fmt=self._video_codec['pix_format'],
+                    cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.                    
+                    **self._video_codec['options']
                     )
             .run_async(pipe_stdin=True)
           )

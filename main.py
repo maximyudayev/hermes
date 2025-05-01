@@ -44,6 +44,13 @@ if __name__ == '__main__':
     except yaml.YAMLError as e:
       print(e)
 
+  with open(config['video_codec_config_filepath'], "r") as f:
+    try:
+      config['video_codec'] = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+      print(e)
+
+
   # Initialize folders and other chore data, and share programmatically across Node specs. 
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(return_time_s=True)
