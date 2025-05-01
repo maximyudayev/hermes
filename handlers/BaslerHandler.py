@@ -33,12 +33,12 @@ from utils.print_utils import *
 from utils.time_utils import get_time
 
 
-# Does not align video streams according to timestamps, 
+# Does not align video streams according to timestamps,
 #   they are captured synchronously on independent PoE interfaces -> no need.
 #   That's why alignment is not necessary unlike IMUs.
 #   Grabbed images from several devices pushed into single buffer, arbitrarily overlapping images.
 # NOTE: may be interesting to actually align them in a snapshot buffer, similar to IMUs,
-#   To make multi-angle computer vision algorithms possible. 
+#   To make multi-angle computer vision algorithms possible.
 class ImageEventHandler(pylon.ImageEventHandler):
   def __init__(self, cam_array: pylon.InstantCameraArray):
     super().__init__()
@@ -55,32 +55,35 @@ class ImageEventHandler(pylon.ImageEventHandler):
   def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult):
     # Gets called on every image.
     #   Runs in a pylon thread context, always wrap in the `try .. except`
-    #   to capture errors inside the grabbing as this can't be properly 
+    #   to capture errors inside the grabbing as this can't be properly
     #   reported from the background thread to the foreground python code.
     try:
-      if res.GrabSucceeded() and self._is_keep_data:
-        toa_s: float = get_time()
-        img_buffer = res.GetBuffer()
-        camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
-        timestamp: np.uint64 = res.GetTimeStamp()
-        sequence_id: np.int64 = res.GetImageNumber()
-        # Presentation time in the units of the timebase of the stream, w.r.t. the start of the video recording.
-        if self._start_sequence_id[camera_id] is None:
-          self._start_sequence_id[camera_id] = sequence_id
-        pts = sequence_id - self._start_sequence_id[camera_id] # NOTE: not safe against overflow, but int64
-        # If there are any skipped images in between, it will take encoder a lot of processing.
-        #   Mark the frame as keyframe so it encodes the frame as a whole, not differentially.
-        is_keyframe: bool = res.GetNumberOfSkippedImages() > 0
-        # Release the buffer for Pylon to reuse for the next frame.
-        res.Release()
-        # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
-        self._buffer.append((camera_id,
-                             img_buffer,
-                             is_keyframe,
-                             pts,
-                             timestamp,
-                             sequence_id,
-                             toa_s))
+      if res.GrabSucceeded():
+        if not self._is_keep_data:
+          res.Release()
+        else:
+          toa_s: float = get_time()
+          img_buffer = res.GetBuffer()
+          camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
+          timestamp: np.uint64 = res.GetTimeStamp()
+          sequence_id: np.int64 = res.GetImageNumber()
+          # Presentation time in the units of the timebase of the stream, w.r.t. the start of the video recording.
+          if self._start_sequence_id[camera_id] is None:
+            self._start_sequence_id[camera_id] = sequence_id
+          pts = sequence_id - self._start_sequence_id[camera_id] # NOTE: not safe against overflow, but int64
+          # If there are any skipped images in between, it will take encoder a lot of processing.
+          #   Mark the frame as keyframe so it encodes the frame as a whole, not differentially.
+          is_keyframe: bool = res.GetNumberOfSkippedImages() > 0
+          # Release the buffer for Pylon to reuse for the next frame.
+          res.Release()
+          # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
+          self._buffer.append((camera_id,
+                              img_buffer,
+                              is_keyframe,
+                              pts,
+                              timestamp,
+                              sequence_id,
+                              toa_s))
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
@@ -92,7 +95,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       return self._buffer.popleft()
     except IndexError:
       return None
-    
-  
+
+
   def keep_data(self):
     self._is_keep_data = True
