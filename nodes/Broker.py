@@ -227,7 +227,7 @@ class SyncBrokerBarrierState(BrokerState):
     self._brokers_left_to_acknowledge = set(self._remote_sub_brokers)
     self._brokers_left_to_checkin = set(self._remote_pub_brokers)
     for ip in self._remote_sub_brokers:
-      self._sync_remote_socket.connect('tcp://%s:%s'%(ip, PORT_SYNC_HOST))
+      self._sync_remote_socket.connect('tcp://%s:%s'%(ip, PORT_SYNC_REMOTE))
     # Register remote SYNC socket to receive requests from remote publishers, 
     #   and responses from remote subscribers.
     self._poller = zmq.Poller()
@@ -236,8 +236,9 @@ class SyncBrokerBarrierState(BrokerState):
 
   def run(self) -> None:
     # I am remote publishing Broker, I must notify subscribing Brokers that I am ready.
-    for _ in self._remote_sub_brokers:
-      self._sync_remote_socket.send_multipart([b'', 
+    for ip in self._remote_sub_brokers:
+      self._sync_remote_socket.send_multipart([("%s:%s"%(ip, PORT_SYNC_REMOTE)).encode('utf-8'),
+                                               b'', 
                                                self._host_ip.encode('utf-8'), 
                                                CMD_HELLO.encode('utf-8')])
 
@@ -284,18 +285,19 @@ class StartState(BrokerState):
 
     # Master Broker selects start time as 5 seconds from now and distributes across Brokers.
     if self._context._get_is_master_broker():
-      start_time_s: int = round(time.time()) + 5
-      for _ in brokers:
-        sync_remote_socket.send_multipart([b'',
-                                          CMD_START_TIME.encode('utf-8'),
-                                          start_time_s.to_bytes(length=4, byteorder='big')])
+      start_time_s: int = round(get_time()) + 5
+      for address in brokers.values():
+        sync_remote_socket.send_multipart([address,
+                                           b'',
+                                           CMD_START_TIME.encode('utf-8'),
+                                           start_time_s.to_bytes(length=4, byteorder='big')])
     # Slave Brokers block on the reeceive socket, waiting for the time. 
     else:
       address, _, cmd, start_time_bytes = sync_remote_socket.recv_multipart()
       start_time_s = int.from_bytes(start_time_bytes, byteorder='big')
 
     # Each Broker waits until that time comes to trigger start of logging, with 1ms precision.
-    while (current_time_s := time.time()) < start_time_s:
+    while (current_time_s := get_time()) < start_time_s:
       time.sleep(min(0.001, start_time_s-current_time_s))
     
     # Trigget local Nodes to start logging.
@@ -317,7 +319,7 @@ class RunningState(BrokerState):
   def __init__(self, context):
     super().__init__(context)
     if self._context._get_duration() is not None:
-      self._is_continue_fn = lambda: time.time() < (self._context._get_start_time() + self._context._get_duration())
+      self._is_continue_fn = lambda: get_time() < (self._context._get_start_time() + self._context._get_duration())
     else:
       self._is_continue_fn = lambda: True
 
@@ -447,10 +449,11 @@ class JoinBrokerBarrierState(BrokerState):
 
   def run(self):
     # Notify Brokers that listen to our data that we are done and ready to exit as soon as they received all last data from us.
-    for _ in self._remote_sub_brokers:
-      self._sync_remote_socket.send_multipart([b'', 
+    for ip in self._remote_sub_brokers:
+      self._sync_remote_socket.send_multipart([("%s:%s"%(ip, PORT_SYNC_REMOTE)).encode('utf-8'),
+                                               b'', 
                                                self._host_ip.encode('utf-8'), 
-                                               CMD_END.encode('utf-8')])
+                                               CMD_HELLO.encode('utf-8')])
 
     # Check every 5 seconds if other Brokers completed their cleanup and responded back ready to exit.
     poll_res: list[tuple[zmq.SyncSocket, zmq.PollEvent]]
@@ -554,6 +557,8 @@ class Broker(BrokerInterface):
 
     # Socket to connect to remote Brokers 
     self._sync_remote: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
+    self._sync_remote.setsockopt_string(zmq.IDENTITY, "%s:%s"%(self._host_ip, self._port_sync_remote))
+    self._sync_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_sync_remote))
 
     # Termination control socket to command publishers and subscribers to finish and exit.
     killsig_pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
@@ -623,7 +628,7 @@ class Broker(BrokerInterface):
   #############################
   def _set_state(self, state: BrokerState) -> None:
     self._state = state
-    self._state_start_time_s = time.time()
+    self._state_start_time_s = get_time()
 
 
   def _set_node_addresses(self, nodes: dict[str, bytes]) -> None:

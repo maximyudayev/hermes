@@ -85,7 +85,7 @@ producer_specs:
   - class: "EyeStreamer"
     pupil_capture_ip        : "localhost"
     pupil_capture_port      : "50020"
-    video_image_format      : "bgr"
+    video_image_format      : "jpeg"
     gaze_estimate_stale_s   : 0.2
     is_binocular            : True # uses both eyes for gaze data and for video
     is_stream_video_world   : True

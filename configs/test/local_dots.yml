@@ -25,9 +25,9 @@
 #
 # ############
 
-project       : "AidWear"
-trial_type    : "real" # recommend "test" for testing and "real" data
-subject_id    : 2 # UID of the subject
+project       : "DummyTest"
+trial_type    : "test" # recommend "test" for testing and "real" data
+subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
 duration_s    : null
 
@@ -75,7 +75,7 @@ producer_specs:
       foot_left       : "40195BFD80C200D1"
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
-    sampling_rate_hz  : 60 # [1, 4, 10, 12, 15, 20, 30, 60]
+    sampling_rate_hz  : 4 # [1, 4, 10, 12, 15, 20, 30, 60]
     is_get_orientation: False
     is_sync_devices   : True
 
