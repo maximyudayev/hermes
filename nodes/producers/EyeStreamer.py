@@ -118,6 +118,8 @@ class EyeStreamer(Producer):
 
 
   def _connect(self) -> bool:
+    # TODO: launch Pupil Capture process
+
     self._handler: PupilFacade = PupilFacade(is_binocular=self._is_binocular,
                                              is_stream_video_world=self._is_stream_video_world,
                                              is_stream_video_eye=self._is_stream_video_eye,

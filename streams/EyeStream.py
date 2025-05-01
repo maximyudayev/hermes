@@ -526,11 +526,6 @@ class EyeStream(Stream):
     ])
 
     # Fixations data
-    self._data_notes['eye-fixations']['confidence'] = OrderedDict([
-      ('Range', '[0, 1]'),
-      ('Description', 'Confidence of the fixation detection'),
-      ('PupilCapture key', 'fixations. > confidence'),
-    ])
     self._data_notes['eye-fixations']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
                       'which should be more precise than the system time when the data was received (the time_s field).  '
@@ -544,11 +539,26 @@ class EyeStream(Stream):
       (Stream.metadata_data_headings_key, ['x','y']),
       ('PupilCapture key', 'fixations. > norm_pos'),
     ])
-    self._data_notes['eye-fixations']['point_3d'] = OrderedDict([
+    self._data_notes['eye-fixations']['dispersion'] = OrderedDict([
+      ('Range', ''),
+      ('Description', ''),
+      ('PupilCapture key', 'fixations. > dispersion'),
+    ])
+    self._data_notes['eye-fixations']['duration'] = OrderedDict([
+      ('Range', ''),
+      ('Description', ''),
+      ('PupilCapture key', 'fixations. > duration'),
+    ])
+    self._data_notes['eye-fixations']['confidence'] = OrderedDict([
+      ('Range', ''),
+      ('Description', ''),
+      ('PupilCapture key', 'fixations. > confidence'),
+    ])
+    self._data_notes['eye-fixations']['gaze_point_3d'] = OrderedDict([
       ('Units', 'mm'),
       ('Notes', 'Maps pupil positions into the world camera coordinate system'),
       (Stream.metadata_data_headings_key, ['x','y','z']),
-      ('PupilCapture key', 'fixations. > point_3d'),
+      ('PupilCapture key', 'fixations. > gaze_point_3d'),
     ])
 
     # Blinks data

@@ -93,7 +93,7 @@ class PupilFacade:
 
 
   def keep_data(self) -> None:
-    self._is_keep = True
+    self._is_keep_data = True
 
 
   # Receive data and return a parsed dictionary.
