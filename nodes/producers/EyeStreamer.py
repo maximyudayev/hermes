@@ -131,6 +131,10 @@ class EyeStreamer(Producer):
     return True
 
 
+  def _keep_samples(self) -> None:
+    self._handler.keep_data()
+
+
   def _process_data(self) -> None:
     if self._is_continue_capture:
       process_time_s, data = self._handler.process_data()

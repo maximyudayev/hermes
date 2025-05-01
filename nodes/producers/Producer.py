@@ -144,6 +144,12 @@ class Producer(Node):
 
   def _on_sync_complete(self) -> None:
     self._publish_fn = self._store_and_broadcast
+    self._keep_samples()
+
+
+  @abstractmethod
+  def _keep_samples(self) -> None:
+    pass
 
 
   def _store_and_broadcast(self, tag: str, **kwargs) -> None:

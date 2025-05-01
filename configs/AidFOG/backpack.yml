@@ -37,13 +37,13 @@ print_debug   : True
 
 host_ip : "192.168.0.103"
 is_master_broker: False
-remote_publisher_ips: []
 
 is_remote_kill: True
 remote_kill_ip: "192.168.0.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 
 remote_subscriber_ips: 
   - "192.168.0.100"
+remote_publisher_ips: []
 
 
 logging_spec:
@@ -107,10 +107,6 @@ producer_specs:
     fps_video_world       : 30.0
     fps_video_eye0        : 120.0
     fps_video_eye1        : 120.0
-
-  # # Moticon insole pressure.
-  # - class: "InsoleStreamer"
-  #   sampling_rate_hz: 100
 
 
 consumer_specs: []

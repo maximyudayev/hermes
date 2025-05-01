@@ -120,8 +120,8 @@ class CameraStreamer(Producer):
     for idx, cam in enumerate(self._cam_array):
       # For consistency load persistent settings stored in the camera.
       # NOTE: avoid overwriting this user set in Pylon viewer.
-      cam.UserSetSelector = "UserSet1"
-      cam.UserSetLoad.Execute()
+      # cam.UserSetSelector = "UserSet1"
+      # cam.UserSetLoad.Execute()
 
       # Preload persistent feature configurations saved to a file (easier configuration of all cameras).
       # if self._camera_config_filepath is not None: 
@@ -169,6 +169,10 @@ class CameraStreamer(Producer):
     elif is_timeout and not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
+
+
+  def _keep_samples(self) -> None:
+    self._image_handler.keep_data()
 
 
   def _process_frame(self,

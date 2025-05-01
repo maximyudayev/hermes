@@ -93,6 +93,7 @@ class MovellaFacade:
     self._is_get_orientation = is_get_orientation
     self._is_sync_devices = is_sync_devices
     self._is_enable_logging = is_enable_logging
+    self._is_keep_data = False
     # XsPayloadMode_CustomMode5         - Quaternion, Acceleration, Angular velocity, Timestamp
     # XsPayloadMode_CustomMode4         - Quaternion, 9DOF IMU data, Status, Timestamp
     # XsPayloadMode_CompleteQuaternion  - Quaternion, Free acceleration, Timestamp
@@ -115,21 +116,22 @@ class MovellaFacade:
       print("discovered %s"%port_info.bluetoothAddress(), flush=True)
 
     def on_packet_received(toa_s, device, packet):
-      device_id: str = str(device.deviceId())
-      acc = packet.calibratedAcceleration()
-      gyr = packet.calibratedGyroscopeData()
-      mag = packet.calibratedMagneticField()
-      timestamp = packet.sampleTimeFine()
-      data = {
-        "device_id":            device_id,
-        "acc":                  acc,
-        "gyr":                  gyr,
-        "mag":                  mag,
-        "toa_s":                toa_s,
-        "timestamp":            timestamp,
-      }
-      if self._is_get_orientation: data["quaternion"] = packet.orientationQuaternion()
-      self._packet_queue.put({"key": device_id, "data": data, "timestamp": timestamp})
+      if self._is_keep_data:
+        device_id: str = str(device.deviceId())
+        acc = packet.calibratedAcceleration()
+        gyr = packet.calibratedGyroscopeData()
+        mag = packet.calibratedMagneticField()
+        timestamp = packet.sampleTimeFine()
+        data = {
+          "device_id":            device_id,
+          "acc":                  acc,
+          "gyr":                  gyr,
+          "mag":                  mag,
+          "toa_s":                toa_s,
+          "timestamp":            timestamp,
+        }
+        if self._is_get_orientation: data["quaternion"] = packet.orientationQuaternion()
+        self._packet_queue.put({"key": device_id, "data": data, "timestamp": timestamp})
 
     def on_device_disconnected(device):
       device_id: str = str(device.deviceId())
@@ -227,6 +229,10 @@ class MovellaFacade:
         return False
     # NOTE: orientation reset works only in 'yaw' direction on DOTs -> no reason to use, turn on flat on the table, then attach to body and start program.
     return True
+
+
+  def keep_data(self) -> None:
+    self._is_keep = True
 
 
   def get_snapshot(self) -> dict[str, dict | None] | None:

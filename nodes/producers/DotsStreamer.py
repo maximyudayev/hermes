@@ -115,6 +115,10 @@ class DotsStreamer(Producer):
     return True
 
 
+  def _keep_samples(self) -> None:
+    self._handler.keep_data()
+
+
   def _process_data(self) -> None:
     # Retrieve the oldest enqueued packet for each sensor.
     snapshot = self._handler.get_snapshot()
@@ -130,7 +134,7 @@ class DotsStreamer(Producer):
         quaternion = np.empty((self._num_joints, 4), dtype=np.float32)
         quaternion.fill(np.nan)
       timestamp = np.zeros((self._num_joints), np.uint32)
-      toa_s = np.empty((self._num_joints), dtype=np.float32)
+      toa_s = np.empty((self._num_joints), dtype=np.float64)
       toa_s.fill(np.nan)
       counter = np.zeros((self._num_joints), np.uint32)
 
@@ -142,7 +146,7 @@ class DotsStreamer(Producer):
           magnetometer[id] = packet["mag"]
           if self._is_get_orientation:
             quaternion[id] = packet["quaternion"]
-          timestamp[id] = packet["timestamp_fine"]
+          timestamp[id] = packet["timestamp"]
           toa_s[id] = packet["toa_s"]
           counter[id] = packet["counter"]
 

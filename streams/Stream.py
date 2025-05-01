@@ -183,7 +183,7 @@ class Stream(ABC):
                   extra_data_info: ExtraDataInfoDict = {}) -> None:
     self._locks.setdefault(device_name, Lock())
     self._streams_info.setdefault(device_name, dict())
-    if not isinstance(sample_size, Iterable[int]):
+    if not isinstance(sample_size, Iterable):
       sample_size = [sample_size]
     self._streams_info[device_name][stream_name] = dict([
       ('data_type', data_type),

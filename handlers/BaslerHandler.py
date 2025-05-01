@@ -42,6 +42,7 @@ from utils.time_utils import get_time
 class ImageEventHandler(pylon.ImageEventHandler):
   def __init__(self, cam_array: pylon.InstantCameraArray):
     super().__init__()
+    self._is_keep_data = False
     self._cam_array = cam_array
     cam: pylon.InstantCamera
     # Register with the pylon loop, specify strategy for frame grabbing.
@@ -57,7 +58,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
     #   to capture errors inside the grabbing as this can't be properly 
     #   reported from the background thread to the foreground python code.
     try:
-      if res.GrabSucceeded():
+      if res.GrabSucceeded() and self._is_keep_data:
         toa_s: float = get_time()
         img_buffer = res.GetBuffer()
         camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
@@ -91,3 +92,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       return self._buffer.popleft()
     except IndexError:
       return None
+    
+  
+  def keep_data(self):
+    self._is_keep_data = True
