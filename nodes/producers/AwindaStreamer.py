@@ -116,7 +116,7 @@ class AwindaStreamer(Producer):
       quaternion = np.empty((self._num_joints, 4), dtype=np.float32)
       quaternion.fill(np.nan)      
       timestamp = np.zeros((self._num_joints), dtype=np.uint32)
-      toa_s = np.empty((self._num_joints), dtype=np.float32)
+      toa_s = np.empty((self._num_joints), dtype=np.float64)
       toa_s.fill(np.nan)
       counter = np.zeros((self._num_joints), dtype=np.uint32)
       counter_onboard = np.zeros((self._num_joints), dtype=np.uint16)

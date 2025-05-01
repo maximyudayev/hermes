@@ -156,7 +156,7 @@ class BrokerInterface(ABC):
     pass
 
   @abstractmethod
-  def _broker_packets(self, 
+  def _broker_packets(self,
                       poll_res: tuple[list[zmq.SyncSocket], list[int]],
                       on_data_received: Callable[[list[bytes]], None],
                       on_subscription_changed: Callable[[list[bytes]], None]) -> None:
@@ -206,8 +206,8 @@ class SyncNodeBarrierState(BrokerState):
       num_left_to_sync -= 1
       node_name = node_name.decode('utf-8')
       nodes[node_name] = address
-      print("%s connected to %s with %s message." % (node_name, 
-                                                     host_ip, 
+      print("%s connected to %s with %s message." % (node_name,
+                                                     host_ip,
                                                      cmd.decode('utf-8')), flush=True)
     self._context._set_node_addresses(nodes)
     self._context._set_state(SyncBrokerBarrierState(self._context))
@@ -228,7 +228,7 @@ class SyncBrokerBarrierState(BrokerState):
     self._brokers_left_to_checkin = set(self._remote_pub_brokers)
     for ip in self._remote_sub_brokers:
       self._sync_remote_socket.connect('tcp://%s:%s'%(ip, PORT_SYNC_REMOTE))
-    # Register remote SYNC socket to receive requests from remote publishers, 
+    # Register remote SYNC socket to receive requests from remote publishers,
     #   and responses from remote subscribers.
     self._poller = zmq.Poller()
     self._poller.register(self._sync_remote_socket, zmq.POLLIN)
@@ -251,7 +251,7 @@ class SyncBrokerBarrierState(BrokerState):
       broker_name = broker_name.decode('utf-8')
       print("%s sent %s to %s response" % (broker_name,
                                            cmd.decode('utf-8'),
-                                           self._host_ip), 
+                                           self._host_ip),
                                            flush=True)
       if broker_name in self._brokers_left_to_acknowledge:
         # Remote publisher received ACK from remote subscriber.
@@ -261,7 +261,7 @@ class SyncBrokerBarrierState(BrokerState):
         self._brokers_left_to_checkin.remove(broker_name)
         self._brokers[broker_name] = address
         # Remote subscriber responds with ACK to remote publisher.
-        self._sync_remote_socket.send_multipart([address, 
+        self._sync_remote_socket.send_multipart([address,
                                                  b'', 
                                                  self._host_ip.encode('utf-8'), 
                                                  CMD_ACK.encode('utf-8')])
@@ -302,13 +302,13 @@ class StartState(BrokerState):
     
     # Trigget local Nodes to start logging.
     for name, address in list(nodes.items()):
-      sync_host_socket.send_multipart([address, 
-                                       b'', 
-                                       host_ip.encode('utf-8'), 
+      sync_host_socket.send_multipart([address,
+                                       b'',
+                                       host_ip.encode('utf-8'),
                                        CMD_GO.encode('utf-8')])
-      print("%s sending %s to %s" % (host_ip, 
-                                     CMD_GO, 
-                                     name), 
+      print("%s sending %s to %s" % (host_ip,
+                                     CMD_GO,
+                                     name),
                                      flush=True)
 
     self._context._set_state(RunningState(self._context))
@@ -404,9 +404,9 @@ class JoinNodeBarrierState(BrokerState):
     if self._sync_host_socket in poll_res[0]:
       address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
       topic = node_name.decode('utf-8')
-      print("%s received %s from %s" % (self._host_ip, 
-                                        cmd, 
-                                        topic), 
+      print("%s received %s from %s" % (self._host_ip,
+                                        cmd,
+                                        topic),
                                         flush=True)
       self._nodes_waiting_to_exit.add(topic)
       self._release_local_node(topic)
@@ -414,7 +414,7 @@ class JoinNodeBarrierState(BrokerState):
 
   def _release_local_node(self, topic: str) -> None:
     if topic in self._nodes_waiting_to_exit and topic not in self._nodes_expected_end_pub_packet:
-      self._sync_host_socket.send_multipart([self._nodes[topic], 
+      self._sync_host_socket.send_multipart([self._nodes[topic],
                                              b'',
                                              self._host_ip.encode('utf-8'),
                                              CMD_BYE.encode('utf-8')])
@@ -452,7 +452,7 @@ class JoinBrokerBarrierState(BrokerState):
     for ip in self._remote_sub_brokers:
       self._sync_remote_socket.send_multipart([("%s:%s"%(ip, PORT_SYNC_REMOTE)).encode('utf-8'),
                                                b'', 
-                                               self._host_ip.encode('utf-8'), 
+                                               self._host_ip.encode('utf-8'),
                                                CMD_HELLO.encode('utf-8')])
 
     # Check every 5 seconds if other Brokers completed their cleanup and responded back ready to exit.
@@ -463,7 +463,7 @@ class JoinBrokerBarrierState(BrokerState):
       broker_name = broker_name.decode('utf-8')
       print("%s sent %s to %s." % (broker_name,
                                    cmd.decode('utf-8'),
-                                   self._host_ip), 
+                                   self._host_ip),
                                    flush=True)
 
       if broker_name in self._brokers_left_to_acknowledge:
@@ -474,9 +474,9 @@ class JoinBrokerBarrierState(BrokerState):
         # Remote publisher sent a BYE request, respond with an ACK.
         self._brokers_left_to_checkin.remove(broker_name)
         self._brokers.pop(broker_name)
-        self._sync_remote_socket.send_multipart([address, 
-                                                 b'', 
-                                                 self._host_ip.encode('utf-8'), 
+        self._sync_remote_socket.send_multipart([address,
+                                                 b'',
+                                                 self._host_ip.encode('utf-8'),
                                                  CMD_BYE.encode('utf-8')])
 
 
@@ -555,7 +555,7 @@ class Broker(BrokerInterface):
     self._sync_host: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
     self._sync_host.bind("tcp://%s:%s" % (self._host_ip, self._port_sync_host))
 
-    # Socket to connect to remote Brokers 
+    # Socket to connect to remote Brokers
     self._sync_remote: zmq.SyncSocket = self._ctx.socket(zmq.ROUTER)
     self._sync_remote.setsockopt_string(zmq.IDENTITY, "%s:%s"%(self._host_ip, self._port_sync_remote))
     self._sync_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_sync_remote))
@@ -577,7 +577,7 @@ class Broker(BrokerInterface):
   def expose_to_remote_broker(self, addr: list[str]) -> None:
     frontend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XPUB)
     frontend_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_frontend))
-    self._remote_sub_brokers.extend(addr) 
+    self._remote_sub_brokers.extend(addr)
     self._frontends.append(frontend_remote)
 
 
@@ -585,7 +585,7 @@ class Broker(BrokerInterface):
   def connect_to_remote_broker(self, addr: str, port_pub: str = PORT_FRONTEND) -> None:
     backend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XSUB)
     backend_remote.connect("tcp://%s:%s" % (addr, port_pub))
-    self._remote_pub_brokers.append(addr) 
+    self._remote_pub_brokers.append(addr)
     self._backends.append(backend_remote)
 
 
@@ -659,11 +659,11 @@ class Broker(BrokerInterface):
 
   def _get_num_local_nodes(self) -> int:
     return len(self._processes)
-  
+
 
   def _get_num_frontends(self) -> int:
     return len(self._frontends)
-  
+
 
   def _get_num_backends(self) -> int:
     return len(self._backends)
@@ -671,7 +671,7 @@ class Broker(BrokerInterface):
 
   def _get_remote_pub_brokers(self) -> list[str]:
     return self._remote_pub_brokers
-  
+
 
   def _get_remote_sub_brokers(self) -> list[str]:
     return self._remote_sub_brokers
