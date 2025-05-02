@@ -193,9 +193,12 @@ class MovellaFacade:
           next_packet = packet_queue.get(timeout=timeout)
           self._buffer.plop(**next_packet)
         except queue.Empty:
-          print("No more packets from Movella SDK, flush buffers into the output Queue.")
-          self._buffer.flush()
-          break
+          if self._is_more:
+            continue
+          else:
+            print("No more packets from Movella SDK, flush buffers into the output Queue.")
+            self._buffer.flush()
+            break
 
     self._packet_funneling_thread = threading.Thread(target=funnel_packets, args=(self._packet_queue,))
 
