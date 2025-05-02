@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
   with open(config['logging_spec']['video_codec_config_filepath'], "r") as f:
     try:
-      config['video_codec'] = yaml.safe_load(f)
+      config['logging_spec']['video_codec'] = yaml.safe_load(f)
     except yaml.YAMLError as e:
       print(e)
 

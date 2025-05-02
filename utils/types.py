@@ -40,7 +40,7 @@ DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
 VideoFormatTuple = namedtuple('VideoFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt', 'cv2_cvt_color'))
 VideoCodecDict = TypedDict('VideoCodecDict', {'codec_name': str, 'pix_format': str, 'options': Mapping})
-ZMQResult: TypeAlias = Iterable[Iterable[zmq.SyncSocket, int]]
+ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
 # Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
