@@ -35,6 +35,7 @@ from utils.node_utils import launch_node
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
+from utils.types import ZMQResult
 from utils.zmq_utils import *
 
 
@@ -152,18 +153,18 @@ class BrokerInterface(ABC):
     pass
 
   @abstractmethod
-  def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
+  def _poll(self, timeout_ms: int) -> ZMQResult:
     pass
 
   @abstractmethod
   def _broker_packets(self,
-                      poll_res: tuple[list[zmq.SyncSocket], list[int]],
+                      poll_res: ZMQResult,
                       on_data_received: Callable[[list[bytes]], None],
                       on_subscription_changed: Callable[[list[bytes]], None]) -> None:
     pass
 
   @abstractmethod
-  def _check_for_kill(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> bool:
+  def _check_for_kill(self, poll_res: ZMQResult) -> bool:
     pass
 
   @abstractmethod
@@ -325,7 +326,7 @@ class RunningState(BrokerState):
 
 
   def run(self) -> None:
-    poll_res: tuple[list[zmq.SyncSocket], list[int]] = self._context._poll()
+    poll_res: ZMQResult = self._context._poll(1000)
     self._context._broker_packets(poll_res, on_subscription_changed=self._on_subscription_added)
     if self._context._check_for_kill(poll_res): self.kill()
 
@@ -372,7 +373,7 @@ class JoinNodeBarrierState(BrokerState):
   #   Continue brokering packets until signalled by all publishers that there will be no more packets.
   #   Append a frame to the ZeroMQ message that indicates the last message from the sensor.
   def run(self) -> None:
-    poll_res: tuple[list[zmq.SyncSocket], list[int]] = self._context._poll()
+    poll_res: ZMQResult = self._context._poll(1000)
     # Brokers packets and releases local Producer Nodes in a callback once it published the end packet.
     self._context._broker_packets(poll_res, on_data_received=self._on_is_end_packet)
     # Checks if poll event was triggered by a local Node initiating closing.
@@ -399,17 +400,18 @@ class JoinNodeBarrierState(BrokerState):
         self._release_local_node(topic)
 
 
-  def _check_host_sync_socket(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:
+  def _check_host_sync_socket(self, poll_res: ZMQResult) -> None:
     # Can be triggered by all local Nodes: Producer, Consumer, or Pipeline, sending 'EXIT?' request.
-    if self._sync_host_socket in poll_res[0]:
-      address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
-      topic = node_name.decode('utf-8')
-      print("%s received %s from %s" % (self._host_ip,
-                                        cmd,
-                                        topic),
-                                        flush=True)
-      self._nodes_waiting_to_exit.add(topic)
-      self._release_local_node(topic)
+    for sock, _ in poll_res:
+      if sock == self._sync_host_socket:
+        address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
+        topic = node_name.decode('utf-8')
+        print("%s received %s from %s" % (self._host_ip,
+                                          cmd,
+                                          topic),
+                                          flush=True)
+        self._nodes_waiting_to_exit.add(topic)
+        self._release_local_node(topic)
 
 
   def _release_local_node(self, topic: str) -> None:
@@ -732,7 +734,7 @@ class Broker(BrokerInterface):
     # Make sure that the child processes are spawned and not forked.
     set_start_method('spawn')
     # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
-    self._processes: list[Process] = [Process(target=launch,
+    self._processes: list[Process] = [Process(target=launch_node,
                                               args=(spec,
                                                     self._host_ip,
                                                     self._port_backend,
@@ -742,17 +744,17 @@ class Broker(BrokerInterface):
     for p in self._processes: p.start()
 
 
-  # Block until new packets are available
-  def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
-    return tuple(zip(*(self._poller.poll())))
+  # Block until new packets are available.
+  def _poll(self, timeout_ms: int) -> ZMQResult:
+    return self._poller.poll(timeout=timeout_ms)
 
 
-  # Move packets between publishers and subscribers
+  # Move packets between publishers and subscribers.
   def _broker_packets(self, 
-                      poll_res: tuple[list[zmq.SyncSocket], list[int]],
+                      poll_res: ZMQResult,
                       on_data_received: Callable[[list[bytes]], None] = lambda _: None,
                       on_subscription_changed: Callable[[list[bytes]], None] = lambda _: None) -> None:
-    for recv_socket in poll_res[0]:
+    for recv_socket, _ in poll_res:
       # Forwards data packets from publishers to subscribers.
       if recv_socket in self._backends:
         msg = recv_socket.recv_multipart()
@@ -768,13 +770,13 @@ class Broker(BrokerInterface):
 
 
   # Check if packets contain a kill signal from downstream a broker
-  def _check_for_kill(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> bool:
-    # Receives KILL from the GUI.
-    if self._gui_btn_kill in poll_res[0]:
-      return True
-    for socket in poll_res[0]:
+  def _check_for_kill(self, poll_res: ZMQResult) -> bool:
+    for sock, _ in poll_res:
+      # Receives KILL from the GUI.
+      if sock == self._gui_btn_kill:
+        return True
       # Receives KILL signal from another broker.
-      if socket in self._killsigs:
+      elif sock in self._killsigs:
         return True
     return False
 
