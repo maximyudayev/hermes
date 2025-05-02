@@ -163,7 +163,7 @@ class CameraStreamer(Producer):
 
 
   def _get_frame_stopped(self) -> None:
-    is_timeout = (get_time() - self._stop_time_s) < 5
+    is_timeout = (get_time() - self._stop_time_s) > 5
     if buf := self._image_handler.get_frame():
       self._process_frame(*buf)
     elif is_timeout and not self._is_continue_capture:
