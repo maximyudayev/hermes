@@ -71,6 +71,7 @@ class XsensFacade:
     self._device_connection_status = dict.fromkeys(list(device_mapping.values()), False)
     self._radio_channel = radio_channel
     self._sampling_rate_hz = sampling_rate_hz
+    self._is_keep_data = False
     self._buffer = NonOverflowingCounterAlignedFifoBuffer(keys=device_mapping.values(),
                                                           timesteps_before_stale=timesteps_before_stale,
                                                           num_bits_timestamp=16)
@@ -177,6 +178,10 @@ class XsensFacade:
 
     self._packet_funneling_thread.start()
     return True
+
+
+  def keep_data(self) -> None:
+    self._is_keep_data = True
 
 
   def get_snapshot(self) -> dict[str, dict | None] | None:

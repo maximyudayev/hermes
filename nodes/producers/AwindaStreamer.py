@@ -103,6 +103,10 @@ class AwindaStreamer(Producer):
     return True
 
 
+  def _keep_samples(self) -> None:
+    self._handler.keep_data()
+
+
   def _process_data(self) -> None:
     snapshot = self._handler.get_snapshot()
     if snapshot is not None:

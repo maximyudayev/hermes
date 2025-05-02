@@ -232,7 +232,7 @@ class MovellaFacade:
 
 
   def keep_data(self) -> None:
-    self._is_keep = True
+    self._is_keep_data = True
 
 
   def get_snapshot(self) -> dict[str, dict | None] | None:
