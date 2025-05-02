@@ -1,3 +1,30 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
 from abc import ABC, abstractmethod
 
 import zmq
@@ -56,6 +83,10 @@ class NodeInterface(ABC):
   def _trigger_stop(self) -> None:
     pass
 
+  @abstractmethod
+  def _on_sync_complete(self) -> None:
+    pass
+
 
 class NodeState(ABC):
   def __init__(self, context: NodeInterface):
@@ -86,8 +117,12 @@ class SyncState(NodeState):
     self._sync = context._get_sync_socket()
 
   def run(self):
-    self._sync.send(self._context._log_source_tag().encode('utf-8'))
-    self._sync.recv()
+    self._sync.send_multipart([self._context._log_source_tag().encode('utf-8'), CMD_HELLO.encode('utf-8')])
+    host, cmd = self._sync.recv_multipart()
+    print("%s received %s from %s." % (self._context._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._context._set_state(RunningState(self._context))
 
 
@@ -95,6 +130,7 @@ class RunningState(NodeState):
   def __init__(self, context):
     super().__init__(context)
     self._context._activate_kill_poller()
+    self._context._on_sync_complete()
 
   def run(self):
     poll_res: tuple[list[zmq.SyncSocket], list[int]] = self._context._poll()
@@ -128,12 +164,14 @@ class JoinState(NodeState):
 
 class Node(NodeInterface):
   def __init__(self,
-               port_sync: str = PORT_SYNC,
+               host_ip: str = DNS_LOCALHOST,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
     self._print_status = print_status
     self._print_debug = print_debug
+    self._host_ip = host_ip
     self._port_sync = port_sync
     self._port_killsig = port_killsig
     self.__is_done = False
@@ -156,20 +194,10 @@ class Node(NodeInterface):
 
   # Nodes are callable with FSM as entry-point.
   def __call__(self):
-    try:
-      while self._state.is_continue():
-        self._state.run()
-    except KeyboardInterrupt: # catches the first CLI Ctrl+C interrupt
-      print("Keyboard interrupt signalled, %s quitting..."%self._log_source_tag(), flush=True)
-      self._state.kill()
-    finally:
-      while self._state.is_continue(): # ignores follow-up Ctrl+C interrupts while the program is wrapping up
-        try:
-          self._state.run()
-        except KeyboardInterrupt:
-          print("%s safely closing and saving, have some patience..."%self._log_source_tag(), flush=True)
-      self._cleanup()
-      print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
+    while self._state.is_continue():
+      self._state.run()
+    self._cleanup()
+    print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
 
 
   # FSM transition.
@@ -189,7 +217,7 @@ class Node(NodeInterface):
 
     # Socket to indicate to broker that the subscriber is ready
     self._sync: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
-    self._sync.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sync))
+    self._sync.connect("tcp://%s:%s" % (self._host_ip, self._port_sync))
     # Socket to indicate to broker that the Node caught interrupt signal
     self._babykillsig: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
     self._babykillsig.connect("tcp://%s:%s" % (DNS_LOCALHOST, PORT_KILL_BTN))

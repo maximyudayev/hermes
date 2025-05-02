@@ -1,7 +1,32 @@
-from nodes.consumers.Consumer import Consumer
-from handlers.LoggingHandler import Logger
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
 
-import threading
+from nodes.consumers.Consumer import Consumer
+
 from utils.zmq_utils import *
 
 
@@ -19,10 +44,11 @@ class DataLogger(Consumer):
 
 
   def __init__(self,
+               host_ip: str,
                stream_specs: list[dict],
                logging_spec: dict,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                log_history_filepath: str = None,
                print_status: bool = True,
@@ -30,7 +56,9 @@ class DataLogger(Consumer):
                **_):
 
     # Inherits FSM and Consumer ZeroMQ functionality.
-    super().__init__(stream_specs=stream_specs,
+    super().__init__(host_ip=host_ip,
+                     stream_specs=stream_specs,
+                     logging_spec=logging_spec,
                      port_sub=port_sub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -38,19 +66,6 @@ class DataLogger(Consumer):
                      print_status=print_status,
                      print_debug=print_debug)
 
-    # Inherits the datalogging functionality.
-    self._logger = Logger(**logging_spec)
 
-    # Launch datalogging thread with reference to the Stream object.
-    self._logger_thread = threading.Thread(target=self._logger, args=(self._streams,))
-    self._logger_thread.start()
-
-
-  # Stop all the data logging.
-  # Will stop stream-logging if it is active.
-  # Will dump all data if desired.
   def _cleanup(self):
-    # Finish up the file saving before exitting.
-    self._logger.cleanup()
-    self._logger_thread.join()
     super()._cleanup()

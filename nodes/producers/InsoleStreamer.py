@@ -1,10 +1,36 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
 from nodes.producers.Producer import Producer
 from streams import InsoleStream
 
 from utils.print_utils import *
 from utils.zmq_utils import *
 import socket
-import time
 
 
 ##################################################
@@ -19,10 +45,11 @@ class InsoleStreamer(Producer):
 
 
   def __init__(self,
+               host_ip: str,
                logging_spec: dict,
                sampling_rate_hz: int = 100,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True, 
@@ -33,7 +60,8 @@ class InsoleStreamer(Producer):
       "sampling_rate_hz": sampling_rate_hz
     }
 
-    super().__init__(stream_info=stream_info,
+    super().__init__(host_ip=host_ip,
+                     stream_info=stream_info,
                      logging_spec=logging_spec,
                      port_pub=port_pub,
                      port_sync=port_sync,
@@ -54,23 +82,32 @@ class InsoleStreamer(Producer):
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-      self._sock.settimeout(0.5)
-      self._sock.bind((IP_LOOPBACK, PORT_MOTICON))
+      self._sock.settimeout(10)
+      self._sock.bind((IP_LOOPBACK, int(PORT_MOTICON)))
       self._sock.recv(1024)
       self._sock.settimeout(None)
       return True
     except socket.timeout:
+      print('[ERROR]: Check if OpenGO app and software are ON.\n', flush=True)
       return False
+    except Exception as e:
+      print('[ERROR]: InsoleStreamer could not connect.\n', e, flush=True)
+      return False
+
+
+  def _keep_samples(self) -> None:
+    pass
 
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
       payload, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
-      time_s: float = time.time()
+      process_time_s: float = get_time()
       payload = [float(word) for word in payload.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
 
       data = {
         'timestamp': payload[0],
+        'toa_s': process_time_s,
         'foot_pressure_left': payload[9:25],
         'foot_pressure_right': payload[34:50],
         'acc_left': payload[1:4],
@@ -84,7 +121,7 @@ class InsoleStreamer(Producer):
       }
 
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=time_s, data={'insoles-data': data})
+      self._publish(tag, process_time_s=process_time_s, data={'insoles-data': data})
     else:
       self._send_end_packet()
 

@@ -1,4 +1,32 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
 from abc import abstractmethod
+from typing import Any, Callable
 
 import zmq
 import threading
@@ -19,25 +47,31 @@ from utils.zmq_utils import *
 ###########################################################
 ###########################################################
 class Producer(Node):
-  def __init__(self, 
+  def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                port_pub: str = PORT_BACKEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
-    super().__init__(port_sync, port_killsig, print_status, print_debug)
+    super().__init__(host_ip=host_ip, 
+                     port_sync=port_sync, 
+                     port_killsig=port_killsig, 
+                     print_status=print_status, 
+                     print_debug=print_debug)
     self._port_pub = port_pub
     self._is_continue_capture = True
     self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
+    self._publish_fn: Callable[[str, dict[str, Any]], None] = lambda tag, kwargs: None
 
     # Data structure for keeping track of data
     self._stream: Stream = self.create_stream(stream_info)
 
     # Create the DataLogger object
-    self._logger = Logger(**logging_spec)
+    self._logger = Logger(self._log_source_tag(), **logging_spec)
 
     # Launch datalogging thread with reference to the Stream object.
     self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag(), self._stream)]),))
@@ -76,14 +110,9 @@ class Producer(Node):
 
   # Common method to save and publish the captured sample
   # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ.
-  #   That way network threadcan alradystart processing the packet.
+  #   That way network thread can alrady start processing the packet.
   def _publish(self, tag: str, **kwargs) -> None:
-    # Get serialized object to send over ZeroMQ.
-    msg = serialize(**kwargs)
-    # Send the data packet on the PUB socket.
-    self._pub.send_multipart([tag.encode('utf-8'), msg])
-    # Store the captured data into the data structure.
-    self._stream.append_data(**kwargs)
+    self._publish_fn(tag, **kwargs)
 
 
   # Initialize backend parameters specific to Producer.
@@ -111,6 +140,25 @@ class Producer(Node):
     if self._pub in poll_res[0]:
       self._process_data()
     super()._on_poll(poll_res)
+
+
+  def _on_sync_complete(self) -> None:
+    self._publish_fn = self._store_and_broadcast
+    self._keep_samples()
+
+
+  @abstractmethod
+  def _keep_samples(self) -> None:
+    pass
+
+
+  def _store_and_broadcast(self, tag: str, **kwargs) -> None:
+    # Get serialized object to send over ZeroMQ.
+    msg = serialize(**kwargs)
+    # Send the data packet on the PUB socket.
+    self._pub.send_multipart([tag.encode('utf-8'), msg])
+    # Store the captured data into the data structure.
+    self._stream.append_data(**kwargs)
 
 
   # Iteration loop logic for the sensor.
@@ -147,8 +195,12 @@ class Producer(Node):
     if self._transmit_delay_sample_period_s:
       self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
-    self._sync.send_string('') # no need to read contents of the message.
-    self._sync.recv() # no need to read contents of the message.
+    self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 
+    host, cmd = self._sync.recv_multipart() # no need to read contents of the message.
+    print("%s received %s from %s." % (self._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.
     self._logger_thread.join()

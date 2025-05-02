@@ -1,3 +1,30 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
 from collections import OrderedDict
 from streams import Stream
 from visualizers import LinePlotVisualizer#, SkeletonVisualizer
@@ -103,11 +130,11 @@ class AwindaStream(Stream):
                     data_notes=self._data_notes['awinda-imu']['magnetometer-z'],
                     timesteps_before_solidified=self._timesteps_before_solidified)
     self.add_stream(device_name='awinda-imu',
-                    stream_name='orientation',
+                    stream_name='quaternion',
                     data_type='float32',
                     sample_size=(self._num_joints, 4),
                     sampling_rate_hz=self._sampling_rate_hz, 
-                    data_notes=self._data_notes['awinda-imu']['orientation'])
+                    data_notes=self._data_notes['awinda-imu']['quaternion'])
     self.add_stream(device_name='awinda-imu',
                     stream_name='timestamp',
                     data_type='uint32',
@@ -116,8 +143,20 @@ class AwindaStream(Stream):
                     is_measure_rate_hz=True, # only 1 stream per device needs to be marked `True` if all streams get new data at a time
                     data_notes=self._data_notes['awinda-imu']['timestamp'])
     self.add_stream(device_name='awinda-imu',
-                    stream_name='counter',
+                    stream_name='toa_s',
+                    data_type='float64',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    data_notes=self._data_notes['awinda-imu']['toa_s'])
+    self.add_stream(device_name='awinda-imu',
+                    stream_name='counter_onboard',
                     data_type='uint16',
+                    sample_size=(self._num_joints),
+                    sampling_rate_hz=self._sampling_rate_hz,
+                    data_notes=self._data_notes['awinda-imu']['counter_onboard'])
+    self.add_stream(device_name='awinda-imu',
+                    stream_name='counter',
+                    data_type='uint32',
                     sample_size=(self._num_joints),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['awinda-imu']['counter'])
@@ -230,7 +269,7 @@ class AwindaStream(Stream):
                 'w.r.t. sensor local coordinate system'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
-    self._data_notes['awinda-imu']['orientation'] = OrderedDict([
+    self._data_notes['awinda-imu']['quaternion'] = OrderedDict([
       ('Description', 'Quaternion rotation vector [W,X,Y,Z]'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
@@ -240,7 +279,18 @@ class AwindaStream(Stream):
       ('Units', 'microsecond in range [0, (2^32)-1]'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
+    self._data_notes['awinda-imu']['toa_s'] = OrderedDict([
+      ('Description', 'Time of arrival of the packet w.r.t. system clock.'),
+      ('Units', 'seconds'),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+    ])
     self._data_notes['awinda-imu']['counter'] = OrderedDict([
+      ('Description', 'Index of the sampled packet per device, w.r.t. the start of the recording, starting from 0. '
+                      'At sample rate of 60Hz, corresponds to ~19884 hours of recording, longer than the battery life of the sensors.'),
+      ('Range', '[0, (2^32)-1]'),
+      (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
+    ])
+    self._data_notes['awinda-imu']['counter_onboard'] = OrderedDict([
       ('Description', 'Index of the sampled packet per device, starting from 0 on 1st read-out and wrapping around after 65535'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])

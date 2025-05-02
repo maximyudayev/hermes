@@ -1,3 +1,30 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
 import time
 from visualizers import Visualizer
 from streams import Stream
@@ -63,7 +90,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("experiment-stop-btn", "disabled"),
       Output("eye-toggle-btn", "disabled"),
-      Input("experiment-stop-btn", "n_clicks")
+      Input("experiment-stop-btn", "n_clicks"),
+      prevent_initial_call=True
     )
     def stop_experiment(n):
       return True, True
@@ -71,7 +99,8 @@ class ExperimentControlVisualizer(Visualizer):
 
     @app.callback(
       Output("experiment-status-indicator", "children"),
-      Input("experiment-stop-btn", "disabled")
+      Input("experiment-stop-btn", "disabled"),
+      prevent_initial_call=True
     )
     def on_stop_experiment(is_end):
       if is_end:
@@ -87,7 +116,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("eye-toggle-btn", "children"),
       Output("eye-toggle-btn", "color"),
-      Input("eye-toggle-btn", "n_clicks")
+      Input("eye-toggle-btn", "n_clicks"),
+      prevent_initial_call=True
     )
     def toggle_eye(n):
       self._eye_pause.send_string(MSG_OK)
@@ -101,7 +131,8 @@ class ExperimentControlVisualizer(Visualizer):
     @app.callback(
       Output("current-activity-indicator", "children"),
       Input("activity-mark-btn", "n_clicks"),
-      State("activity-radio", "value")
+      State("activity-radio", "value"),
+      prevent_initial_call=True
     )
     def mark_activity(n, activity):
       self._stream.append_data(time_s=time.time(), data={"experiment": {"activity": activity}})

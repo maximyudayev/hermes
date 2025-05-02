@@ -1,41 +1,66 @@
-log_tag       : "RevalExo"
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
+project       : "RevalExo"
 trial_type    : "test" # recommend "test" for testing and "real" data
 subject_id    : 0 # UID of the subject
 trial_id      : 0 # UID of the trial
 duration_s    : null
 
-host_ip       : "127.0.0.1"
-remote_broker_ips: []
-is_expose_to_remote_sub : False
-is_remote_kill : False
-
 print_status  : True
 print_debug   : True
 
+host_ip : "127.0.0.1"
+is_master_broker: True
+
+remote_publisher_ips: []
+remote_subscriber_ips: []
+
+is_remote_kill: False
+remote_kill_ip: null
+
+
 logging_spec:
-  # Choose whether to periodically write data to files.
-  stream_hdf5     : True # recommended over CSV since it creates a single file
-  stream_csv      : False # will create a CSV per stream
-  stream_video    : True
-  stream_audio    : False
-  stream_period_s : 10 # how often to save streamed data to disk
-  clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
+  stream_period_s     : 30
   
-  # Choose whether to write all data at the end.
-  #   Seems to be mutually exclusive with `stream_` options.
-  dump_csv        : False
-  dump_hdf5       : False
-  dump_video      : False
-  dump_audio      : False
-  
-  # Additional configuration.
-  #   Choose whether to save media separately or as part of HDF5/CSV files.
-  videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
-  videos_in_hdf5  : False
-  videos_in_csv   : False
-  audio_format    : "wav" # currently only supports WAV
-  audio_in_hdf5   : False
-  audio_in_csv    : False
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec_config_filepath : "resources/codecs/h264_qsv.yml" 
+  video_codec_num_cpu : 1
+
+  audio_format        : "wav" # currently only supports WAV
 
 
 producer_specs:
@@ -48,39 +73,7 @@ producer_specs:
     sampling_rate_hz: 0.5
 
 
-consumer_specs:
-  - class: "DataLogger"
-    logging_spec:
-      # Choose whether to periodically write data to files.
-      stream_hdf5     : True # recommended over CSV since it creates a single file
-      stream_csv      : False # will create a CSV per stream
-      stream_video    : True
-      stream_audio    : False
-      stream_period_s : 10 # how often to save streamed data to disk
-      clear_logged_data_from_memory: True # NOTE: IGNORED if dumping is also enabled below
-      
-      # Choose whether to write all data at the end.
-      #   Seems to be mutually exclusive with `stream_` options.
-      dump_csv        : False
-      dump_hdf5       : False
-      dump_video      : False
-      dump_audio      : False
-      
-      # Additional configuration.
-      #   Choose whether to save media separately or as part of HDF5/CSV files.
-      videos_format   : "avi" # mp4 occasionally gets openCV errors about a tag not being supported?
-      videos_in_hdf5  : False
-      videos_in_csv   : False
-      audio_format    : "wav" # currently only supports WAV
-      audio_in_hdf5   : False
-      audio_in_csv    : False
-    stream_specs:
-      - class: "MoxyStreamer"
-        devices: 
-          - "8523"
-          - "8524"
-          - "8525"
-        sampling_rate_hz: 0.5
+consumer_specs: []
 
 
 pipeline_specs: []

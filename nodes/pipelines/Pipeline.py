@@ -1,3 +1,31 @@
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
+from typing import Any, Callable
 from nodes.Node import Node
 from nodes.producers.Producer import Producer
 from handlers.LoggingHandler import Logger
@@ -20,12 +48,13 @@ import zmq
 ##############################################################
 class Pipeline(Node):
   def __init__(self,
+               host_ip: str,
                stream_info: dict,
                logging_spec: dict,
                stream_specs: list[dict],
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
-               port_sync: str = PORT_SYNC,
+               port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                print_status: bool = True,
                print_debug: bool = False) -> None:
@@ -33,21 +62,19 @@ class Pipeline(Node):
     from nodes.pipelines import PIPELINES
     from nodes.producers import PRODUCERS
 
-    super().__init__(port_sync, port_killsig, print_status, print_debug)
+    super().__init__(host_ip=host_ip,
+                     port_sync=port_sync, 
+                     port_killsig=port_killsig, 
+                     print_status=print_status,
+                     print_debug=print_debug)
     self._port_pub = port_pub
     self._port_sub = port_sub
     self._is_continue_produce = True
     self._is_more_data_in = True
+    self._publish_fn: Callable[[str, dict[str, Any]], None] = lambda tag, kwargs: None
 
     # Data structure for keeping track of data.
     self._out_stream: Stream = self.create_stream(stream_info)
-
-    # Create the DataLogger object
-    self._logger = Logger(**logging_spec)
-
-    # Launch datalogging thread with reference to the Stream object, to save Pipeline's outputs.
-    self._logger_thread = threading.Thread(target=self._logger, args=(OrderedDict([(self._log_source_tag(), self._out_stream)]),))
-    self._logger_thread.start()
 
     # Instantiate all desired Streams that the Pipeline will process.
     # NOTE: inheriting Nodes must add extra logger if desired to save inputs that are used to process outputs.
@@ -64,6 +91,17 @@ class Pipeline(Node):
       # Store the streamer object.
       self._in_streams.setdefault(class_type._log_source_tag(), class_object)
       self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
+
+    # Create the DataLogger object
+    self._logger = Logger(self._log_source_tag(), **logging_spec)
+
+    # Launch datalogging thread with reference to the Stream object, to save Pipeline's outputs.
+    self._logger_thread = threading.Thread(target=self._logger, 
+                                           args=(OrderedDict([
+                                             (self._log_source_tag(), self._out_stream),
+                                             *list(self._in_streams.items())
+                                             ]),))
+    self._logger_thread.start()
 
 
   # Instantiate Stream datastructure object specific to this Pipeline.
@@ -108,6 +146,10 @@ class Pipeline(Node):
     super()._on_poll(poll_res)
 
 
+  def _on_sync_complete(self) -> None:
+    self._publish_fn = self._store_and_broadcast
+
+
   # Gets called every time one of the requestes modalities produced new data.
   # In normal operation mode, all messages are 2-part.
   def _poll_data_packets(self) -> None:
@@ -147,9 +189,13 @@ class Pipeline(Node):
     pass
 
 
+  def _publish(self, tag: str, **kwargs) -> None:
+    self._publish_fn(tag, **kwargs)
+
+
   # Common method to save and publish the captured sample
   # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ
-  def _publish(self, tag: str, **kwargs) -> None:
+  def _store_and_broadcast(self, tag: str, **kwargs) -> None:
     # Get serialized object to send over ZeroMQ.
     msg = serialize(**kwargs)
     # Send the data packet on the PUB socket.
@@ -181,7 +227,12 @@ class Pipeline(Node):
     # Indicate to Logger to wrap up and exit.
     self._logger.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
-    self._sync.recv() # no need to read contents of the message.
+    self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 
+    host, cmd = self._sync.recv_multipart() # no need to read contents of the message.
+    print("%s received %s from %s." % (self._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._pub.close()
     self._sub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.
