@@ -93,6 +93,10 @@ class CyberlegStreamer(Producer):
       return False
 
 
+  def _keep_samples(self) -> None:
+    pass
+
+
   def _process_data(self) -> None:
     if self._is_continue_capture:
       payload = self._sock.recv(self._num_packet_bytes) 

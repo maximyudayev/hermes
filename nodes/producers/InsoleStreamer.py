@@ -95,6 +95,10 @@ class InsoleStreamer(Producer):
       return False
 
 
+  def _keep_samples(self) -> None:
+    pass
+
+
   def _process_data(self) -> None:
     if self._is_continue_capture:
       payload, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string

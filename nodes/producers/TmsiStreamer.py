@@ -90,6 +90,10 @@ class TmsiStreamer(Producer):
     return None
 
 
+  def _keep_samples(self) -> None:
+    pass
+
+
   def _connect(self) -> bool:
     try:
       TMSiSDK().discover(dev_type=DeviceType.saga,

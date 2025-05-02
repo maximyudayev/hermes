@@ -129,7 +129,11 @@ class MoxyStreamer(Producer):
     self.scanner.on_found = on_found
     self.scanner.on_update = on_update
     return self.node.discover_devices()
-  
+
+
+  def _keep_samples(self) -> None:
+    pass
+
 
   def _process_data(self):
     try:

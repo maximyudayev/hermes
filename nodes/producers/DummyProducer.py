@@ -78,6 +78,10 @@ class DummyProducer(Producer):
     return True
 
 
+  def _keep_samples(self) -> None:
+    pass
+
+
   def _process_data(self) -> None:
     if self._is_continue_capture:
       time.sleep(1.0)

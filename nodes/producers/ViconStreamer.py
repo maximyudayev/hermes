@@ -124,6 +124,10 @@ class ViconStreamer(Producer):
     return True
 
 
+  def _keep_samples(self) -> None:
+    pass
+
+
   # Acquire data from the sensors until signalled externally to quit
   def _process_data(self) -> None:
     try:
