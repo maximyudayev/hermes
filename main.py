@@ -25,7 +25,9 @@
 #
 # ############
 
+import threading
 from nodes.Broker import Broker
+from utils.mp_utils import launch_callable
 from utils.time_utils import *
 
 import os
@@ -105,7 +107,13 @@ if __name__ == '__main__':
   if config['is_remote_kill']:
     local_broker.subscribe_to_killsig(addr=config['remote_kill_ip'])
 
-  # Run broker's main until user exits in GUI or Ctrl+C in terminal.
-  local_broker(duration_s=config['duration_s'])
+  is_quit = False
+  # Run broker's main until user exits in GUI or 'q' in terminal.
+  t = threading.Thread(target=launch_callable, args=(local_broker, config['duration_s']))
+  t.start()
+  while not is_quit:
+    is_quit = input("Enter 'q' to exit: ") == 'q'
+  local_broker.set_is_quit()
+  t.join()
 
   # TODO: collect files from remote IPs

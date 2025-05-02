@@ -31,7 +31,7 @@ from typing import Callable
 
 import zmq
 
-from utils.mp_utils import launch
+from utils.node_utils import launch_node
 from utils.time_utils import *
 from utils.dict_utils import *
 from utils.print_utils import *
@@ -518,6 +518,7 @@ class Broker(BrokerInterface):
     self._print_status = print_status
     self._print_debug = print_debug
     self._node_specs = node_specs
+    self._is_quit = False
 
     self._remote_pub_brokers: list[str] = []
     self._remote_sub_brokers: list[str] = []
@@ -598,6 +599,10 @@ class Broker(BrokerInterface):
     self._killsigs.append(killsig_sub)
 
 
+  def set_is_quit(self) -> None:
+    self._is_quit = True
+
+
   #####################
   ###### RUNNING ######
   #####################
@@ -606,21 +611,16 @@ class Broker(BrokerInterface):
   #   The duration start to count only after all Nodes established communication and synced.
   def __call__(self, duration_s: float = None) -> None:
     self._duration_s = duration_s
-    try:
-      while self._state.is_continue():
-        self._state.run()
-      self._state.kill()
-    except KeyboardInterrupt:
-      print("Keyboard interrupt signalled, quitting...", flush=True)
-      self._state.kill()
-    finally:
-      while self._state.is_continue():
-        try:
-          self._state.run()
-        except KeyboardInterrupt:
-          print("Safely closing and saving, have some patience...", flush=True)
-      self._stop()
-      print("Experiment ended, thank you for using our system <3", flush=True)
+    while self._state.is_continue() and not self._is_quit:
+      self._state.run()
+    if self._is_quit:
+      print("Keyboard exit signalled. Safely closing and saving, have some patience...", flush=True)
+    self._state.kill()
+    # Continue with the FSM until it gracefully wraps up.
+    while self._state.is_continue():
+      self._state.run()
+    self._stop()
+    print("Experiment ended, thank you for using our system <3", flush=True)
 
 
   #############################

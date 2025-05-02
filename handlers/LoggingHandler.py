@@ -222,10 +222,7 @@ class Logger(LoggerInterface):
     self._state = StartState(self, streams)
     # Run continuously, ignoring Ctrl+C interrupt, until owner Node commands an exit.
     while self._state.is_continue():
-      try:
-        self._state.run()
-      except KeyboardInterrupt:
-        print("Caught Ctrl+C in %s Logger"%self._log_tag, flush=True)
+      self._state.run()
     print("%s Logger safely exited."%self._log_tag, flush=True)
 
 

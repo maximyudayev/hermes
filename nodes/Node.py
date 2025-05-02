@@ -194,20 +194,10 @@ class Node(NodeInterface):
 
   # Nodes are callable with FSM as entry-point.
   def __call__(self):
-    try:
-      while self._state.is_continue():
-        self._state.run()
-    except KeyboardInterrupt: # catches the first CLI Ctrl+C interrupt
-      print("Keyboard interrupt signalled, %s quitting..."%self._log_source_tag(), flush=True)
-      self._state.kill()
-    finally:
-      while self._state.is_continue(): # ignores follow-up Ctrl+C interrupts while the program is wrapping up
-        try:
-          self._state.run()
-        except KeyboardInterrupt:
-          print("%s safely closing and saving, have some patience..."%self._log_source_tag(), flush=True)
-      self._cleanup()
-      print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
+    while self._state.is_continue():
+      self._state.run()
+    self._cleanup()
+    print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
 
 
   # FSM transition.
