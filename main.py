@@ -52,7 +52,6 @@ if __name__ == '__main__':
     except yaml.YAMLError as e:
       print(e)
 
-
   # Initialize folders and other chore data, and share programmatically across Node specs. 
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(return_time_s=True)
@@ -87,7 +86,6 @@ if __name__ == '__main__':
   consumer_specs: list[dict] = config['consumer_specs']
   pipeline_specs: list[dict] = config['pipeline_specs']
 
-
   # Create the broker and manage all the components of the experiment.
   local_broker: Broker = Broker(host_ip=config['host_ip'],
                                 node_specs=producer_specs+consumer_specs+pipeline_specs,
@@ -107,13 +105,17 @@ if __name__ == '__main__':
   if config['is_remote_kill']:
     local_broker.subscribe_to_killsig(addr=config['remote_kill_ip'])
 
-  is_quit = False
-  # Run broker's main until user exits in GUI or 'q' in terminal.
-  t = threading.Thread(target=launch_callable, args=(local_broker, config['duration_s']))
-  t.start()
-  while not is_quit:
-    is_quit = input("Enter 'q' to exit: ") == 'q'
-  local_broker.set_is_quit()
-  t.join()
+  # Only the master broker can terminate the experiment via the terminal command.
+  if config['is_master_broker']:
+    is_quit = False
+    # Run broker's main until user exits in GUI or 'q' in terminal.
+    t = threading.Thread(target=launch_callable, args=(local_broker, config['duration_s']))
+    t.start()
+    while not is_quit:
+      is_quit = input("Enter 'q' to exit: ") == 'q'
+    local_broker.set_is_quit()
+    t.join()
+  else:
+    local_broker()
 
   # TODO: collect files from remote IPs
