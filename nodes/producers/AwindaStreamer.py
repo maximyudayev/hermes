@@ -53,7 +53,7 @@ class AwindaStreamer(Producer):
                device_mapping: dict[str, str],
                sampling_rate_hz: int = 100,
                num_joints: int = 7,
-               radio_channel: int = 15,
+               radio_channel: int = 11, # [11, 15, 20 or 25]
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,

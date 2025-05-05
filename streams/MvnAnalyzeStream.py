@@ -1,584 +1,609 @@
-from collections import OrderedDict
-import copy
+############
+#
+# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
+# by Maxim Yudayev [https://yudayev.com].
+#
+# ############
+
+
+from collections import OrderedDict, namedtuple
+from enum import Enum
 from streams import Stream
-from visualizers import LinePlotVisualizer, SkeletonVisualizer
+from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
 import dash_bootstrap_components as dbc
 
 
-##########################################
-##########################################
-# TODO:
-##########################################
-##########################################
+MVN_SEGMENT_MAPPING = {
+  1: 'Pelvis',
+  2: 'L5',
+  3: 'L3',
+  4: 'T12',
+  5: 'T8',
+  6: 'Neck',
+  7: 'Head',
+  8: 'Right Shoulder',
+  9: 'Right Upper Arm',
+  10: 'Right Forearm',
+  11: 'Right Hand',
+  12: 'Left Shoulder',
+  13: 'Left Upper Arm',
+  14: 'Left Forearm',
+  15: 'Left Hand',
+  16: 'Right Upper Leg',
+  17: 'Right Lower Leg',
+  18: 'Right Foot',
+  19: 'Right Toe',
+  20: 'Left Upper Leg',
+  21: 'Left Lower Leg',
+  22: 'Left Foot',
+  23: 'Left Toe',
+}
+
+MVN_SENSOR_MAPPING = {
+  1: 'Pelvis',
+  2: 'T8',
+  3: 'Head',
+  4: 'Right Shoulder',
+  5: 'Right Upper Arm',
+  6: 'Right Forearm',
+  7: 'Right Hand',
+  8: 'Left Shoulder',
+  9: 'Left Upper Arm',
+  10: 'Left Forearm',
+  11: 'Left Hand',
+  12: 'Right Upper Leg',
+  13: 'Right Lower Leg',
+  14: 'Right Foot',
+  15: 'Left Upper Leg',
+  16: 'Left Lower Leg',
+  17: 'Left Foot',
+}
+
+MvnJointDetails = namedtuple('MvnJointDetails', ['joint_id', 'name', 'description'])
+
+# NOTE: magic key is the `parent-point_id` << 8 + `child_point_id`, used as hash key in the LUT.
+MVN_JOINT_MAPPING = {
+  0x01020201: MvnJointDetails(1,  'L5S1',             'Joint between the lumbar spine segment 5 and sacral spine 1 (ZXY)'),
+  0x02020301: MvnJointDetails(2,  'L4L3',             'Joint between the lumbar spine segment 4 and lumbar spine segment 3 (ZXY)'),
+  0x03020401: MvnJointDetails(3,  'L1T12',            'Joint between the lumbar spine segment 1 and thoracic spine segment 12 (ZXY)'),
+  0x04020501: MvnJointDetails(4,  'T9T8',             ''),
+  0x05020601: MvnJointDetails(5,  'T1C7',             ''),
+  0x06020701: MvnJointDetails(6,  'C1Head',           'Joint between the cervical spine 1 and the head segment (ZXY)'),
+  0x05030801: MvnJointDetails(7,  'RightT4Shoulder',  'Joint between thoracic spine 7 and the MVN shoulder segment'),
+  0x08020901: MvnJointDetails(8,  'RightShoulder',    'Shoulder joint angle between the MVN shoulder segment and the upper arm; calculated using the Euler sequence ZXY. '
+                                                      'Shoulder joint angle between the MVN shoulder segment and the upper arm; calculated using the Euler sequence XZY'),
+  0x09020A01: MvnJointDetails(9,  'RightElbow',       'Joint between the upper arm and the forearm. (ZXY)'),
+  0x0A020B01: MvnJointDetails(10, 'RightWrist',       'Joint between the forearm and the hand. (ZXY)'),
+  0x05040C01: MvnJointDetails(11, 'LeftT4Shoulder',   'Joint between thoracic spine 7 and the MVN shoulder segment'),
+  0x0C020D01: MvnJointDetails(12, 'LeftShoulder',     'Shoulder joint angle between the MVN shoulder segment and the upper arm; calculated using the Euler sequence ZXY. '
+                                                      'Shoulder joint angle between the MVN shoulder segment and the upper arm; calculated using the Euler sequence XZY'),
+  0x0D020E01: MvnJointDetails(13, 'LeftElbow',        'Joint between the upper arm and the forearm. (ZXY)'),
+  0x0E020F01: MvnJointDetails(14, 'LeftWrist',        'Joint between the forearm and the hand. (ZXY)'),
+  0x01031001: MvnJointDetails(15, 'RightHip',         'Joint between the pelvis and upper leg. (ZXY)'),
+  0x10021101: MvnJointDetails(16, 'RightKnee',        'Joint between the upper leg and lower leg. (ZXY)'),
+  0x11021201: MvnJointDetails(17, 'RightAnkle',       'Joint between the lower leg and foot. (ZXY)'),
+  0x12021301: MvnJointDetails(18, 'RightBallFoot',    'Joint between the foot and the calculated toe. (ZXY)'),
+  0x01041401: MvnJointDetails(19, 'LeftHip',          'Joint between the pelvis and upper leg. (ZXY)'),
+  0x14021501: MvnJointDetails(20, 'LeftKnee',         'Joint between the upper leg and lower leg. (ZXY)'),
+  0x15021601: MvnJointDetails(21, 'LeftAnkle',        'Joint between the lower leg and foot. (ZXY)'),
+  0x16021701: MvnJointDetails(22, 'LeftBallFoot',     'Joint between the foot and the calculated toe. (ZXY)'),
+  0x05000700: MvnJointDetails(23, 'T8Head',           'Ergonomic joint between the sternum and the head. (ZXY)'),
+  0x05000D00: MvnJointDetails(24, 'T8LeftUpperArm',   'Ergonomic joint between sternum and the left shoulder level. (ZXY)'),
+  0x05000900: MvnJointDetails(25, 'T8RightUpperArm',  'Ergonomic joint between sternum and the right shoulder level. (ZXY)'),
+  0x01000500: MvnJointDetails(26, 'PelvisT8',         'Ergonomic joint between the pelvis and the sternum. (ZXY)'),
+  0x01000100: MvnJointDetails(27, 'VerticalPelvis',   'Ergonomic joint describing pelvis tilt w.r.t global coordinate system. (ZXY)'),
+  0x01000500: MvnJointDetails(28, 'VerticalT8',       'Ergonomic joint describing chest till w.r.t global coordinate system. (ZXY)'),
+}
+
+class MvnSegmentSetup(dict, Enum):
+  FULL_BODY = MVN_SEGMENT_MAPPING
+  FULL_BODY_NO_HANDS = {k:v for k, v in MVN_SEGMENT_MAPPING.items() if k not in [11,15]}
+  LOWER_BODY = {k:v for k, v in MVN_SEGMENT_MAPPING.items() if k in [1,2,3,15,16,17,18,19,20,21,22]}
+  LOWER_BODY_W_STERNUM = {k:v for k, v in MVN_SEGMENT_MAPPING.items() if k in [1,2,3,4,5,12,13,14,15,16,17]}
+  UPPER_BODY = {k:v for k, v in MVN_SEGMENT_MAPPING.items() if k in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}
+  UPPER_BODY_NO_HANDS = {k:v for k, v in MVN_SEGMENT_MAPPING.items() if k in [1,2,3,4,5,6,7,8,9,10,12,13,14]}
+
+class MvnJointSetup(dict, Enum):
+  FULL_BODY = MVN_JOINT_MAPPING
+  FULL_BODY_NO_HANDS = {k:v for k, v in MVN_JOINT_MAPPING.items() if v.joint_id not in [10,14]}
+  LOWER_BODY = {k:v for k, v in MVN_JOINT_MAPPING.items() if v.joint_id in [15,16,17,18,19,20,21,22,27]}
+  LOWER_BODY_W_STERNUM = {k:v for k, v in MVN_JOINT_MAPPING.items() if v.joint_id in [1,2,3,4,15,16,17,18,19,20,21,22,26,27,28]}
+  UPPER_BODY = {k:v for k, v in MVN_JOINT_MAPPING.items() if v.joint_id in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,23,24,25,26,27,28]}
+  UPPER_BODY_NO_HANDS = {k:v for k, v in MVN_JOINT_MAPPING.items() if v.joint_id in [1,2,3,4,5,6,7,8,9,11,12,13,23,24,25,26,27,28]}
+
+class MvnSensorSetup(dict, Enum):
+  FULL_BODY = MVN_SENSOR_MAPPING
+  FULL_BODY_NO_HANDS = {k:v for k, v in MVN_SENSOR_MAPPING.items() if k not in [7,11]}
+  LOWER_BODY = {k:v for k, v in MVN_SENSOR_MAPPING.items() if k in [1,12,13,14,15,16,17]}
+  LOWER_BODY_W_STERNUM = {k:v for k, v in MVN_SENSOR_MAPPING.items() if k in [1,2,12,13,14,15,16,17]}
+  UPPER_BODY = {k:v for k, v in MVN_SENSOR_MAPPING.items() if k in [1,2,3,4,5,6,7,8,9,10,11]}
+  UPPER_BODY_NO_HANDS = {k:v for k, v in MVN_SENSOR_MAPPING.items() if k in [1,2,3,4,5,6,8,9,10]}
+
+
+MVN_SEGMENT_SETUP = {
+  "full_body":            MvnSegmentSetup.FULL_BODY,
+  "full_body_no_hands":   MvnSegmentSetup.FULL_BODY_NO_HANDS,
+  "lower_body":           MvnSegmentSetup.LOWER_BODY,
+  "lower_body_w_sternum": MvnSegmentSetup.LOWER_BODY_W_STERNUM,
+  "upper_body":           MvnSegmentSetup.UPPER_BODY,
+  "upper_body_no_hands":  MvnSegmentSetup.UPPER_BODY_NO_HANDS,
+}
+
+MVN_JOINT_SETUP = {
+  "full_body":            MvnJointSetup.FULL_BODY,
+  "full_body_no_hands":   MvnJointSetup.FULL_BODY_NO_HANDS,
+  "lower_body":           MvnJointSetup.LOWER_BODY,
+  "lower_body_w_sternum": MvnJointSetup.LOWER_BODY_W_STERNUM,
+  "upper_body":           MvnJointSetup.UPPER_BODY,
+  "upper_body_no_hands":  MvnJointSetup.UPPER_BODY_NO_HANDS,
+}
+
+MVN_SENSOR_SETUP = {
+  "full_body":            MvnSensorSetup.FULL_BODY,
+  "full_body_no_hands":   MvnSensorSetup.FULL_BODY_NO_HANDS,
+  "lower_body":           MvnSensorSetup.LOWER_BODY,
+  "lower_body_w_sternum": MvnSensorSetup.LOWER_BODY_W_STERNUM,
+  "upper_body":           MvnSensorSetup.UPPER_BODY,
+  "upper_body_no_hands":  MvnSensorSetup.UPPER_BODY_NO_HANDS,
+}
+
+#####################################################################
+#####################################################################
+# A structure to store MVN Analyze stream's medically certified data.
+#####################################################################
+#####################################################################
 class MvnAnalyzeStream(Stream):
   def __init__(self,
-               is_pose_euler: bool = False,
-               is_pose_quaternion: bool = False,
+               mvn_setup: str,
+               sampling_rate_hz: int = 60,
+               is_euler: bool = False,
+               is_quaternion: bool = False,
                is_joint_angles: bool = False,
-               is_center_of_mass: bool = False,
-               is_timestamp: bool = False,
-               num_joints: int = 5,
-               num_segments: int = 5,
-               num_fingers: int = 5,
-               sampling_rate_hz: int = 20,
+               is_linear_segments: bool = False,
+               is_angular_segments: bool = False,
+               is_motion_trackers: bool = False,
+               is_com: bool = False,
+               is_time_code: bool = False,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
                transmission_delay_period_s: int = None,
                **_) -> None:
 
     super().__init__()
-    self._num_joints = num_joints
-    self._num_segments = num_segments
-    self._num_fingers = num_fingers
+    self._mvn_segment_setup = MVN_SEGMENT_SETUP[mvn_setup]
+    self._mvn_joint_setup = MVN_JOINT_SETUP[mvn_setup]
+    self._mvn_sensor_setup = MVN_SENSOR_SETUP[mvn_setup]
+
+    self._segment_id_mapping: dict[int, int] = dict(zip(self._mvn_segment_setup.keys(), range(len(self._mvn_segment_setup))))
+    self._joint_id_mapping: dict[int, int] = dict(zip(self._mvn_joint_setup.keys(), range(len(self._mvn_joint_setup))))
+    self._sensor_id_mapping: dict[int, int] = dict(zip(self._mvn_sensor_setup.keys(), range(len(self._mvn_sensor_setup))))
+
+    self._num_segments = len(self._mvn_segment_setup)
+    self._num_sensors = len(self._mvn_sensor_setup)
+    self._num_joints = len(self._mvn_joint_setup)
+
     self._sampling_rate_hz = sampling_rate_hz
+    self._is_euler = is_euler
+    self._is_quaternion = is_quaternion
+    self._is_joint_angles = is_joint_angles
+    self._is_linear_segments = is_linear_segments
+    self._is_angular_segments = is_angular_segments
+    self._is_motion_trackers = is_motion_trackers
+    self._is_com = is_com
+    self._is_time_code = is_time_code
 
     self._transmission_delay_period_s = transmission_delay_period_s
     self._timesteps_before_solidified = timesteps_before_solidified
     self._update_interval_ms = update_interval_ms
 
-    # Define headings for each stream; will populate self._headings.
-    self._define_data_headings()
     self._define_data_notes()
-    
-    # All streams will have the Xsens sample counter and time code added.
-    extra_data_info = {
-      'xsens_sample_number'     : {'data_type': 'int32',   'sample_size': [1]},
-      'xsens_time_since_start_s': {'data_type': 'float32', 'sample_size': [1]}}
-    
-    # TODO: add raw 9-DOF data.
 
-    # Segment positions and orientations
-    if is_pose_euler or is_pose_quaternion:
-      self.add_stream(device_name='xsens-segments',
-                      stream_name='position_cm',
+    # Segment positions and orientations.
+    if is_euler or is_quaternion:
+      self.add_stream(device_name='xsens-pose',
+                      stream_name='position',
                       data_type='float32',
-                      sample_size=(self._num_segments + self._num_fingers, 3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-segments']['position_cm'])
-    if is_pose_euler:
-      self.add_stream(device_name='xsens-segments',
-                      stream_name='orientation_euler',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-pose']['position'])
+      self.add_stream(device_name='xsens-pose',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-pose']['counter'])
+      self.add_stream(device_name='xsens-pose',
+                      stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(self._num_segments + self._num_fingers, 3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-segments']['orientation_euler'])
-    if is_pose_quaternion:
-      self.add_stream(device_name='xsens-segments',
-                      stream_name='orientation_quaternion',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-pose']['time_since_start_s'])
+    if is_euler:
+      self.add_stream(device_name='xsens-pose',
+                      stream_name='euler',
                       data_type='float32',
-                      sample_size=(self._num_segments + self._num_fingers, 4),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-segments']['orientation_quaternion'])
-
-    # Joint angles
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-pose']['euler'])
+    if is_quaternion:
+      self.add_stream(device_name='xsens-pose',
+                      stream_name='quaternion',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 4),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-pose']['quaternion'])
+    
+    # Joint angles.
     if is_joint_angles:
       self.add_stream(device_name='xsens-joints',
-                      stream_name='rotation_deg',
+                      stream_name='angle',
                       data_type='float32',
                       sample_size=(self._num_joints, 3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-joints']['rotation_deg'])
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-joints']['angle'])
       self.add_stream(device_name='xsens-joints',
-                      stream_name='parent',
-                      data_type='float32',
-                      sample_size=(self._num_joints),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-joints']['parent'])
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-joints']['counter'])
       self.add_stream(device_name='xsens-joints',
-                      stream_name='child',
+                      stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(self._num_joints),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-joints']['child'])
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-joints']['time_since_start_s'])
 
-    # Center of mass dynamics
-    if is_center_of_mass:
+    # Center of mass dynamics.
+    if is_com:
       self.add_stream(device_name='xsens-com',
-                      stream_name='position_cm',
+                      stream_name='position',
                       data_type='float32',
                       sample_size=(3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-com']['position_cm'])
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-com']['position'])
       self.add_stream(device_name='xsens-com',
-                      stream_name='velocity_cm_s',
+                      stream_name='velocity',
                       data_type='float32',
                       sample_size=(3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-com']['velocity_cm_s'])
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-com']['velocity'])
       self.add_stream(device_name='xsens-com',
-                      stream_name='acceleration_cm_ss',
+                      stream_name='acceleration',
                       data_type='float32',
                       sample_size=(3),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info,
-                      data_notes=self._data_notes_stream['xsens-com']['acceleration_cm_ss'])
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-com']['acceleration'])
+      self.add_stream(device_name='xsens-com',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-com']['counter'])
+      self.add_stream(device_name='xsens-com',
+                      stream_name='time_since_start_s',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-com']['time_since_start_s'])
 
-    # Time codes sent from the Xsens device
-    if is_timestamp:
-      extra_data_info_time = extra_data_info.copy()
-      extra_data_info_time['device_time_utc_str']  = {'data_type': 'S12', 'sample_size': [1]}
-      extra_data_info_time['device_timestamp_str'] = {'data_type': 'S26', 'sample_size': [1]}
+    # Liner segment kinematics.
+    if is_linear_segments:
+      self.add_stream(device_name='xsens-linear-segments',
+                      stream_name='position',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-linear-segments']['position'])
+      self.add_stream(device_name='xsens-linear-segments',
+                      stream_name='velocity',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-linear-segments']['velocity'])
+      self.add_stream(device_name='xsens-linear-segments',
+                      stream_name='acceleration',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-linear-segments']['acceleration'])
+      self.add_stream(device_name='xsens-linear-segments',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-linear-segments']['counter'])
+      self.add_stream(device_name='xsens-linear-segments',
+                      stream_name='time_since_start_s',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-linear-segments']['time_since_start_s'])
+    
+    # Angular segment cinematics.
+    if is_angular_segments:
+      self.add_stream(device_name='xsens-angular-segments',
+                      stream_name='quaternion',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 4),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-angular-segments']['quaternion'])
+      self.add_stream(device_name='xsens-angular-segments',
+                      stream_name='velocity',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-angular-segments']['velocity'])
+      self.add_stream(device_name='xsens-angular-segments',
+                      stream_name='acceleration',
+                      data_type='float32',
+                      sample_size=(self._num_segments, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-angular-segments']['acceleration'])
+      self.add_stream(device_name='xsens-angular-segments',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-angular-segments']['counter'])
+      self.add_stream(device_name='xsens-angular-segments',
+                      stream_name='time_since_start_s',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-angular-segments']['time_since_start_s'])
+
+    # Sensor kinematics.
+    if is_motion_trackers:
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='quaternion',
+                      data_type='float32',
+                      sample_size=(self._num_sensors, 4),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['quaternion'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='free_acceleration',
+                      data_type='float32',
+                      sample_size=(self._num_sensors, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['free_acceleration'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='acceleration',
+                      data_type='float32',
+                      sample_size=(self._num_sensors, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['acceleration'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='gyroscope',
+                      data_type='float32',
+                      sample_size=(self._num_sensors, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['gyroscope'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='magnetometer',
+                      data_type='float32',
+                      sample_size=(self._num_sensors, 3),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['magnetometer'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['counter'])
+      self.add_stream(device_name='xsens-motion-trackers',
+                      stream_name='time_since_start_s',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-motion-trackers']['time_since_start_s'])
+
+    # Time codes sent from the Xsens device.
+    if is_time_code:
       self.add_stream(device_name='xsens-time',
-                      stream_name='device_timestamp_s',
+                      stream_name='timestamp_s',
                       data_type='float64',
                       sample_size=(1),
-                      sampling_rate_hz=None,
-                      extra_data_info=extra_data_info_time,
-                      data_notes=self._data_notes_stream['xsens-time']['device_timestamp_s'])
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-time']['timestamp_s'])
+      self.add_stream(device_name='xsens-time',
+                      stream_name='time_utc_str',
+                      data_type='S26',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-time']['time_utc_str'])
+      self.add_stream(device_name='xsens-time',
+                      stream_name='timestamp_str',
+                      data_type='S26',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-time']['timestamp_str'])
+      self.add_stream(device_name='xsens-time',
+                      stream_name='counter',
+                      data_type='int32',
+                      sample_size=(1),
+                      is_measure_rate_hz=True,
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-time']['counter'])
+      self.add_stream(device_name='xsens-time',
+                      stream_name='time_since_start_s',
+                      data_type='float32',
+                      sample_size=(1),
+                      sampling_rate_hz=self._sampling_rate_hz,
+                      data_notes=self._data_notes['xsens-time']['time_since_start_s'])
 
 
   def get_fps(self) -> dict[str, float]:
-    return {'vicon-data': super()._get_fps('vicon-data', 'frame_count')}
-
+    return {device_name: super()._get_fps(device_name, 'counter') for device_name in self._streams_info.keys()}
+  
 
   def build_visulizer(self) -> dbc.Row:
-    skeleton_plot = SkeletonVisualizer(stream=self,
-                                       data_path={'dots-imu': [
-                                                   'acceleration-x',
-                                                   'acceleration-y',
-                                                   'acceleration-z']},
-                                       plot_duration_timesteps=self._timesteps_before_solidified,
-                                       update_interval_ms=self._update_interval_ms,
-                                       col_width=6)
-    return super().build_visulizer()
+    acceleration_plot = LinePlotVisualizer(stream=self,
+                                           unique_id='xsens_acc',
+                                           data_path={'xsens-motion-trackers': ['acceleration']},
+                                           legend_names=list(self._device_mapping.values()),
+                                           plot_duration_timesteps=self._timesteps_before_solidified,
+                                           update_interval_ms=self._update_interval_ms,
+                                           col_width=6)
+    return dbc.Row([acceleration_plot])
 
 
   def _define_data_notes(self):
-    self._define_data_headings()
+    self._data_notes = {}
+    self._data_notes.setdefault('xsens-pose', {})
+    self._data_notes.setdefault('xsens-joints', {})
+    self._data_notes.setdefault('xsens-com', {})
+    self._data_notes.setdefault('xsens-linear-segments', {})
+    self._data_notes.setdefault('xsens-angular-segments', {})
+    self._data_notes.setdefault('xsens-motion-trackers', {})
+    self._data_notes.setdefault('xsens-time', {})
     
-    self._data_notes_stream = {}
-    self._data_notes_stream.setdefault('xsens-segments', {})
-    self._data_notes_stream.setdefault('xsens-joints', {})
-    self._data_notes_stream.setdefault('xsens-com', {})
-    self._data_notes_stream.setdefault('xsens-time', {})
-    
-    # Segments
-    self._data_notes_stream['xsens-segments']['position_cm'] = OrderedDict([
+    # Segments.
+    self._data_notes['xsens-pose']['position'] = OrderedDict([
       ('Units', 'cm'),
       ('Coordinate frame', 'A Y-up right-handed frame if Euler data is streamed, otherwise a Z-up right-handed frame'),
-      ('Matrix ordering', 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-       + '   | And if no fingers were included in the data, only use the first 69 data headings (the first 23 segments)'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-segments']['position_cm'])
+      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
-    self._data_notes_stream['xsens-segments']['orientation_euler_deg'] = OrderedDict([
+    self._data_notes['xsens-pose']['euler'] = OrderedDict([
       ('Units', 'degrees'),
       ('Coordinate frame', 'A Y-Up, right-handed coordinate system'),
-      ('Matrix ordering', 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-       + '   | And if no fingers were included in the data, only use the first 69 data headings (the first 23 segments)'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-segments']['orientation_euler_deg']),
-      # ('Developer note', 'Streamed data did not seem to match Excel data exported from Xsens; on recent tests it was close, while on older tests it seemed very different.'),
+      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
-    self._data_notes_stream['xsens-segments']['orientation_quaternion'] = OrderedDict([
+    self._data_notes['xsens-pose']['quaternion'] = OrderedDict([
       ('Coordinate frame', 'A Z-Up, right-handed coordinate system'),
       ('Normalization', 'Normalized but not necessarily positive-definite'),
-      ('Matrix ordering', 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][0][3], data[frame_index][1][0], ...' \
-       + '   | And if no fingers were included in the data, only use the first 92 data headings (the first 23 segments)'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-segments']['orientation_quaternion'])
+      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
-    # Joints
-    self._data_notes_stream['xsens-joints']['rotation_deg'] = OrderedDict([
+    self._data_notes['xsens-pose']['counter'] = OrderedDict([
+    ])
+    self._data_notes['xsens-pose']['time_since_start_s'] = OrderedDict([
+    ])
+
+    # Joints.
+    self._data_notes['xsens-joints']['angle'] = OrderedDict([
       ('Units', 'degrees'),
       ('Coordinate frame', 'A Z-Up, right-handed coordinate system'),
-      ('Matrix ordering', 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...'),
-      ('Joint parents - segment IDs',    self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs']['streamed']),
-      ('Joint parents - segment Names',  self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames']['streamed']),
-      ('Joint parents - point IDs',      self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs']['streamed']),
-      ('Joint children - segment IDs',   self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs']['streamed']),
-      ('Joint children - segment Names', self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames']['streamed']),
-      ('Joint children - point IDs',     self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs']['streamed']),
-      ('Segment ID to Name mapping', self._headings['xsens-joints']['segmentIDsToNames']),
-      (Stream.metadata_data_headings_key, self._headings['xsens-joints']['joint_rotation_names_streamed'])
+      # ('Joint parents - segment IDs',    self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs']['streamed']),
+      # ('Joint parents - segment Names',  self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames']['streamed']),
+      # ('Joint parents - point IDs',      self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs']['streamed']),
+      # ('Joint children - segment IDs',   self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs']['streamed']),
+      # ('Joint children - segment Names', self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames']['streamed']),
+      # ('Joint children - point IDs',     self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs']['streamed']),
+      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
-    self._data_notes_stream['xsens-joints']['parent'] = OrderedDict([
-      ('Format', 'segmentID.pointID'),
-      ('Segment ID to Name mapping', self._headings['xsens-joints']['segmentIDsToNames']),
-      (Stream.metadata_data_headings_key, self._headings['xsens-joints']['joint_names_streamed'])
+    self._data_notes['xsens-joints']['counter'] = OrderedDict([
     ])
-    self._data_notes_stream['xsens-joints']['child'] = OrderedDict([
-      ('Format', 'segmentID.pointID'),
-      ('Segment ID to Name mapping', self._headings['xsens-joints']['segmentIDsToNames']),
-      (Stream.metadata_data_headings_key, self._headings['xsens-joints']['joint_names_streamed'])
+    self._data_notes['xsens-joints']['time_since_start_s'] = OrderedDict([
     ])
-    # Center of mass
-    self._data_notes_stream['xsens-com']['position_cm'] = OrderedDict([
+
+    # Center of mass.
+    self._data_notes['xsens-com']['position'] = OrderedDict([
       ('Units', 'cm'),
       ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-com']['position_cm'])
+      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['position_cm'])
     ])
-    self._data_notes_stream['xsens-com']['velocity_cm_s'] = OrderedDict([
+    self._data_notes['xsens-com']['velocity'] = OrderedDict([
       ('Units', 'cm/s'),
       ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-com']['velocity_cm_s'])
+      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['velocity_cm_s'])
     ])
-    self._data_notes_stream['xsens-com']['acceleration_cm_ss'] = OrderedDict([
-      ('Units', 'cm/s/s'),
+    self._data_notes['xsens-com']['acceleration'] = OrderedDict([
+      ('Units', 'cm/s^2'),
       ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-com']['acceleration_cm_ss'])
+      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['acceleration_cm_ss'])
     ])
-    # Time
-    self._data_notes_stream['xsens-time']['device_timestamp_s'] = OrderedDict([
-      ('Description', 'The timestamp recorded by the Xsens device, which is more precise than the system time when the data was received (the time_s field)'),
+    self._data_notes['xsens-com']['counter'] = OrderedDict([
     ])
-
-
-    self._data_notes_excel = {}
-    self._data_notes_excel.setdefault('xsens-segments', {})
-    self._data_notes_excel.setdefault('xsens-joints', {})
-    self._data_notes_excel.setdefault('xsens-ergonomic-joints', {})
-    self._data_notes_excel.setdefault('xsens-com', {})
-    self._data_notes_excel.setdefault('xsens-sensors', {})
-    self._data_notes_excel.setdefault('xsens-time', {})
-
-    # Segments
-    self._data_notes_excel['xsens-segments']['position_cm'] = self._data_notes_stream['xsens-segments']['position_cm'].copy()
-    self._data_notes_excel['xsens-segments']['position_cm']['Coordinate frame'] = 'A Z-up right-handed frame'
-    
-    self._data_notes_excel['xsens-segments']['velocity_cm_s'] = self._data_notes_excel['xsens-segments']['position_cm'].copy()
-    self._data_notes_excel['xsens-segments']['velocity_cm_s']['Units'] = 'cm/s'
-    self._data_notes_excel['xsens-segments']['velocity_cm_s']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-     + '   | And only use the first 69 data headings (the first 23 segments)'
-    
-    self._data_notes_excel['xsens-segments']['acceleration_cm_ss'] = self._data_notes_excel['xsens-segments']['velocity_cm_s'].copy()
-    self._data_notes_excel['xsens-segments']['acceleration_cm_ss']['Units'] = 'cm/s/s'
-    
-    self._data_notes_excel['xsens-segments']['angular_velocity_deg_s'] = self._data_notes_excel['xsens-segments']['velocity_cm_s'].copy()
-    self._data_notes_excel['xsens-segments']['angular_velocity_deg_s']['Units'] = 'degrees/s'
-    
-    self._data_notes_excel['xsens-segments']['angular_acceleration_deg_ss'] = self._data_notes_excel['xsens-segments']['velocity_cm_s'].copy()
-    self._data_notes_excel['xsens-segments']['angular_acceleration_deg_ss']['Units'] = 'degrees/s/s'
-
-    self._data_notes_excel['xsens-segments']['orientation_euler_deg'] = self._data_notes_stream['xsens-segments']['orientation_euler_deg'].copy()
-    self._data_notes_excel['xsens-segments']['orientation_quaternion'] = self._data_notes_stream['xsens-segments']['orientation_quaternion'].copy()
-    
-    # Joints
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg'] = self._data_notes_stream['xsens-joints']['rotation_deg'].copy()
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg'][Stream.metadata_data_headings_key] = self._headings['xsens-joints']['joint_rotation_names_bodyFingers']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-            + '   | And if no fingers were included in the data, only use the first 66 data headings (the first 22 joints)'
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint parents - segment IDs']    = self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs']['body']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint parents - segment Names']  = self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames']['body']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint parents - point IDs']      = self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs']['body']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint children - segment IDs']   = self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs']['body']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint children - segment Names'] = self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames']['body']
-    self._data_notes_excel['xsens-joints']['rotation_zxy_deg']['Joint children - point IDs']     = self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs']['body']
-
-    self._data_notes_excel['xsens-joints']['rotation_xzy_deg'] = self._data_notes_excel['xsens-joints']['rotation_zxy_deg'].copy()
-    
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg'] = self._data_notes_excel['xsens-joints']['rotation_zxy_deg'].copy()
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...'
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg'][Stream.metadata_data_headings_key] = self._headings['xsens-joints']['joint_rotation_names_ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint parents - segment IDs']    = self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs']['ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint parents - segment Names']  = self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames']['ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint parents - point IDs']      = self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs']['ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint children - segment IDs']   = self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs']['ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint children - segment Names'] = self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames']['ergonomic']
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg']['Joint children - point IDs']     = self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs']['ergonomic']
-    
-    self._data_notes_excel['xsens-ergonomic-joints']['rotation_xzy_deg'] = self._data_notes_excel['xsens-ergonomic-joints']['rotation_zxy_deg'].copy()
-    
-    # Center of mass
-    self._data_notes_excel['xsens-com']['position_cm'] = self._data_notes_stream['xsens-com']['position_cm'].copy()
-    self._data_notes_excel['xsens-com']['velocity_cm_s'] = self._data_notes_stream['xsens-com']['velocity_cm_s'].copy()
-    self._data_notes_excel['xsens-com']['acceleration_cm_ss'] = self._data_notes_stream['xsens-com']['acceleration_cm_ss'].copy()
-    
-    # Sensors
-    self._data_notes_excel['xsens-sensors']['free_acceleration_cm_ss'] = self._data_notes_stream['xsens-segments']['position_cm'].copy()
-    self._data_notes_excel['xsens-sensors']['free_acceleration_cm_ss']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-        + '   | And only use data headings for which the data is not all 0 or all NaN'
-    self._data_notes_excel['xsens-sensors']['free_acceleration_cm_ss']['Units'] = 'cm/s/s'
-    del self._data_notes_excel['xsens-sensors']['free_acceleration_cm_ss']['Coordinate frame']
-    self._data_notes_excel['xsens-sensors']['magnetic_field'] = self._data_notes_excel['xsens-sensors']['free_acceleration_cm_ss'].copy()
-    self._data_notes_excel['xsens-sensors']['magnetic_field']['Units'] = 'a.u. according to the manual, but more likely gauss based on the magnitudes'
-    
-    self._data_notes_excel['xsens-sensors']['orientation_quaternion'] = self._data_notes_stream['xsens-segments']['orientation_quaternion'].copy()
-    self._data_notes_excel['xsens-sensors']['orientation_quaternion']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][0][3], data[frame_index][1][0], ...' \
-        + '   | And only use data headings for which the data is not all 0 or all NaN'
-    del self._data_notes_excel['xsens-sensors']['orientation_quaternion']['Coordinate frame']
-    
-    self._data_notes_excel['xsens-sensors']['orientation_euler_deg'] = self._data_notes_stream['xsens-segments']['orientation_euler_deg'].copy()
-    self._data_notes_excel['xsens-sensors']['orientation_euler_deg']['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...' \
-        + '   | And only use data headings for which the data is not all 0 or all NaN'
-    del self._data_notes_excel['xsens-sensors']['orientation_euler_deg']['Coordinate frame']
-    
-    # Time
-    self._data_notes_excel['xsens-time']['stream_receive_time_s'] = OrderedDict([
-      ('Description', 'The estimated system time at which each frame was received by Python during live streaming'),
+    self._data_notes['xsens-com']['time_since_start_s'] = OrderedDict([
     ])
 
-
-    self._data_notes_mvnx = copy.deepcopy(self._data_notes_excel)
-    
-    # Update the data headings for the sensors.
-    #  The Excel file contains all segment names and has hidden columns of 0 for ones that don't have sensors,
-    #  while the MVNX only lists actual sensor locations.
-    for sensors_key in self._data_notes_mvnx['xsens-sensors'].keys():
-      if 'quaternion' in sensors_key:
-        self._data_notes_mvnx['xsens-sensors'][sensors_key][Stream.metadata_data_headings_key] = self._headings['xsens-sensors']['sensors-quaternion']
-        self._data_notes_mvnx['xsens-sensors'][sensors_key]['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][0][3], data[frame_index][1][0], ...'
-      else:
-        self._data_notes_mvnx['xsens-sensors'][sensors_key][Stream.metadata_data_headings_key] = self._headings['xsens-sensors']['sensors-xyz']
-        self._data_notes_mvnx['xsens-sensors'][sensors_key]['Matrix ordering'] = 'To align with data headings, unwrap a frame\'s matrix as data[frame_index][0][0], data[frame_index][0][1], data[frame_index][0][2], data[frame_index][1][0], ...'
-
-    # Foot contacts
-    self._data_notes_mvnx.setdefault('xsens-foot-contacts', {})
-    self._data_notes_mvnx['xsens-foot-contacts']['foot-contacts'] = OrderedDict([
-      ('Description', 'Which points of the foot are estimated to be in contact with the ground'),
-      (Stream.metadata_data_headings_key, self._headings['xsens-foot-contacts']['foot-contacts']),
+    # Linear segments.
+    self._data_notes['xsens-linear-segments']['position'] = OrderedDict([
+      ('Units', 'cm'),
+    ])
+    self._data_notes['xsens-linear-segments']['velocity'] = OrderedDict([
+      ('Units', 'cm/s'),
+    ])
+    self._data_notes['xsens-linear-segments']['acceleration'] = OrderedDict([
+      ('Units', 'cm/s^2'),
+    ])
+    self._data_notes['xsens-linear-segments']['counter'] = OrderedDict([
+    ])
+    self._data_notes['xsens-linear-segments']['time_since_start_s'] = OrderedDict([
     ])
 
+    # Linear segments.
+    self._data_notes['xsens-angular-segments']['quaternion'] = OrderedDict([
+    ])
+    self._data_notes['xsens-angular-segments']['velocity'] = OrderedDict([
+      ('Units', 'deg/s'),
+    ])
+    self._data_notes['xsens-angular-segments']['acceleration'] = OrderedDict([
+      ('Units', 'deg/s^2'),
+    ])
+    self._data_notes['xsens-angular-segments']['counter'] = OrderedDict([
+    ])
+    self._data_notes['xsens-angular-segments']['time_since_start_s'] = OrderedDict([
+    ])
 
-  def _define_data_headings(self):
-    segment_names_body = [
-      # Main-body segments
-      'Pelvis', 'L5', 'L3', 'T12', 'T8', 'Neck', 'Head',
-      'Right Shoulder',  'Right Upper Arm', 'Right Forearm', 'Right Hand',
-      'Left Shoulder',   'Left Upper Arm',  'Left Forearm',  'Left Hand',
-      'Right Upper Leg', 'Right Lower Leg', 'Right Foot',    'Right Toe',
-      'Left Upper Leg',  'Left Lower Leg',  'Left Foot',     'Left Toe',
-      ]
-      # Note: props 1-4 would be between body and fingers here if there are any
-    segment_names_fingers = [
-      # Fingers of left hand
-      'Left Carpus',            'Left First Metacarpal',         'Left First Proximal Phalange', 'Left First Distal Phalange',
-      'Left Second Metacarpal', 'Left Second Proximal Phalange', 'Left Second Middle Phalange',  'Left Second Distal Phalange',
-      'Left Third Metacarpal',  'Left Third Proximal Phalange',  'Left Third Middle Phalange',   'Left Third Distal Phalange',
-      'Left Fourth Metacarpal', 'Left Fourth Proximal Phalange', 'Left Fourth Middle Phalange',  'Left Fourth Distal Phalange',
-      'Left Fifth Metacarpal',  'Left Fifth Proximal Phalange',  'Left Fifth Middle Phalange',   'Left Fifth Distal Phalange',
-      # Fingers of right hand
-      'Right Carpus',            'Right First Metacarpal',         'Right First Proximal Phalange', 'Right First Distal Phalange',
-      'Right Second Metacarpal', 'Right Second Proximal Phalange', 'Right Second Middle Phalange',  'Right Second Distal Phalange',
-      'Right Third Metacarpal',  'Right Third Proximal Phalange',  'Right Third Middle Phalange',   'Right Third Distal Phalange',
-      'Right Fourth Metacarpal', 'Right Fourth Proximal Phalange', 'Right Fourth Middle Phalange',  'Right Fourth Distal Phalange',
-      'Right Fifth Metacarpal',  'Right Fifth Proximal Phalange',  'Right Fifth Middle Phalange',   'Right Fifth Distal Phalange',
-    ]
-    sensor_names = segment_names_body[0:1] + segment_names_body[4:5] + segment_names_body[6:18] + segment_names_body[19:22]
-    joint_rotation_names_body = [
-      'L5S1 Lateral Bending',    'L5S1 Axial Bending',     'L5S1 Flexion/Extension',
-      'L4L3 Lateral Bending',    'L4L3 Axial Rotation',    'L4L3 Flexion/Extension',
-      'L1T12 Lateral Bending',   'L1T12 Axial Rotation',   'L1T12 Flexion/Extension',
-      'T9T8 Lateral Bending',    'T9T8 Axial Rotation',    'T9T8 Flexion/Extension',
-      'T1C7 Lateral Bending',    'T1C7 Axial Rotation',    'T1C7 Flexion/Extension',
-      'C1 Head Lateral Bending', 'C1 Head Axial Rotation', 'C1 Head Flexion/Extension',
-      'Right T4 Shoulder Abduction/Adduction', 'Right T4 Shoulder Internal/External Rotation', 'Right T4 Shoulder Flexion/Extension',
-      'Right Shoulder Abduction/Adduction',    'Right Shoulder Internal/External Rotation',    'Right Shoulder Flexion/Extension',
-      'Right Elbow Ulnar Deviation/Radial Deviation', 'Right Elbow Pronation/Supination', 'Right Elbow Flexion/Extension',
-      'Right Wrist Ulnar Deviation/Radial Deviation', 'Right Wrist Pronation/Supination', 'Right Wrist Flexion/Extension',
-      'Left T4 Shoulder Abduction/Adduction', 'Left T4 Shoulder Internal/External Rotation', 'Left T4 Shoulder Flexion/Extension',
-      'Left Shoulder Abduction/Adduction',    'Left Shoulder Internal/External Rotation',    'Left Shoulder Flexion/Extension',
-      'Left Elbow Ulnar Deviation/Radial Deviation', 'Left Elbow Pronation/Supination', 'Left Elbow Flexion/Extension',
-      'Left Wrist Ulnar Deviation/Radial Deviation', 'Left Wrist Pronation/Supination', 'Left Wrist Flexion/Extension',
-      'Right Hip Abduction/Adduction',       'Right Hip Internal/External Rotation',       'Right Hip Flexion/Extension',
-      'Right Knee Abduction/Adduction',      'Right Knee Internal/External Rotation',      'Right Knee Flexion/Extension',
-      'Right Ankle Abduction/Adduction',     'Right Ankle Internal/External Rotation',     'Right Ankle Dorsiflexion/Plantarflexion',
-      'Right Ball Foot Abduction/Adduction', 'Right Ball Foot Internal/External Rotation', 'Right Ball Foot Flexion/Extension',
-      'Left Hip Abduction/Adduction',        'Left Hip Internal/External Rotation',        'Left Hip Flexion/Extension',
-      'Left Knee Abduction/Adduction',       'Left Knee Internal/External Rotation',       'Left Knee Flexion/Extension',
-      'Left Ankle Abduction/Adduction',      'Left Ankle Internal/External Rotation',      'Left Ankle Dorsiflexion/Plantarflexion',
-      'Left Ball Foot Abduction/Adduction',  'Left Ball Foot Internal/External Rotation',  'Left Ball Foot Flexion/Extension',
-      ]
-    joint_rotation_names_fingers = [
-      'Left First CMC Abduction/Adduction',  'Left First CMC Internal/External Rotation',  'Left First CMC Flexion/Extension',
-      'Left First MCP Abduction/Adduction',  'Left First MCP Internal/External Rotation',  'Left First MCP Flexion/Extension',
-      'Left IP Abduction/Adduction', 'Left IP Internal/External Rotation', 'Left IP Flexion/Extension',
-      'Left Second CMC Abduction/Adduction', 'Left Second CMC Internal/External Rotation', 'Left Second CMC Flexion/Extension',
-      'Left Second MCP Abduction/Adduction', 'Left Second MCP Internal/External Rotation', 'Left Second MCP Flexion/Extension',
-      'Left Second PIP Abduction/Adduction', 'Left Second PIP Internal/External Rotation', 'Left Second PIP Flexion/Extension',
-      'Left Second DIP Abduction/Adduction', 'Left Second DIP Internal/External Rotation', 'Left Second DIP Flexion/Extension',
-      'Left Third CMC Abduction/Adduction',  'Left Third CMC Internal/External Rotation',  'Left Third CMC Flexion/Extension',
-      'Left Third MCP Abduction/Adduction',  'Left Third MCP Internal/External Rotation',  'Left Third MCP Flexion/Extension',
-      'Left Third PIP Abduction/Adduction',  'Left Third PIP Internal/External Rotation',  'Left Third PIP Flexion/Extension',
-      'Left Third DIP Abduction/Adduction',  'Left Third DIP Internal/External Rotation',  'Left Third DIP Flexion/Extension',
-      'Left Fourth CMC Abduction/Adduction', 'Left Fourth CMC Internal/External Rotation', 'Left Fourth CMC Flexion/Extension',
-      'Left Fourth MCP Abduction/Adduction', 'Left Fourth MCP Internal/External Rotation', 'Left Fourth MCP Flexion/Extension',
-      'Left Fourth PIP Abduction/Adduction', 'Left Fourth PIP Internal/External Rotation', 'Left Fourth PIP Flexion/Extension',
-      'Left Fourth DIP Abduction/Adduction', 'Left Fourth DIP Internal/External Rotation', 'Left Fourth DIP Flexion/Extension',
-      'Left Fifth CMC Abduction/Adduction',  'Left Fifth CMC Internal/External Rotation',  'Left Fifth CMC Flexion/Extension',
-      'Left Fifth MCP Abduction/Adduction',  'Left Fifth MCP Internal/External Rotation',  'Left Fifth MCP Flexion/Extension',
-      'Left Fifth PIP Abduction/Adduction',  'Left Fifth PIP Internal/External Rotation',  'Left Fifth PIP Flexion/Extension',
-      'Left Fifth DIP Abduction/Adduction',  'Left Fifth DIP Internal/External Rotation',  'Left Fifth DIP Flexion/Extension',
-      'Right First CMC Abduction/Adduction', 'Right First CMC Internal/External Rotation', 'Right First CMC Flexion/Extension',
-      'Right First MCP Abduction/Adduction', 'Right First MCP Internal/External Rotation', 'Right First MCP Flexion/Extension',
-      'Right IP Abduction/Adduction',         'Right IP Internal/External Rotation',         'Right IP Flexion/Extension',
-      'Right Second CMC Abduction/Adduction', 'Right Second CMC Internal/External Rotation', 'Right Second CMC Flexion/Extension',
-      'Right Second MCP Abduction/Adduction', 'Right Second MCP Internal/External Rotation', 'Right Second MCP Flexion/Extension',
-      'Right Second PIP Abduction/Adduction', 'Right Second PIP Internal/External Rotation', 'Right Second PIP Flexion/Extension',
-      'Right Second DIP Abduction/Adduction', 'Right Second DIP Internal/External Rotation', 'Right Second DIP Flexion/Extension',
-      'Right Third CMC Abduction/Adduction',  'Right Third CMC Internal/External Rotation',  'Right Third CMC Flexion/Extension',
-      'Right Third MCP Abduction/Adduction',  'Right Third MCP Internal/External Rotation',  'Right Third MCP Flexion/Extension',
-      'Right Third PIP Abduction/Adduction',  'Right Third PIP Internal/External Rotation',  'Right Third PIP Flexion/Extension',
-      'Right Third DIP Abduction/Adduction',  'Right Third DIP Internal/External Rotation',  'Right Third DIP Flexion/Extension',
-      'Right Fourth CMC Abduction/Adduction', 'Right Fourth CMC Internal/External Rotation', 'Right Fourth CMC Flexion/Extension',
-      'Right Fourth MCP Abduction/Adduction', 'Right Fourth MCP Internal/External Rotation', 'Right Fourth MCP Flexion/Extension',
-      'Right Fourth PIP Abduction/Adduction', 'Right Fourth PIP Internal/External Rotation', 'Right Fourth PIP Flexion/Extension',
-      'Right Fourth DIP Abduction/Adduction', 'Right Fourth DIP Internal/External Rotation', 'Right Fourth DIP Flexion/Extension',
-      'Right Fifth CMC Abduction/Adduction',  'Right Fifth CMC Internal/External Rotation',  'Right Fifth CMC Flexion/Extension',
-      'Right Fifth MCP Abduction/Adduction',  'Right Fifth MCP Internal/External Rotation',  'Right Fifth MCP Flexion/Extension',
-      'Right Fifth PIP Abduction/Adduction',  'Right Fifth PIP Internal/External Rotation',  'Right Fifth PIP Flexion/Extension',
-      'Right Fifth DIP Abduction/Adduction',  'Right Fifth DIP Internal/External Rotation',  'Right Fifth DIP Flexion/Extension',
-    ]
-    joint_rotation_names_ergonomic = [
-      'T8_Head Lateral Bending',          'T8_Head Axial Bending',          'T8_Head Flexion/Extension',
-      'T8_LeftUpperArm Lateral Bending',  'T8_LeftUpperArm Axial Bending',  'T8_LeftUpperArm Flexion/Extension',
-      'T8_RightUpperArm Lateral Bending', 'T8_RightUpperArm Axial Bending', 'T8_RightUpperArm Flexion/Extension',
-      'Pelvis_T8 Lateral Bending',        'Pelvis_T8 Axial Bending',        'Pelvis_T8 Flexion/Extension',
-      'Vertical_Pelvis Lateral Bending',  'Vertical_Pelvis Axial Bending',  'Vertical_Pelvis Flexion/Extension',
-      'Vertical_T8 Lateral Bending',      'Vertical_T8 Axial Bending',      'Vertical_T8 Flexion/Extension',
-    ]
-    joint_names_body = [
-      'L5S1', 'L4L3', 'L1T12', 'T9T8', 'T1C7', 'C1 Head',
-      'Right T4 Shoulder', 'Right Shoulder', 'Right Elbow', 'Right Wrist',
-      'Left T4 Shoulder',  'Left Shoulder',  'Left Elbow',  'Left Wrist',
-      'Right Hip', 'Right Knee', 'Right Ankle', 'Right Ball Foot',
-      'Left Hip',  'Left Knee',  'Left Ankle',  'Left Ball Foot',
-      ]
-    joint_names_fingers = [
-      'Left First CMC',   'Left First MCP',   'Left IP',
-      'Left Second CMC',  'Left Second MCP',  'Left Second PIP',  'Left Second DIP',
-      'Left Third CMC',   'Left Third MCP',   'Left Third PIP',   'Left Third DIP',
-      'Left Fourth CMC',  'Left Fourth MCP',  'Left Fourth PIP',  'Left Fourth DIP',
-      'Left Fifth CMC',   'Left Fifth MCP',   'Left Fifth PIP',   'Left Fifth DIP',
-      'Right First CMC',  'Right First MCP',  'Right IP',
-      'Right Second CMC', 'Right Second MCP', 'Right Second PIP', 'Right Second DIP',
-      'Right Third CMC',  'Right Third MCP',  'Right Third PIP',  'Right Third DIP',
-      'Right Fourth CMC', 'Right Fourth MCP', 'Right Fourth PIP', 'Right Fourth DIP',
-      'Right Fifth CMC',  'Right Fifth MCP',  'Right Fifth PIP',  'Right Fifth DIP',
-    ]
-    joint_names_ergonomic = [
-      'T8_Head',
-      'T8_LeftUpperArm',
-      'T8_RightUpperArm',
-      'Pelvis_T8',
-      'Vertical_Pelvis',
-      'Vertical_T8',
-    ]
-    # Record the parent/child segment and point for each streamed joint.
-    # The long lists were copied from a test data stream.
-    joint_parents_segmentIDsPointIDs = [1.002, 2.002, 3.002, 4.002, 5.002, 6.002, 5.003, 8.002, 9.002, 10.002, 5.004, 12.002, 13.002, 14.002, 1.003, 16.002, 17.002, 18.002, 1.004, 20.002, 21.002, 22.002, 5.0, 5.0, 5.0, 1.0, 1.0, 1.0]
-    joint_parents_segmentIDs = [int(x) for x in joint_parents_segmentIDsPointIDs]
-    joint_parents_pointIDs = [round((x - int(x))*1000) for x in joint_parents_segmentIDsPointIDs]
-    joint_children_segmentIDsPointIDs = [2.001, 3.001, 4.001, 5.001, 6.001, 7.001, 8.001, 9.001, 10.001, 11.001, 12.001, 13.001, 14.001, 15.001, 16.001, 17.001, 18.001, 19.001, 20.001, 21.001, 22.001, 23.001, 7.0, 13.0, 9.0, 5.0, 1.0, 5.0]
-    joint_children_segmentIDs = [int(x) for x in joint_children_segmentIDsPointIDs]
-    joint_children_pointIDs = [round((x - int(x))*1000) for x in joint_children_segmentIDsPointIDs]
-    # Convert to dictionaries mapping joint names to segment names and point IDs.
-    #  to avoid dealing with orderings and indexes.
-    # Note that the segment IDs are 1-indexed.
-    joint_parents_segmentIDs = OrderedDict(
-        [(joint_names_body[i], joint_parent_segmentID)
-          for (i, joint_parent_segmentID) in enumerate(joint_parents_segmentIDs[0:22])]
-      + [(joint_names_ergonomic[i], joint_parent_segmentID)
-          for (i, joint_parent_segmentID) in enumerate(joint_parents_segmentIDs[22:])]
-    )
-    joint_parents_segmentNames = OrderedDict(
-        [(joint_name, segment_names_body[segmentID-1])
-          for (joint_name, segmentID) in joint_parents_segmentIDs.items()]
-    )
-    joint_parents_pointIDs = OrderedDict(
-        [(joint_names_body[i], joint_parent_pointID)
-          for (i, joint_parent_pointID) in enumerate(joint_parents_pointIDs[0:22])]
-      + [(joint_names_ergonomic[i], joint_parent_pointID)
-          for (i, joint_parent_pointID) in enumerate(joint_parents_pointIDs[22:])]
-    )
-    joint_children_segmentIDs = OrderedDict(
-        [(joint_names_body[i], joint_child_segmentID)
-          for (i, joint_child_segmentID) in enumerate(joint_children_segmentIDs[0:22])]
-      + [(joint_names_ergonomic[i], joint_child_segmentID)
-          for (i, joint_child_segmentID) in enumerate(joint_children_segmentIDs[22:])]
-    )
-    joint_children_segmentNames = OrderedDict(
-        [(joint_name, segment_names_body[segmentID-1])
-          for (joint_name, segmentID) in joint_children_segmentIDs.items()]
-    )
-    joint_children_pointIDs = OrderedDict(
-        [(joint_names_body[i], joint_child_pointID)
-          for (i, joint_child_pointID) in enumerate(joint_children_pointIDs[0:22])]
-      + [(joint_names_ergonomic[i], joint_child_pointID)
-          for (i, joint_child_pointID) in enumerate(joint_children_pointIDs[22:])]
-    )
-    # Foot contact points
-    foot_contact_names = ['LeftFoot_Heel', 'LeftFoot_Toe', 'RightFoot_Heel', 'RightFoot_Toe']
+    # Sensors.
+    self._data_notes['xsens-motion-trackers']['quaternion'] = OrderedDict([
+    ])
+    self._data_notes['xsens-motion-trackers']['free_acceleration'] = OrderedDict([
+      ('Units', 'm/s^2'),
+      ('Description', 'Gravitational component removed')
+    ])
+    self._data_notes['xsens-motion-trackers']['acceleration'] = OrderedDict([
+      ('Units', 'm/s^2'),
+      ('Description', 'Gravitational component removed')
+    ])
+    self._data_notes['xsens-motion-trackers']['gyroscope'] = OrderedDict([
+      ('Units', 'm/s'),
+      ('Description', 'Gravitational component removed')
+    ])
+    self._data_notes['xsens-motion-trackers']['magnetometer'] = OrderedDict([
+      ('Units', 'a.u. w.r.t. magnetic field at the calibration site')
+    ])
+    self._data_notes['xsens-motion-trackers']['counter'] = OrderedDict([
+    ])
+    self._data_notes['xsens-motion-trackers']['time_since_start_s'] = OrderedDict([
+    ])
 
-    self._headings = {}
-    # Center of Mass
-    self._headings.setdefault('xsens-com', {})
-    self._headings['xsens-com']['position_cm'] = ['x', 'y', 'z']
-    self._headings['xsens-com']['velocity_cm_s'] = ['x', 'y', 'z']
-    self._headings['xsens-com']['acceleration_cm_ss'] = ['x', 'y', 'z']
-    # Segment orientation - quaternion
-    self._headings.setdefault('xsens-segments', {})
-    quaternion_elements = ['q0_re', 'q1_i', 'q2_j', 'q3_k']
-    self._headings['xsens-segments']['orientation_quaternion'] = \
-      ['%s (%s)' % (name, element) for name in (segment_names_body + segment_names_fingers)
-                                   for element in quaternion_elements]
-    # Segment orientation - Euler
-    self._headings.setdefault('xsens-segments', {})
-    euler_elements = ['x', 'y', 'z']
-    self._headings['xsens-segments']['orientation_euler_deg'] = \
-      ['%s (%s)' % (name, element) for name in (segment_names_body + segment_names_fingers)
-                                   for element in euler_elements]
-    # Segment positions
-    self._headings.setdefault('xsens-segments', {})
-    position_elements = ['x', 'y', 'z']
-    self._headings['xsens-segments']['position_cm'] = \
-      ['%s (%s)' % (name, element) for name in (segment_names_body + segment_names_fingers)
-                                   for element in position_elements]
-    # Sensors
-    self._headings.setdefault('xsens-sensors', {})
-    sensor_elements = ['x', 'y', 'z']
-    self._headings['xsens-sensors']['sensors-xyz'] = \
-      ['%s (%s)' % (name, element) for name in (sensor_names)
-                                   for element in sensor_elements]
-    sensor_elements = ['q0_re', 'q1_i', 'q2_j', 'q3_k']
-    self._headings['xsens-sensors']['sensors-quaternion'] = \
-      ['%s (%s)' % (name, element) for name in (sensor_names)
-                                   for element in sensor_elements]
-    # Joint rotation names
-    self._headings.setdefault('xsens-joints', {})
-    self._headings['xsens-joints']['joint_rotation_names_body'] = joint_rotation_names_body
-    self._headings['xsens-joints']['joint_rotation_names_fingers'] = joint_rotation_names_fingers
-    self._headings['xsens-joints']['joint_rotation_names_ergonomic'] = joint_rotation_names_ergonomic
-    self._headings['xsens-joints']['joint_rotation_names_streamed'] = joint_rotation_names_body + joint_rotation_names_ergonomic
-    self._headings['xsens-joints']['joint_rotation_names_bodyFingers'] = joint_rotation_names_body + joint_rotation_names_fingers
-    # Joint names (used within the rotation names above)
-    self._headings['xsens-joints']['joint_names_body'] = joint_names_body
-    self._headings['xsens-joints']['joint_names_fingers'] = joint_names_fingers
-    self._headings['xsens-joints']['joint_names_ergonomic'] = joint_names_ergonomic
-    self._headings['xsens-joints']['joint_names_streamed'] = joint_names_body + joint_names_ergonomic
-    # Joint parent/child segment/point IDs/names
-    self._headings.setdefault('xsens-joints', {})
-    self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs'] = {
-      'streamed' : joint_parents_segmentIDs,
-      'body'     : OrderedDict(list(joint_parents_segmentIDs.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_parents_segmentIDs.items())[22:])}
-    self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames'] = {
-      'streamed' : joint_parents_segmentNames,
-      'body'     : OrderedDict(list(joint_parents_segmentNames.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_parents_segmentNames.items())[22:])}
-    self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs'] = {
-      'streamed' : joint_parents_pointIDs,
-      'body'     : OrderedDict(list(joint_parents_pointIDs.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_parents_pointIDs.items())[22:])}
-    self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs'] = {
-      'streamed' : joint_children_segmentIDs,
-      'body'     : OrderedDict(list(joint_children_segmentIDs.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_children_segmentIDs.items())[22:])}
-    self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames'] = {
-      'streamed' : joint_children_segmentNames,
-      'body'     : OrderedDict(list(joint_children_segmentNames.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_children_segmentNames.items())[22:])}
-    self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs'] = {
-      'streamed' : joint_children_pointIDs,
-      'body'     : OrderedDict(list(joint_children_pointIDs.items())[0:22]),
-      'ergonomic': OrderedDict(list(joint_children_pointIDs.items())[22:])}
-    self._headings['xsens-joints']['segmentIDsToNames'] = OrderedDict([(i+1, name) for (i, name) in enumerate(segment_names_body + segment_names_fingers)])
-    # Foot contacts
-    self._headings.setdefault('xsens-foot-contacts', {})
-    self._headings['xsens-foot-contacts']['foot-contacts'] = foot_contact_names
+    # Time.
+    self._data_notes['xsens-time']['timestamp_s'] = OrderedDict([
+    ])
+    self._data_notes['xsens-time']['time_utc_str'] = OrderedDict([
+    ])
+    self._data_notes['xsens-time']['timestamp_str'] = OrderedDict([
+    ])
+    self._data_notes['xsens-time']['counter'] = OrderedDict([
+    ])
+    self._data_notes['xsens-time']['time_since_start_s'] = OrderedDict([
+    ])

@@ -35,7 +35,11 @@ from utils.time_utils import get_time
 from typing import Any, Iterator
 import wave
 
-import ffmpeg
+try:
+  import ffmpeg
+except ImportError as e:
+  print(e, "\nFFmpeg not installed, will crash if you configure streaming of video/audio.", flush=True)
+
 import asyncio
 import concurrent.futures
 import h5py
