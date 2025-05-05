@@ -178,6 +178,8 @@ class Logger(LoggerInterface):
                dump_audio: bool = False,
                video_codec: VideoCodecDict = None,
                video_codec_num_cpu: int = 1,
+               is_video_scale_down: bool = False,
+               is_video_deflicker: bool = False,
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -194,6 +196,8 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._video_codec = video_codec
     self._video_codec_num_cpu = video_codec_num_cpu
+    self._is_video_scale_down = is_video_scale_down
+    self._is_video_deflicker = is_video_deflicker
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
@@ -457,29 +461,33 @@ class Logger(LoggerInterface):
           fps = stream_info['sampling_rate_hz']
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
           input_stream_format: str = stream_info['ffmpeg_input_format']
+          
+          # TODO: pass as arguments to the logger.
+          scaled_width = 1280
+          scaled_height = 720
+          deflicker_kernel_size = 10
 
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
-          # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
-          # ffmpeg.setpts()
-          video_writer: Popen = (
-            ffmpeg
-            .input('pipe:',
-                   format=input_stream_format,
-                   pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
-                   s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
-                   framerate=fps,
-                   cpucount=self._video_codec_num_cpu
-                   )
-            # .filter('scale', 1280, 720)
-            # .filter('deflicker', mode='pm', size=10) # remove line noise from room lights.
-            .output(filepath_video,
-                    vcodec=self._video_codec['codec_name'],
-                    pix_fmt=self._video_codec['pix_format'],
-                    cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.                    
-                    **self._video_codec['options']
-                    )
-            .run_async(pipe_stdin=True)
-          )
+          video_stream = ffmpeg.input('pipe:',
+                                      format=input_stream_format,
+                                      pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
+                                      s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
+                                      framerate=fps,
+                                      cpucount=self._video_codec_num_cpu)
+          if self._is_video_scale_down:
+            video_stream = ffmpeg.filter(video_stream, 'scale', scaled_width, scaled_height) # scale down the image to reduce stress on encoder.
+          if self._is_video_deflicker:
+            video_stream = ffmpeg.filter(video_stream, 'deflicker', mode='pm', size=deflicker_kernel_size) # remove line noise from room lights.
+
+          video_stream = ffmpeg.output(video_stream,
+                                       filename=filepath_video,
+                                       vcodec=self._video_codec['codec_name'],
+                                       pix_fmt=self._video_codec['pix_format'],
+                                       cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
+                                       **self._video_codec['options'])
+          video_stream = ffmpeg.global_args(video_stream, '-hide_banner', '-log_level', 'error')
+          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True)
+
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
           num_writers += 1
@@ -700,9 +708,8 @@ class Logger(LoggerInterface):
     new_data: Iterator[tuple[bytes, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
                                                                                         stream_name=stream_name, 
                                                                                         is_flush=self._is_flush)
-    for buffer, is_keyframe, pts in new_data:
-      # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
-      video_writer.stdin.write(buffer)
+    for frame_buffer, is_keyframe, frame_index in new_data:
+      video_writer.stdin.write(frame_buffer)
 
 
   # Write provided data to the CSV file.

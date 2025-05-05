@@ -177,18 +177,19 @@ class CameraStreamer(Producer):
 
   def _process_frame(self,
                      camera_id: str,
-                     frame: np.ndarray,
+                     frame_buffer: bytes,
                      is_keyframe: bool,
-                     pts: int,
+                     frame_index: int,
                      timestamp: np.uint64,
-                     sequence_id: np.int64,
+                     sequence_id: np.uint64,
                      toa_s: float) -> None:
     process_time_s = get_time()
     tag: str = "%s.%s.data" % (self._log_source_tag(), self._camera_mapping[camera_id])
     data = {
-      'frame': (frame, is_keyframe, pts),
-      'timestamp': timestamp,
-      'frame_sequence': sequence_id,
+      'frame_timestamp': timestamp,
+      'frame_index': frame_index,
+      'frame_sequence_id': sequence_id,
+      'frame': (frame_buffer, is_keyframe, frame_index),
       'toa_s': toa_s
     }
     self._publish(tag=tag, process_time_s=process_time_s, data={camera_id: data})

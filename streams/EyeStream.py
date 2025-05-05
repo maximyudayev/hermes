@@ -290,6 +290,12 @@ class EyeStream(Stream):
                       sampling_rate_hz=fps_video_world, 
                       data_notes=self._data_notes['eye-video-world']['frame_index'])
       self.add_stream(device_name='eye-video-world', 
+                      stream_name='frame_sequence_id',
+                      data_type='uint64', 
+                      sample_size=(1),
+                      sampling_rate_hz=fps_video_world, 
+                      data_notes=self._data_notes['eye-video-world']['frame_sequence_id'])
+      self.add_stream(device_name='eye-video-world', 
                       stream_name='frame',
                       data_type='uint8', 
                       sample_size=shape_video_world,
@@ -314,6 +320,12 @@ class EyeStream(Stream):
                       sampling_rate_hz=fps_video_eye0, 
                       data_notes=self._data_notes['eye-video-eye0']['frame_index'])
       self.add_stream(device_name='eye-video-eye0', 
+                      stream_name='frame_sequence_id',
+                      data_type='uint64', 
+                      sample_size=(1),
+                      sampling_rate_hz=fps_video_eye0, 
+                      data_notes=self._data_notes['eye-video-eye0']['frame_sequence_id'])
+      self.add_stream(device_name='eye-video-eye0', 
                       stream_name='frame',
                       data_type='uint8', 
                       sample_size=shape_video_eye0,
@@ -336,6 +348,12 @@ class EyeStream(Stream):
                         sample_size=(1),
                         sampling_rate_hz=fps_video_eye1, 
                         data_notes=self._data_notes['eye-video-eye1']['frame_index'])
+        self.add_stream(device_name='eye-video-eye1', 
+                        stream_name='frame_sequence_id',
+                        data_type='uint64', 
+                        sample_size=(1),
+                        sampling_rate_hz=fps_video_eye1, 
+                        data_notes=self._data_notes['eye-video-eye1']['frame_sequence_id'])
         self.add_stream(device_name='eye-video-eye1', 
                         stream_name='frame',
                         data_type='uint8', 
@@ -590,6 +608,9 @@ class EyeStream(Stream):
                         'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ])
       self._data_notes['eye-video-eye%s' % i]['frame_index'] = OrderedDict([
+        ('Description', 'The frame index starting from 0, w.r.t. to that of the Pupil Core service.'),
+      ])
+      self._data_notes['eye-video-eye%s' % i]['frame_sequence_id'] = OrderedDict([
         ('Description', 'The frame index recorded by the Pupil Core service, '
                         'which relates to world frame used for annotation'),
       ])
@@ -603,6 +624,9 @@ class EyeStream(Stream):
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
     ])
     self._data_notes['eye-video-world']['frame_index'] = OrderedDict([
+      ('Description', 'The frame index starting from 0, w.r.t. to that of the Pupil Core service.'),
+    ])
+    self._data_notes['eye-video-world']['frame_sequence_id'] = OrderedDict([
       ('Description', 'The frame index recorded by the Pupil Core service, '
                       'which relates to world frame used for annotation'),
     ])
