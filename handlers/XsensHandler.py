@@ -104,24 +104,25 @@ class XsensFacade:
       if all(self._device_connection_status.values()): self._is_all_connected_queue.put(True)
 
     def on_each_packet_received(toa_s, device, packet) -> None:
-      device_id: str = str(device.deviceId())
-      acc = packet.calibratedAcceleration()
-      gyr = packet.calibratedGyroscopeData()
-      mag = packet.calibratedMagneticField()
-      quaternion = packet.orientationQuaternion()
-      timestamp = packet.sampleTimeFine()
-      counter = packet.packetCounter()
-      data = {
-        "device_id":            device_id,
-        "acc":                  acc,
-        "gyr":                  gyr,
-        "mag":                  mag,
-        "quaternion":           quaternion,
-        "toa_s":                toa_s,
-        "timestamp":            timestamp,
-        "counter_onboard":      counter,
-      }
-      self._packet_queue.put({"key": device_id, "data": data, "counter": counter})
+      if self._is_keep_data:
+        device_id: str = str(device.deviceId())
+        acc = packet.calibratedAcceleration()
+        gyr = packet.calibratedGyroscopeData()
+        mag = packet.calibratedMagneticField()
+        quaternion = packet.orientationQuaternion()
+        timestamp = packet.sampleTimeFine()
+        counter = packet.packetCounter()
+        data = {
+          "device_id":            device_id,
+          "acc":                  acc,
+          "gyr":                  gyr,
+          "mag":                  mag,
+          "quaternion":           quaternion,
+          "toa_s":                toa_s,
+          "timestamp":            timestamp,
+          "counter_onboard":      counter,
+        }
+        self._packet_queue.put({"key": device_id, "data": data, "counter": counter})
 
     # Register event handler on the main device
     self._conn_callback = AwindaConnectivityCallback(on_wireless_device_connected=on_wireless_device_connected)
