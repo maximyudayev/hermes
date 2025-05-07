@@ -30,7 +30,6 @@ from abc import ABC, abstractmethod
 import copy
 from collections import OrderedDict, deque
 from typing import Any, Iterable, Iterator, Mapping
-import cv2
 import dash_bootstrap_components as dbc
 from threading import Lock
 
