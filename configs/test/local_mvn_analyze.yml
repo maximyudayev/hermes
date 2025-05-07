@@ -67,9 +67,9 @@ logging_spec:
 producer_specs:
   # Stream from one or more cameras.
   - class: "MvnAnalyzeStreamer"
-    mvn_setup           : "lower_body"
+    mvn_setup           : "full_body"
     sampling_rate_hz    : 60
-    is_euler            : True
+    is_euler            : False
     is_quaternion       : True
     is_joint_angles     : True
     is_linear_segments  : True
