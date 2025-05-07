@@ -29,6 +29,7 @@
 from collections import OrderedDict, namedtuple
 from enum import Enum
 from streams import Stream
+from utils.dict_utils import convert_dict_values_to_str
 from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
 import dash_bootstrap_components as dbc
@@ -447,7 +448,7 @@ class MvnAnalyzeStream(Stream):
                       data_notes=self._data_notes['xsens-time']['timestamp_str'])
       self.add_stream(device_name='xsens-time',
                       stream_name='counter',
-                      data_type='int32',
+                      data_type='uint32',
                       sample_size=(1),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
@@ -468,7 +469,7 @@ class MvnAnalyzeStream(Stream):
     acceleration_plot = LinePlotVisualizer(stream=self,
                                            unique_id='xsens_acc',
                                            data_path={'xsens-motion-trackers': ['acceleration']},
-                                           legend_names=list(self._device_mapping.values()),
+                                           legend_names=list(self._mvn_sensor_setup.values()),
                                            plot_duration_timesteps=self._timesteps_before_solidified,
                                            update_interval_ms=self._update_interval_ms,
                                            col_width=6)
@@ -485,125 +486,154 @@ class MvnAnalyzeStream(Stream):
     self._data_notes.setdefault('xsens-motion-trackers', {})
     self._data_notes.setdefault('xsens-time', {})
     
-    # Segments.
+    # 3D Pose.
     self._data_notes['xsens-pose']['position'] = OrderedDict([
+      ('Description', 'Global position of segments in the Z-up right-handed coordinate system'),
       ('Units', 'cm'),
-      ('Coordinate frame', 'A Y-up right-handed frame if Euler data is streamed, otherwise a Z-up right-handed frame'),
-      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-pose']['euler'] = OrderedDict([
+      ('Description', 'Global rotation of segments in degrees in the Z-up right-handed coordinate system'),
       ('Units', 'degrees'),
-      ('Coordinate frame', 'A Y-Up, right-handed coordinate system'),
-      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-pose']['quaternion'] = OrderedDict([
-      ('Coordinate frame', 'A Z-Up, right-handed coordinate system'),
-      ('Normalization', 'Normalized but not necessarily positive-definite'),
-      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
+      ('Description', 'Global orientation of segments as unit quaternions in the Z-up right-handed coordinate system'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-pose']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-pose']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
     # Joints.
     self._data_notes['xsens-joints']['angle'] = OrderedDict([
+      ('Description', 'Joint angles between adjoint segments in the Z-Up, right-handed coordinate system'),
       ('Units', 'degrees'),
-      ('Coordinate frame', 'A Z-Up, right-handed coordinate system'),
-      # ('Joint parents - segment IDs',    self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentIDs']['streamed']),
-      # ('Joint parents - segment Names',  self._headings['xsens-joints']['joint_rotation_streamed_parents_segmentNames']['streamed']),
-      # ('Joint parents - point IDs',      self._headings['xsens-joints']['joint_rotation_streamed_parents_pointIDs']['streamed']),
-      # ('Joint children - segment IDs',   self._headings['xsens-joints']['joint_rotation_streamed_children_segmentIDs']['streamed']),
-      # ('Joint children - segment Names', self._headings['xsens-joints']['joint_rotation_streamed_children_segmentNames']['streamed']),
-      # ('Joint children - point IDs',     self._headings['xsens-joints']['joint_rotation_streamed_children_pointIDs']['streamed']),
-      # (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
+      (Stream.metadata_data_headings_key, convert_dict_values_to_str(self._mvn_joint_setup, preserve_nested_dicts=False))
     ])
     self._data_notes['xsens-joints']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-joints']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
     # Center of mass.
     self._data_notes['xsens-com']['position'] = OrderedDict([
-      ('Units', 'cm'),
-      ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['position_cm'])
+      ('Description', '3D position of the Center of Mass in the Z-up, right-handed coordinate system'),
+      ('Units', 'centimeter'),
+      (Stream.metadata_data_headings_key, '')
     ])
     self._data_notes['xsens-com']['velocity'] = OrderedDict([
-      ('Units', 'cm/s'),
-      ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['velocity_cm_s'])
+      ('Description', 'Velocity of the Center of Mass in the Z-up, right-handed coordinate system'),
+      ('Units', 'centimeter/second'),
+      (Stream.metadata_data_headings_key, '')
     ])
     self._data_notes['xsens-com']['acceleration'] = OrderedDict([
-      ('Units', 'cm/s^2'),
-      ('Coordinate frame', 'A Z-up, right-handed coordinate system'),
-      # (Stream.metadata_data_headings_key, self._headings['xsens-com']['acceleration_cm_ss'])
+      ('Description', 'Linear acceleration of the Center of Mass in the Z-up, right-handed coordinate system'),
+      ('Units', 'centimeter/second^2'),
+      (Stream.metadata_data_headings_key, '')
     ])
     self._data_notes['xsens-com']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-com']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
     # Linear segments.
     self._data_notes['xsens-linear-segments']['position'] = OrderedDict([
-      ('Units', 'cm'),
+      ('Description', '3D coordinates of the segment in the global coordinate system'),
+      ('Units', 'centimeter'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-linear-segments']['velocity'] = OrderedDict([
-      ('Units', 'cm/s'),
+      ('Description', 'Linear velocity of the segment in the global coordinate system'),
+      ('Units', 'centimeter/second'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-linear-segments']['acceleration'] = OrderedDict([
-      ('Units', 'cm/s^2'),
+      ('Description', 'Linear acceleration of the segment in the global coordinate system'),
+      ('Units', 'centimeter/second^2'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-linear-segments']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-linear-segments']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
-    # Linear segments.
+    # Angular segments.
     self._data_notes['xsens-angular-segments']['quaternion'] = OrderedDict([
+      ('Description', 'Quaternion orientation vector of the segment with respect to the global coordinate system'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-angular-segments']['velocity'] = OrderedDict([
-      ('Units', 'deg/s'),
+      ('Description', 'Angular velocity of the segment'),
+      ('Units', 'degree/second'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-angular-segments']['acceleration'] = OrderedDict([
-      ('Units', 'deg/s^2'),
+      ('Description', 'Angular acceleration of the segment'),
+      ('Units', 'degree/second^2'),
+      (Stream.metadata_data_headings_key, list(self._mvn_segment_setup.values()))
     ])
     self._data_notes['xsens-angular-segments']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-angular-segments']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
     # Sensors.
     self._data_notes['xsens-motion-trackers']['quaternion'] = OrderedDict([
+      ('Description', 'Quaternion orientation vector of the sensor with respect to the global coordinate system'),
+      (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
     self._data_notes['xsens-motion-trackers']['free_acceleration'] = OrderedDict([
-      ('Units', 'm/s^2'),
-      ('Description', 'Gravitational component removed')
+      ('Description', 'Local linear acceleration of the IMU, with the gravitational component subtracted')
+      ('Units', 'meter/second^2'),
+      (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
     self._data_notes['xsens-motion-trackers']['acceleration'] = OrderedDict([
-      ('Units', 'm/s^2'),
-      ('Description', 'Gravitational component removed')
+      ('Description', 'Local raw linear acceleration of the IMU')
+      ('Units', 'meter/second^2'),
+      (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
     self._data_notes['xsens-motion-trackers']['gyroscope'] = OrderedDict([
-      ('Units', 'm/s'),
-      ('Description', 'Gravitational component removed')
+      ('Description', 'Local raw angular velocity of the IMU')
+      ('Units', 'meter/second'),
+      (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
     self._data_notes['xsens-motion-trackers']['magnetometer'] = OrderedDict([
+      ('Description', 'Local raw magnetic field of the IMU, normalized against the magnetic field at the factory')
       ('Units', 'a.u. w.r.t. magnetic field at the calibration site')
+      (Stream.metadata_data_headings_key, list(self._mvn_sensor_setup.values()))
     ])
     self._data_notes['xsens-motion-trackers']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-motion-trackers']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])
 
     # Time.
     self._data_notes['xsens-time']['timestamp_s'] = OrderedDict([
+      ('Description', 'Timestamp of the packet w.r.t. system time')
     ])
     self._data_notes['xsens-time']['time_utc_str'] = OrderedDict([
+      ('Description', 'Timestamp of the packet represented as a UTC text string')
     ])
     self._data_notes['xsens-time']['timestamp_str'] = OrderedDict([
+      ('Description', 'Timestamp of the packet w.r.t. system time represented as text')
     ])
     self._data_notes['xsens-time']['counter'] = OrderedDict([
+      ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-time']['time_since_start_s'] = OrderedDict([
+      ('Description', 'Time of sampling of the data by MVN Analyze'),
     ])

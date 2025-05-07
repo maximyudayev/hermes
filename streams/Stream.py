@@ -57,7 +57,7 @@ class Stream(ABC):
   # Will store the class name of each sensor in HDF5 metadata,
   #   to facilitate recreating classes when replaying the logs later.
   # The following is the metadata key to store that information.
-  metadata_class_name_key = 'SensorStreamer class name'
+  metadata_class_name_key = 'Stream class name'
   # Will look for a special metadata key that labels data channels,
   #   to use for logging purposes and general user information.
   metadata_data_headings_key = 'Data headings'
