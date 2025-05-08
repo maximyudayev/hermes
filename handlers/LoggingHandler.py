@@ -462,10 +462,10 @@ class Logger(LoggerInterface):
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
-          fps = stream_info['sampling_rate_hz']
+          fps = float(stream_info['sampling_rate_hz'])
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
           input_stream_format: str = stream_info['ffmpeg_input_format']
-          
+
           # TODO: pass as arguments to the logger.
           scaled_width = 1280
           scaled_height = 720
@@ -482,7 +482,9 @@ class Logger(LoggerInterface):
             video_stream = ffmpeg.filter(video_stream, 'scale', scaled_width, scaled_height) # scale down the image to reduce stress on encoder.
           if self._is_video_deflicker:
             video_stream = ffmpeg.filter(video_stream, 'deflicker', mode='pm', size=deflicker_kernel_size) # remove line noise from room lights.
-
+          # TODO: use this to stream encoded video into a local file, and also as RTMP stream to the GUI.
+          # video_stream = ffmpeg.filter_multi_output
+          # TODO: set constant bit rate in the codec spec for this PC.
           video_stream = ffmpeg.output(video_stream,
                                        filename=filepath_video,
                                        vcodec=self._video_codec['codec_name'],

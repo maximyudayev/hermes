@@ -1,0 +1,7 @@
+# Optimized codec settings for Intel Core i3-9100TE 2.2G 6M on IPC962-525-N-DC-Q370
+codec_name  : 'h264_qsv'
+pix_format  : 'nv12'
+options:
+  preset      : 'veryfast'
+  "profile:v" : 'main'
+  scenario    : 'livestreaming'

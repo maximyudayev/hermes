@@ -210,6 +210,7 @@ class MvnAnalyzeStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -253,6 +254,8 @@ class MvnAnalyzeStreamer(Producer):
       if message_end_index is not None:
         self._buffer = self._buffer[message_end_index+1:]
         self._xsens_message_start_time_s = None
+      # Yield the processor to another thread.
+      time.sleep(0.001)
     else:
       self._send_end_packet()
 

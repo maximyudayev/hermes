@@ -25,6 +25,7 @@
 #
 # ############
 
+import time
 from nodes.producers.Producer import Producer
 from streams import EyeStream
 from handlers.PupilFacade import PupilFacade
@@ -102,6 +103,7 @@ class EyeStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=None,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -119,7 +121,6 @@ class EyeStreamer(Producer):
 
   def _connect(self) -> bool:
     # TODO: launch Pupil Capture process
-
     self._handler: PupilFacade = PupilFacade(is_binocular=self._is_binocular,
                                              is_stream_video_world=self._is_stream_video_world,
                                              is_stream_video_eye=self._is_stream_video_eye,
@@ -142,6 +143,8 @@ class EyeStreamer(Producer):
       process_time_s, data = self._handler.process_data()
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data=data)
+      # Yield the processor to another thread.
+      time.sleep(0.001)
     else:
       self._send_end_packet()
 

@@ -92,6 +92,7 @@ class MoxyStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -167,11 +168,16 @@ class MoxyStreamer(Producer):
           }
           self._publish(tag=tag, process_time_s=process_time_s, data={'moxy-%s-data'%device_id: data})
           self._previous_counters[device_id] = counter
+          # Yield the processor to another thread.
+          time.sleep(0.001)
       else:
         print("Unknown data type '%s': %r", data_type, data, flush=True)
     except queue.Empty:
       if not self._is_continue_capture:
         self._send_end_packet()
+      else:
+        # Yield the processor to another thread.
+        time.sleep(0.001)
 
 
   def _stop_new_data(self):

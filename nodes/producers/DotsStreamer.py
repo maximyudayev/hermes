@@ -25,6 +25,7 @@
 #
 # ############
 
+import time
 from nodes.producers.Producer import Producer
 from streams import DotsStream
 
@@ -67,7 +68,6 @@ class DotsStreamer(Producer):
                **_):
 
     # Initialize any state that the sensor needs.
-    self._sampling_rate_hz = sampling_rate_hz
     self._num_joints = num_joints
     self._master_device = master_device
     self._payload_mode = payload_mode
@@ -78,7 +78,7 @@ class DotsStreamer(Producer):
 
     stream_info = {
       "num_joints": self._num_joints,
-      "sampling_rate_hz": self._sampling_rate_hz,
+      "sampling_rate_hz": sampling_rate_hz,
       "device_mapping": device_mapping,
       "payload_mode": payload_mode,
       "timesteps_before_solidified": timesteps_before_solidified
@@ -89,6 +89,7 @@ class DotsStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -150,6 +151,9 @@ class DotsStreamer(Producer):
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
+    else:
+      # Yield the processor to another thread.
+      time.sleep(0.001)
 
 
   def _stop_new_data(self):

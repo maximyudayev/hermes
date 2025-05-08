@@ -74,6 +74,7 @@ class TmsiStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -196,9 +197,14 @@ class TmsiStreamer(Producer):
           'counter': sample[-1],
         }
         self._publish(tag=tag, process_time_s=process_time_s, data={'tmsi-data': data})
+        # Yield the processor to another thread.
+        time.sleep(0.001)
     except queue.Empty:
       if not self._is_continue_capture:
         self._send_end_packet()
+      else:
+        # Yield the processor to another thread.
+        time.sleep(0.001)
 
 
   def _stop_new_data(self):

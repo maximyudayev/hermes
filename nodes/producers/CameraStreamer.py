@@ -82,6 +82,7 @@ class CameraStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=fps,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -169,6 +170,9 @@ class CameraStreamer(Producer):
     elif is_timeout and not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
+    else:
+      # Yield the processor to another thread.
+      time.sleep(0.001)
 
 
   def _keep_samples(self) -> None:

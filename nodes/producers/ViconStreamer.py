@@ -68,6 +68,7 @@ class ViconStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=100, # Vicon sends packets in bursts at 100 Hz.
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -160,6 +161,9 @@ class ViconStreamer(Producer):
       if not self._is_continue_capture:
         # If triggered to stop and no more available data, send empty 'END' packet and join.
         self._send_end_packet()
+      else:
+        # Yield the processor to another thread.
+        time.sleep(0.001)
 
 
   def _stop_new_data(self):

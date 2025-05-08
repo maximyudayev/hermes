@@ -51,17 +51,20 @@ class Producer(Node):
                host_ip: str,
                stream_info: dict,
                logging_spec: dict,
+               sampling_rate_hz: float,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
                print_status: bool = True,
                print_debug: bool = False) -> None:
-    super().__init__(host_ip=host_ip, 
-                     port_sync=port_sync, 
-                     port_killsig=port_killsig, 
-                     print_status=print_status, 
+    super().__init__(host_ip=host_ip,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig,
+                     print_status=print_status,
                      print_debug=print_debug)
+    self._sampling_rate_hz = sampling_rate_hz
+    self._sampling_period = 1/sampling_rate_hz
     self._port_pub = port_pub
     self._is_continue_capture = True
     self._transmit_delay_sample_period_s = transmit_delay_sample_period_s

@@ -118,7 +118,7 @@ class Stream(ABC):
                  stream_name: str,
                  data_type: str,
                  sample_size: Iterable[int],
-                 sampling_rate_hz: float,
+                 sampling_rate_hz: float = None,
                  is_measure_rate_hz: bool = False,
                  data_notes: str | dict = {},
                  is_video: bool = False,
@@ -145,7 +145,6 @@ class Stream(ABC):
                        stream_name='process_time_s',
                        data_type='float64',
                        sample_size=(1,),
-                       sampling_rate_hz=0.0,
                        data_notes='Time of arrival of the data point to the host PC, ' \
                                   'to be used for aligned idexing of data between distributed hosts.')
 
@@ -155,7 +154,7 @@ class Stream(ABC):
                   stream_name: str,
                   data_type: str,
                   sample_size: Iterable[int],
-                  sampling_rate_hz: float,
+                  sampling_rate_hz: float = None,
                   is_measure_rate_hz: bool = False,
                   data_notes: str | dict = {},
                   is_video: bool = False,
@@ -171,7 +170,7 @@ class Stream(ABC):
       ('data_type', data_type),
       ('sample_size', sample_size),
       ('data_notes', data_notes),
-      ('sampling_rate_hz', sampling_rate_hz),
+      ('sampling_rate_hz', '%.2f'%sampling_rate_hz),
       ('is_measure_rate_hz', is_measure_rate_hz),
       ('is_video', is_video),
       ('is_audio', is_audio),
@@ -187,8 +186,9 @@ class Stream(ABC):
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
     # Some metadata to keep track of during running to measure the actual frame rate.
     if is_measure_rate_hz:
+      sampling_rate_hz: float = sampling_rate_hz if sampling_rate_hz is not None else 0.0
       # Set at start actual rate equal to desired sample rate
-      self._streams_info[device_name][stream_name]['actual_rate_hz'] = self._streams_info[device_name][stream_name]['sampling_rate_hz']
+      self._streams_info[device_name][stream_name]['actual_rate_hz'] = sampling_rate_hz
       # Create a circular buffer of 1 second, w.r.t. desired sample rate
       circular_buffer_len: int = max(round(sampling_rate_hz), 1)
       self._streams_info[device_name][stream_name]['dt_circular_buffer'] = list([1/sampling_rate_hz] * circular_buffer_len)

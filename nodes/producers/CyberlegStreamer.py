@@ -54,6 +54,7 @@ class CyberlegStreamer(Producer):
   def __init__(self,
                host_ip: str,
                logging_spec: dict,
+               sampling_rate_hz: int = 10,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -63,11 +64,13 @@ class CyberlegStreamer(Producer):
 
     self._num_packet_bytes = 3
     stream_info = {
+      "sampling_rate_hz": sampling_rate_hz
     }
 
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -119,6 +122,8 @@ class CyberlegStreamer(Producer):
       }
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'cyberleg-data': data})
+      # Yield the processor to another thread.
+      time.sleep(0.001)
     else:
       self._send_end_packet()
 

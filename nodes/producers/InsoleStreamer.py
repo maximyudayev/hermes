@@ -47,7 +47,7 @@ class InsoleStreamer(Producer):
   def __init__(self,
                host_ip: str,
                logging_spec: dict,
-               sampling_rate_hz: int = 100,
+               sampling_rate_hz: float = 100,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -63,6 +63,7 @@ class InsoleStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -118,6 +119,8 @@ class InsoleStreamer(Producer):
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'insoles-data': data})
+      # Yield the processor to another thread.
+      time.sleep(0.001)
     else:
       self._send_end_packet()
 

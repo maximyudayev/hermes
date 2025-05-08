@@ -25,6 +25,7 @@
 #
 # ############
 
+import time
 from nodes.producers.Producer import Producer
 from streams import AwindaStream
 
@@ -63,20 +64,20 @@ class AwindaStreamer(Producer):
                **_):
 
     self._num_joints = num_joints
-    self._sampling_rate_hz = sampling_rate_hz
     self._radio_channel = radio_channel
     self._device_mapping = device_mapping
     self._row_id_mapping = OrderedDict([(device_id, row_id) for row_id, device_id in enumerate(self._device_mapping.values())])
 
     stream_info = {
       "num_joints": self._num_joints,
-      "sampling_rate_hz": self._sampling_rate_hz,
+      "sampling_rate_hz": sampling_rate_hz,
       "device_mapping": self._device_mapping
     }
 
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -138,15 +139,9 @@ class AwindaStreamer(Producer):
           counter_onboard[id] = packet["counter_onboard"]
 
       data = {
-        'acceleration-x': acceleration[:,0],
-        'acceleration-y': acceleration[:,1],
-        'acceleration-z': acceleration[:,2],
-        'gyroscope-x': gyroscope[:,0],
-        'gyroscope-y': gyroscope[:,1],
-        'gyroscope-z': gyroscope[:,2],
-        'magnetometer-x': magnetometer[:,0],
-        'magnetometer-y': magnetometer[:,1],
-        'magnetometer-z': magnetometer[:,2],
+        'acceleration': acceleration,
+        'gyroscope': gyroscope,
+        'magnetometer': magnetometer,
         'quaternion': quaternion,
         'timestamp': timestamp,
         'toa_s': toa_s,
@@ -156,9 +151,14 @@ class AwindaStreamer(Producer):
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'awinda-imu': data})
+      # Yield the processor to another thread.
+      time.sleep(0.001)
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
+    else:
+      # Yield the processor to another thread.
+      time.sleep(0.001)
 
 
   def _stop_new_data(self):
