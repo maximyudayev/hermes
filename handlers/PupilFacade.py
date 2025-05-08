@@ -261,11 +261,11 @@ class PupilFacade:
 
 
   # A helper to clear the Pupil socket receive buffer.
-  def _flush_device_input_buffer(self) -> None:
+  def _flush_buffer(self, socket: zmq.SyncSocket) -> None:
     flush_completed = False
     while not flush_completed:
       try:
-        self._zmq_requester.recv(flags=zmq.NOBLOCK)
+        socket.recv(flags=zmq.NOBLOCK)
       except:
         flush_completed = True
 
@@ -277,7 +277,7 @@ class PupilFacade:
   def _send_to_ipc(self, payload: dict | str, topic: str = None) -> str:
     # Try to receive any outstanding messages, since sending
     #  will fail if there are any waiting.
-    self._flush_device_input_buffer()
+    self._flush_buffer(socket=self._receiver)
     # Send the desired data as a dict or string.
     if isinstance(payload, dict):
       # Send the topic, using a default if needed.

@@ -90,10 +90,6 @@ class TmsiStreamer(Producer):
     return None
 
 
-  def _keep_samples(self) -> None:
-    pass
-
-
   def _connect(self) -> bool:
     try:
       TMSiSDK().discover(dev_type=DeviceType.saga,
@@ -173,6 +169,15 @@ class TmsiStreamer(Producer):
       print(e)
       print("SAGA",'Unsuccessful connection to the TMSi streamer.', flush=True)
       return False
+
+
+  def _keep_samples(self) -> None:
+    # Clear the buffer queue of accumulated values during the system bring-up.
+    try:
+      while True:
+        self.data_queue.get_nowait()
+    except queue.Empty:
+      return
 
 
   def _process_data(self) -> None:

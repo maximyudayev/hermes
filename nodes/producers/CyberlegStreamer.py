@@ -86,20 +86,28 @@ class CyberlegStreamer(Producer):
   def _connect(self) -> bool:
     try:
       self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      self._sock.settimeout(10)
       self._sock.connect((IP_PROSTHESIS, int(PORT_PROSTHESIS)))
       self._sock.recv(self._num_packet_bytes)
       return True
     except socket.timeout:
+      print('CyberLeg TCP socket timed out on connect/receive. Make sure the CyberLeg is ON and on the LAN.', flush=True)
       return False
 
 
   def _keep_samples(self) -> None:
+    # TODO: flush socket buffer.
     pass
 
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      payload = self._sock.recv(self._num_packet_bytes) 
+      try:
+        payload = self._sock.recv(self._num_packet_bytes) 
+      except socket.timeout:
+        print('CyberLeg UDP socket timed out on receive.', flush=True)
+        return
+
       process_time_s: float = get_time()
       # Interpret smartphone bytes correctly from the prosthesis.
       msg = struct.unpack('ccc', payload) # TODO: unpack the packet.

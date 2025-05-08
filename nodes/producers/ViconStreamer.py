@@ -125,6 +125,7 @@ class ViconStreamer(Producer):
 
 
   def _keep_samples(self) -> None:
+    # NOTE: If _vicon_buffer_size == 1, the server buffers only the latest measurement -> no need to flush anything.
     pass
 
 

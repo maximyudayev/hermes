@@ -229,24 +229,32 @@ class MvnAnalyzeStreamer(Producer):
   # Connect to the Xsens network streams, and determine what streams are active.
   def _connect(self) -> bool:
     # Open a socket to the Xsens network stream.
-    if MvnNetProto.TCP == self._mvn_protocol:
-      self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      self._socket.bind((self._mvn_ip, int(self._mvn_port)))
-      self._socket.listen(1) # number of waiting connections.
-      self._socket_connection, socket_address = self._socket.accept()
-      self._socket_connection.setblocking(False)
-    elif MvnNetProto.UDP == self._mvn_protocol:
+    if MvnNetProto.UDP == self._mvn_protocol:
       self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
       self._socket.settimeout(10) # timeout for all socket operations, such as receiving if the Xsens network stream is inactive.
-      self._socket.bind((self._mvn_ip, int(self._mvn_port)))
     else:
-      raise ValueError("[MVN Analyze]: unsupported network protocol ", self._mvn_protocol)
+      raise ValueError("[MVN Analyze Streamer]: currently unsupported network protocol ", self._mvn_protocol)
     return True
 
 
-  # TODO: enable receiving of packets.
   def _keep_samples(self) -> None:
-    pass
+    # Bind the socket after nodes synced, ensures no buffering on the socket happens. 
+    self._socket.bind((self._mvn_ip, int(self._mvn_port)))
+
+
+  # Parse an Xsens message to extract its data.
+  def _process_data(self) -> None:
+    if self._is_continue_capture:
+      self._read_socket_into_buffer()
+
+      message_end_index = self._process_buffer()
+      # If the message was complete, remove it from the buffer
+      #  and note that we're waiting for a new start code.
+      if message_end_index is not None:
+        self._buffer = self._buffer[message_end_index+1:]
+        self._xsens_message_start_time_s = None
+    else:
+      self._send_end_packet()
 
 
   # Helper to read a specified number of bytes starting at a specified index
@@ -264,34 +272,18 @@ class MvnAnalyzeStreamer(Producer):
     return res, next_index
 
 
-  # Parse an Xsens message to extract its data.
-  def _process_data(self) -> None:
-    if self._is_continue_capture:
-      # TODO: Clear the data if this is during the initial flush period.
-      self._read_socket_into_buffer()
-
-      message_end_index = self._process_buffer()
-      # If the message was complete, remove it from the buffer
-      #  and note that we're waiting for a new start code.
-      if message_end_index is not None:
-        self._buffer = self._buffer[message_end_index+1:]
-        self._xsens_message_start_time_s = None
-    else:
-      self._send_end_packet()
-
-
   def _read_socket_into_buffer(self) -> None:
-    # TODO: what if recv times out?
-    if MvnNetProto.TCP == self._mvn_protocol:
-      data = self._socket_connection.recv(self._buffer_read_size)
-    elif MvnNetProto.UDP == self._mvn_protocol:
-      data = self._socket.recv(self._buffer_read_size)
+    try:
+      if MvnNetProto.UDP == self._mvn_protocol:
+        data = self._socket.recv(self._buffer_read_size)
 
-    if len(self._buffer)+len(data) <= self._buffer_max_size:
-      self._buffer += data
-    else:
-      # Remove old data if the buffer is overflowing.
-      self._buffer = data
+      if len(self._buffer)+len(data) <= self._buffer_max_size:
+        self._buffer += data
+      else:
+        # Remove old data if the buffer is overflowing.
+        self._buffer = data
+    except socket.timeout:
+      print('MVN UDP receive socket timed out on receive.', flush=True)
 
     # Record this as the message arrival time if it's the first time
     #  seeing this message start code in the buffer.
@@ -390,7 +382,8 @@ class MvnAnalyzeStreamer(Producer):
       num_fingers       = int.from_bytes(num_fingers,       byteorder='big', signed=False) # number of finger track segments
       num_props         = int.from_bytes(num_props,         byteorder='big', signed=False) # number of props (swords etc)
       reserved          = int.from_bytes(reserved,          byteorder='big', signed=False)
-      # TODO: enable multi-datagram case -> can't keep up with full-suit tracker data otherwise.
+
+      # TODO: enable multi-datagram case.
       assert datagram_counter == (1 << 7), 'Not a single last message'
       assert char_id == 0, 'We only support a single person (a single character).'
     except TypeError:

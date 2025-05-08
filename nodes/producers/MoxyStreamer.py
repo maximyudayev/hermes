@@ -132,7 +132,12 @@ class MoxyStreamer(Producer):
 
 
   def _keep_samples(self) -> None:
-    pass
+    # Clear the buffer queue of accumulated values during the system bring-up.
+    try:
+      while True:
+        self.node._datas.get_nowait()
+    except queue.Empty:
+      return
 
 
   def _process_data(self):

@@ -80,28 +80,24 @@ class InsoleStreamer(Producer):
 
 
   def _connect(self) -> bool:
-    try:
-      self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-      self._sock.settimeout(10)
-      self._sock.bind((IP_LOOPBACK, int(PORT_MOTICON)))
-      self._sock.recv(1024)
-      self._sock.settimeout(None)
-      return True
-    except socket.timeout:
-      print('[ERROR]: Check if OpenGO app and software are ON.\n', flush=True)
-      return False
-    except Exception as e:
-      print('[ERROR]: InsoleStreamer could not connect.\n', e, flush=True)
-      return False
+    self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self._sock.settimeout(10)
+    return True
 
 
   def _keep_samples(self) -> None:
-    pass
+    # Bind the socket after nodes synced, ensures no buffering on the socket happens. 
+    self._sock.bind((IP_LOOPBACK, int(PORT_MOTICON)))
 
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      payload, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
+      try:
+        payload, address = self._sock.recvfrom(1024) # data is whitespace-separated byte string
+      except socket.timeout:
+        print('Moticon insoles receive socket timed out on receive.', flush=True)
+        return
+
       process_time_s: float = get_time()
       payload = [float(word) for word in payload.split()] # splits byte string into array of (multiple) bytes, removing whitespace separators between measurements
 
