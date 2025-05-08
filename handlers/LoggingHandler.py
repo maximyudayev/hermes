@@ -489,8 +489,8 @@ class Logger(LoggerInterface):
                                        pix_fmt=self._video_codec['pix_format'],
                                        cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
                                        **self._video_codec['options'])
-          video_stream = ffmpeg.global_args(video_stream, '-hide_banner', '-log_level', 'error')
-          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True)
+          video_stream = video_stream.global_args('-hide_banner')
+          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True)
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -638,6 +638,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close()
+      video_writer.stderr.close()
+      video_writer.stdout.close()
       video_writer.wait()
     self._video_writers = []
 
