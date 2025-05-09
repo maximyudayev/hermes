@@ -78,8 +78,6 @@ class MoxyStreamer(Producer):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
-               print_status: bool = True,
-               print_debug: bool = False,
                **_):
     self._devices = devices
     self._previous_counters: dict[str, int] = {dev: None for dev in devices}
@@ -96,9 +94,7 @@ class MoxyStreamer(Producer):
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     transmit_delay_sample_period_s=transmit_delay_sample_period_s,
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
   def create_stream(cls, stream_info: dict) -> MoxyStream:

@@ -66,8 +66,6 @@ class EyeStreamer(Producer):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                port_pause: str = PORT_PAUSE,
-               print_status: bool = True,
-               print_debug: bool = False,
                timesteps_before_solidified: int = 0,
                **_) -> None:
 
@@ -106,9 +104,7 @@ class EyeStreamer(Producer):
                      sampling_rate_hz=None,
                      port_pub=port_pub,
                      port_sync=port_sync,
-                     port_killsig=port_killsig,
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     port_killsig=port_killsig)
 
 
   def create_stream(cls, stream_info: dict) -> EyeStream:

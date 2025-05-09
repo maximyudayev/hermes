@@ -166,11 +166,7 @@ class Node(NodeInterface):
   def __init__(self,
                host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC_HOST,
-               port_killsig: str = PORT_KILL,
-               print_status: bool = True,
-               print_debug: bool = False) -> None:
-    self._print_status = print_status
-    self._print_debug = print_debug
+               port_killsig: str = PORT_KILL) -> None:
     self._host_ip = host_ip
     self._port_sync = port_sync
     self._port_killsig = port_killsig

@@ -52,8 +52,6 @@ class ExperimentControlStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               print_status: bool = True, 
-               print_debug: bool = False,
                **_):
     
     stream_info = {
@@ -66,9 +64,7 @@ class ExperimentControlStreamer(Producer):
                      sampling_rate_hz=None,
                      port_pub=port_pub,
                      port_sync=port_sync,
-                     port_killsig=port_killsig,
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     port_killsig=port_killsig)
 
 
   # Instantiate Stream datastructure object specific to this Streamer.

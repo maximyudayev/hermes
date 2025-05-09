@@ -55,18 +55,14 @@ class Pipeline(Node):
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
-               port_killsig: str = PORT_KILL,
-               print_status: bool = True,
-               print_debug: bool = False) -> None:
+               port_killsig: str = PORT_KILL) -> None:
     # import within this context to avoid circular imports.
     from nodes.pipelines import PIPELINES
     from nodes.producers import PRODUCERS
 
     super().__init__(host_ip=host_ip,
-                     port_sync=port_sync, 
-                     port_killsig=port_killsig, 
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
     self._port_pub = port_pub
     self._port_sub = port_sub
     self._is_continue_produce = True

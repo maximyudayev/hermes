@@ -58,8 +58,6 @@ class CyberlegStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               print_status: bool = True, 
-               print_debug: bool = False,
                **_):
 
     self._num_packet_bytes = 3
@@ -73,9 +71,7 @@ class CyberlegStreamer(Producer):
                      sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
-                     port_killsig=port_killsig,
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     port_killsig=port_killsig)
 
 
   def create_stream(cls, stream_info: dict) -> CyberlegStream:

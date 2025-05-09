@@ -505,9 +505,7 @@ class Broker(BrokerInterface):
                port_sync_host: str = PORT_SYNC_HOST,
                port_sync_remote: str = PORT_SYNC_REMOTE,
                port_killsig: str = PORT_KILL,
-               is_master_broker: bool = None,
-               print_status: bool = True,
-               print_debug: bool = False) -> None:
+               is_master_broker: bool = None) -> None:
 
     # Record various configuration options.
     self._host_ip = host_ip
@@ -517,8 +515,6 @@ class Broker(BrokerInterface):
     self._port_sync_host = port_sync_host
     self._port_sync_remote = port_sync_remote
     self._port_killsig = port_killsig
-    self._print_status = print_status
-    self._print_debug = print_debug
     self._node_specs = node_specs
     self._is_quit = False
 
