@@ -180,7 +180,7 @@ class MvnAnalyzeStreamer(Producer):
     self._mvn_port = mvn_port
 
     # Note that the buffer read size must be large enough to receive a full Xsens message.
-    #   The longest message is currently from the stream "Position + Orientation (Quaternion)"
+    #   The longest message is currently from the stream "Position + Orientation (Quaternion)",
     #     which has a message length of 2040 when finger data is enabled.
     self._buffer_read_size = buffer_read_size
     self._buffer_max_size = self._buffer_read_size * 16
@@ -301,7 +301,7 @@ class MvnAnalyzeStreamer(Producer):
 
     # Try to process the message.
     metadata, next_index = self._process_header(message, next_index)
-    
+
     # Check that all were present by checking the last one.
     if metadata['payload_size'] is None:
       print('Incomplete MVN message.', flush=True)
@@ -312,10 +312,10 @@ class MvnAnalyzeStreamer(Producer):
     if payload is None:
       print('No MVN message payload yet.', flush=True)
       return None
-    
+
     extra_data = {
-      'counter'     : metadata['counter'],
-      'time_since_start_s': metadata['time_since_start_s'],
+      'counter': metadata['counter'],
+      'time_since_start_s': metadata['time_since_start_s'], # from metadata
     }
 
     data: NewDataDict = {}
@@ -382,7 +382,7 @@ class MvnAnalyzeStreamer(Producer):
       num_props         = int.from_bytes(num_props,         byteorder='big', signed=False) # number of props (swords etc)
       reserved          = int.from_bytes(reserved,          byteorder='big', signed=False)
 
-      # TODO: enable multi-datagram case.
+      # TODO: enable multi-datagram case. All packets fit in a single datagram size.
       assert datagram_counter == (1 << 7), 'Not a single last message'
       assert char_id == 0, 'We only support a single person (a single character).'
     except TypeError:
@@ -396,7 +396,7 @@ class MvnAnalyzeStreamer(Producer):
       if self._xsens_sample_index != counter:
         self._xsens_timestep_receive_time_s = self._xsens_message_start_time_s
         self._xsens_sample_index = counter
-    
+
     # Organize the metadata so far.
     return MvnMetadata(
       message_type=message_type,
@@ -431,7 +431,7 @@ class MvnAnalyzeStreamer(Producer):
 
     positions = np.zeros((self._num_segments, 3), dtype=np.float32)
     orientations = np.zeros((self._num_segments, num_orientation_elements), dtype=np.float32)
-    
+
     # Read the position and rotation of each segment.
     for _ in range(metadata['num_segments']):
       segment_id, next_index = self._read_bytes(message, next_index, 4)
@@ -441,7 +441,7 @@ class MvnAnalyzeStreamer(Producer):
       segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
       position = np.array(struct.unpack('!3f', position), np.float32)
       orientation = np.array(struct.unpack('!%df' % num_orientation_elements, orientation), np.float32)
-      
+
       if segment_id in self._segment_id_mapping.keys():
         # If using the Euler stream, received data is YZX so swap order to get XYZ.
         #   NOTE: that positions from the quaternion stream are already XYZ.
@@ -561,7 +561,7 @@ class MvnAnalyzeStreamer(Producer):
     orientations = np.zeros((self._num_segments, 4), dtype=np.float32)
     velocities = np.zeros((self._num_segments, 3), dtype=np.float32)
     accelerations = np.zeros((self._num_segments, 3), dtype=np.float32)
-    
+
     for _ in range(metadata['num_items']):
       segment_id, next_index = self._read_bytes(message, next_index, 4)
       orientation, next_index = self._read_bytes(message, next_index, 4*4)
@@ -652,8 +652,6 @@ class MvnAnalyzeStreamer(Producer):
 
     return {
       'timestamp_s': time_code_s,
-      'time_utc_str': time_code_str,
-      'timestamp_str': get_time_str(time_code_s, '%Y-%m-%d %H:%M:%S.%f'),
       **extra_data
     }, next_index
 

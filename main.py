@@ -35,6 +35,7 @@ import os
 import yaml
 import argparse
 
+__version = 'v0.1.0'
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(prog='HERMES',
@@ -42,14 +43,15 @@ if __name__ == '__main__':
                                                'for continual multimodal data acquisition and processing.',
                                    epilog='Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab.\n'
                                           'Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo '
-                                          'projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com].')
+                                          'projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com].',
+                                  formatter_class=argparse.RawTextHelpFormatter)
   parser.add_argument('--verbose', '-v',
                       action='count',
                       default=0,
                       help='increase level of logging verbosity [0,3]')
   parser.add_argument('--version',
                       action='version',
-                      version='%(prog)s 0.1.0')
+                      version='%(prog)s ' + __version)
 
   parser.add_argument('--experiment',
                       nargs='*',
@@ -144,10 +146,10 @@ if __name__ == '__main__':
       except yaml.YAMLError as e:
         print(e)
 
-  # Initialize folders and other chore data, and share programmatically across Node specs. 
+  # Initialize folders and other chore data, and share programmatically across Node specs.
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(time_s=args.log_time_s, return_time_s=True)
-  log_dir: str = os.path.join(script_dir, 
+  log_dir: str = os.path.join(script_dir,
                               'data',
                               *map(lambda tup: '_'.join(tup), args.experiment.items()))
   # Initialize a file for writing the log history of all printouts/messages.
@@ -163,6 +165,8 @@ if __name__ == '__main__':
 
 
   args.logging_spec['log_dir'] = log_dir
+  args.logging_spec['experiment'] = args.experiment
+  args.logging_spec['log_time_s'] = log_time_s
 
   # Add logging spec to each producer.
   for spec in args.producer_specs:
@@ -171,6 +175,7 @@ if __name__ == '__main__':
   # Add logging spec to each consumer.
   for spec in args.consumer_specs:
     spec['logging_spec']['log_dir'] = log_dir
+    args['logging_spec']['experiment'] = args.experiment
     spec['log_history_filepath'] = log_history_filepath
 
   producer_specs: list[dict] = args.producer_specs

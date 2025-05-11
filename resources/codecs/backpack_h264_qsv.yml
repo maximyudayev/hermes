@@ -5,3 +5,5 @@ options:
   preset      : 'veryfast'
   "profile:v" : 'main'
   scenario    : 'livestreaming'
+  crf         : 24
+  "b:v"       : 10M

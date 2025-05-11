@@ -29,7 +29,6 @@
 from collections import OrderedDict, namedtuple
 from enum import Enum
 from streams import Stream
-from utils.dict_utils import convert_dict_values_to_str
 from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
 import dash_bootstrap_components as dbc
@@ -195,10 +194,6 @@ class MvnAnalyzeStream(Stream):
     self._mvn_segment_setup = MVN_SEGMENT_SETUP[mvn_setup]
     self._mvn_joint_setup = MVN_JOINT_SETUP[mvn_setup]
     self._mvn_sensor_setup = MVN_SENSOR_SETUP[mvn_setup]
-
-    self._segment_id_mapping: dict[int, int] = dict(zip(self._mvn_segment_setup.keys(), range(len(self._mvn_segment_setup))))
-    self._joint_id_mapping: dict[int, int] = dict(zip(self._mvn_joint_setup.keys(), range(len(self._mvn_joint_setup))))
-    self._sensor_id_mapping: dict[int, int] = dict(zip(self._mvn_sensor_setup.keys(), range(len(self._mvn_sensor_setup))))
 
     self._num_segments = len(self._mvn_segment_setup)
     self._num_sensors = len(self._mvn_sensor_setup)
@@ -435,18 +430,6 @@ class MvnAnalyzeStream(Stream):
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-time']['timestamp_s'])
       self.add_stream(device_name='xsens-time',
-                      stream_name='time_utc_str',
-                      data_type='S26',
-                      sample_size=(1),
-                      sampling_rate_hz=self._sampling_rate_hz,
-                      data_notes=self._data_notes['xsens-time']['time_utc_str'])
-      self.add_stream(device_name='xsens-time',
-                      stream_name='timestamp_str',
-                      data_type='S26',
-                      sample_size=(1),
-                      sampling_rate_hz=self._sampling_rate_hz,
-                      data_notes=self._data_notes['xsens-time']['timestamp_str'])
-      self.add_stream(device_name='xsens-time',
                       stream_name='counter',
                       data_type='uint32',
                       sample_size=(1),
@@ -485,7 +468,7 @@ class MvnAnalyzeStream(Stream):
     self._data_notes.setdefault('xsens-angular-segments', {})
     self._data_notes.setdefault('xsens-motion-trackers', {})
     self._data_notes.setdefault('xsens-time', {})
-    
+
     # 3D Pose.
     self._data_notes['xsens-pose']['position'] = OrderedDict([
       ('Description', 'Global position of segments in the Z-up right-handed coordinate system'),
@@ -505,43 +488,40 @@ class MvnAnalyzeStream(Stream):
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-pose']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Joints.
     self._data_notes['xsens-joints']['angle'] = OrderedDict([
       ('Description', 'Joint angles between adjoint segments in the Z-Up, right-handed coordinate system'),
       ('Units', 'degrees'),
-      (Stream.metadata_data_headings_key, convert_dict_values_to_str(self._mvn_joint_setup, preserve_nested_dicts=False)),
+      (Stream.metadata_data_headings_key, {joint_details.name: joint_details.description for joint_details in self._mvn_joint_setup.values()}),
     ])
     self._data_notes['xsens-joints']['counter'] = OrderedDict([
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-joints']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Center of mass.
     self._data_notes['xsens-com']['position'] = OrderedDict([
       ('Description', '3D position of the Center of Mass in the Z-up, right-handed coordinate system'),
       ('Units', 'centimeter'),
-      (Stream.metadata_data_headings_key, ''),
     ])
     self._data_notes['xsens-com']['velocity'] = OrderedDict([
       ('Description', 'Velocity of the Center of Mass in the Z-up, right-handed coordinate system'),
       ('Units', 'centimeter/second'),
-      (Stream.metadata_data_headings_key, ''),
     ])
     self._data_notes['xsens-com']['acceleration'] = OrderedDict([
       ('Description', 'Linear acceleration of the Center of Mass in the Z-up, right-handed coordinate system'),
       ('Units', 'centimeter/second^2'),
-      (Stream.metadata_data_headings_key, ''),
     ])
     self._data_notes['xsens-com']['counter'] = OrderedDict([
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-com']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Linear segments.
@@ -564,7 +544,7 @@ class MvnAnalyzeStream(Stream):
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-linear-segments']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Angular segments.
@@ -586,7 +566,7 @@ class MvnAnalyzeStream(Stream):
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-angular-segments']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Sensors.
@@ -618,22 +598,16 @@ class MvnAnalyzeStream(Stream):
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
     self._data_notes['xsens-motion-trackers']['time_since_start_s'] = OrderedDict([
-      ('Description', 'Time of sampling of the data by MVN Analyze'),
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
 
     # Time.
-    self._data_notes['xsens-time']['timestamp_s'] = OrderedDict([
-      ('Description', 'Timestamp of the packet w.r.t. system time'),
-    ])
-    self._data_notes['xsens-time']['time_utc_str'] = OrderedDict([
-      ('Description', 'Timestamp of the packet represented as a UTC text string'),
-    ])
-    self._data_notes['xsens-time']['timestamp_str'] = OrderedDict([
-      ('Description', 'Timestamp of the packet w.r.t. system time represented as text'),
-    ])
     self._data_notes['xsens-time']['counter'] = OrderedDict([
       ('Description', 'Index of the sample provisioned by MVN Analyze'),
     ])
-    self._data_notes['xsens-time']['time_since_start_s'] = OrderedDict([
+    self._data_notes['xsens-time']['timestamp_s'] = OrderedDict([
       ('Description', 'Time of sampling of the data by MVN Analyze'),
+    ])
+    self._data_notes['xsens-time']['time_since_start_s'] = OrderedDict([
+      ('Description', 'MVN timecode from the datagram metadata'),
     ])
