@@ -51,7 +51,7 @@ class Producer(Node):
                host_ip: str,
                stream_info: dict,
                logging_spec: dict,
-               sampling_rate_hz: float,
+               sampling_rate_hz: float = float('nan'),
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,

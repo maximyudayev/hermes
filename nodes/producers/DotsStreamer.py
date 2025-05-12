@@ -137,9 +137,10 @@ class DotsStreamer(Producer):
         id = self._row_id_mapping[device]
 
         # Check that packet contents are not empty.
-        for data_name, _ in MOVELLA_PAYLOAD_MODE[self._payload_mode]['methods'].items():
-          if packet[data_name] is not None:
-            data[data_name][id] = packet[data_name]
+        if packet is not None:
+          for data_name, _ in MOVELLA_PAYLOAD_MODE[self._payload_mode]['methods'].items():
+            if packet[data_name].size:
+              data[data_name][id] = packet[data_name]
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'dots-imu': data})

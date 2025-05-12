@@ -303,7 +303,7 @@ class MovellaFacade:
                                                         if device_id != self._master_device_id], 
                                                     (self._master_device_id, self._connected_devices[self._master_device_id])]
     for (joint, device) in ordered_device_list:
-      if not device.startMeasurement(self._payload_mode.payload_mode):
+      if not device.startMeasurement(self._payload_mode["payload_mode"]):
         return False
     return True
 

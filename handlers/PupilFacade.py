@@ -277,7 +277,7 @@ class PupilFacade:
   def _send_to_ipc(self, payload: dict | str, topic: str = None) -> str:
     # Try to receive any outstanding messages, since sending
     #  will fail if there are any waiting.
-    self._flush_buffer(socket=self._receiver)
+    self._flush_buffer(socket=self._zmq_requester)
     # Send the desired data as a dict or string.
     if isinstance(payload, dict):
       # Send the topic, using a default if needed.
