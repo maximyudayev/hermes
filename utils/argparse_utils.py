@@ -51,6 +51,10 @@ def validate_path(s: str) -> str:
 
 def parse_type(s: str) -> int | float | str:
   if s.isdigit(): return int(s)
+  elif s == 'True':
+    return True
+  elif s == 'False':
+    return False
   else:
     try:
       return float(s)

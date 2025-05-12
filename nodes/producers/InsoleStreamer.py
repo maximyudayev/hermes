@@ -115,8 +115,6 @@ class InsoleStreamer(Producer):
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'insoles-data': data})
-      # Yield the processor to another thread.
-      time.sleep(0.001)
     else:
       self._send_end_packet()
 

@@ -28,7 +28,6 @@
 from collections import OrderedDict
 from handlers.MovellaHandler import MOVELLA_STATUS_MASK, MOVELLA_PAYLOAD_MODE
 from streams import Stream
-from utils.dict_utils import convert_dict_values_to_str
 from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
 import dash_bootstrap_components as dbc
@@ -158,7 +157,7 @@ class DotsStream(Stream):
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['euler'] = OrderedDict([
-      ('Description', 'Euler rotation vector [X,Y,Z], for pitch, roll, and yaw'),
+      ('Description', 'Euler rotation vector [X,Y,Z], for roll, pitch, and yaw'),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['free_acceleration'] = OrderedDict([
@@ -190,7 +189,7 @@ class DotsStream(Stream):
     ])
     self._data_notes['dots-imu']['status'] = OrderedDict([
       ('Description', 'One-hot-encoded bit mask specifying out-of-range status of a measurement in the 9-DOF inertial data.'),
-      ('Options', convert_dict_values_to_str(MOVELLA_STATUS_MASK, preserve_nested_dicts=False)),
+      ('Options', MOVELLA_STATUS_MASK),
       (Stream.metadata_data_headings_key, list(self._device_mapping.values())),
     ])
     self._data_notes['dots-imu']['counter'] = OrderedDict([

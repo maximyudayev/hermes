@@ -193,14 +193,9 @@ class TmsiStreamer(Producer):
           'counter': sample[-1],
         }
         self._publish(tag=tag, process_time_s=process_time_s, data={'tmsi-data': data})
-        # Yield the processor to another thread.
-        time.sleep(0.001)
     except queue.Empty:
       if not self._is_continue_capture:
         self._send_end_packet()
-      else:
-        # Yield the processor to another thread.
-        time.sleep(0.001)
 
 
   def _stop_new_data(self):

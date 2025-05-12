@@ -25,7 +25,6 @@
 #
 # ############
 
-import time
 from nodes.producers.Producer import Producer
 from streams import EyeStream
 from handlers.PupilFacade import PupilFacade
@@ -139,8 +138,6 @@ class EyeStreamer(Producer):
       process_time_s, data = self._handler.process_data()
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data=data)
-      # Yield the processor to another thread.
-      time.sleep(0.001)
     else:
       self._send_end_packet()
 

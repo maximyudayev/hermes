@@ -145,7 +145,8 @@ class StreamState(BrokerState):
   def run(self) -> None:
     asyncio.run(self._context._log_data())
     self._context._release_thread_pool()
-    self._context._set_state(DumpState(self._context))
+    self._is_continue_fsm = False
+    # self._context._set_state(DumpState(self._context))
 
 
 class DumpState(BrokerState):
@@ -467,7 +468,7 @@ class Logger(LoggerInterface):
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
-          fps = float(stream_info['sampling_rate_hz'])
+          fps = stream_info['sampling_rate_hz']
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
           input_stream_format: str = stream_info['ffmpeg_input_format']
           metadata_dict = {'metadata:g:%d'%i: '%s=%s'%(k,v) for i, (k,v) in enumerate([('title', '/'.join(self._experiment.values())),
@@ -498,11 +499,11 @@ class Logger(LoggerInterface):
                                        vcodec=self._video_codec['codec_name'],
                                        pix_fmt=self._video_codec['pix_format'],
                                        cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
-                                       g=round(fps), # GOP size to force keyframe every second. Encoders automatically set I-frame if drastic scene change is detected. 
                                        **self._video_codec['options'],
                                        **metadata_dict)
-          video_stream = video_stream.global_args('-hide_banner')
-          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True)
+          # video_stream = video_stream.global_args('-hide_banner')
+          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True)
+          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True)
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -571,13 +572,15 @@ class Logger(LoggerInterface):
     # Add experiment metadata on the HDF5 file.
     file_metadata = convert_dict_values_to_str({**self._experiment,
                                                 'Date': get_time_str(self._log_time_s, '%Y-%m-%d', False),
+                                                'Time': get_time_str(self._log_time_s, '%H-%M-%S', False),
                                                 'Comment': 'HERMES multi-modal data acquisition system recording'}, preserve_nested_dicts=False)
-    self._hdf5_file.attrs.update(file_metadata)
+    file_group = self._hdf5_file['/']
+    file_group.attrs.update(file_metadata)
     # Add metadata per stream.
     # Flatten and prune the dictionary to make it HDF5 compatible.
     for (streamer_name, stream) in self._streams.items():
       # Add the class name.
-      streamer_metadata = convert_dict_values_to_str({Stream.metadata_class_name_key: streamer_name}, preserve_nested_dicts=False)
+      streamer_metadata = convert_dict_values_to_str({Stream.metadata_class_name_key: type(stream).__name__}, preserve_nested_dicts=False)
       streamer_group = self._hdf5_file['/'.join([streamer_name])]
       streamer_group.attrs.update(streamer_metadata)
       for (device_name, device_info) in stream.get_stream_info_all().items():
@@ -624,7 +627,7 @@ class Logger(LoggerInterface):
         for (device_name, device_info) in stream.get_stream_info_all().items():
           for (stream_name, stream_info) in device_info.items():
             try:
-              dataset: h5py.Dataset = self._hdf5_file['/'.join([device_name, stream_name])]
+              dataset: h5py.Dataset = self._hdf5_file['/'.join([streamer_name, device_name, stream_name])]
             except KeyError: # a dataset was not created for this stream
               continue
             starting_index = self._next_data_indices_hdf5[streamer_name][device_name][stream_name]
@@ -638,8 +641,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close()
-      video_writer.stderr.close()
-      video_writer.stdout.close()
+      # video_writer.stderr.close()
+      # video_writer.stdout.close()
       video_writer.wait()
     self._video_writers = []
 
@@ -762,13 +765,12 @@ class Logger(LoggerInterface):
   #   into another synchronous routine to write all text Stream data to a single HDF5 file.
   def _write_hdf5(self) -> None:
     # Write new data for each stream of each device of each streamer.
-    if self._hdf5_file is not None:
-      for (streamer_name, stream) in self._streams.items():
-        for (device_name, device_info) in stream.get_stream_info_all().items():
-          for (stream_name, stream_info) in device_info.items():
-            self._sync_write_hdf5(streamer_name=streamer_name, 
-                                  device_name=device_name, 
-                                  stream_name=stream_name)
+    for (streamer_name, stream) in self._streams.items():
+      for (device_name, device_info) in stream.get_stream_info_all().items():
+        for (stream_name, stream_info) in device_info.items():
+          self._sync_write_hdf5(streamer_name=streamer_name, 
+                                device_name=device_name, 
+                                stream_name=stream_name)
 
 
   # Wraps synchronous writing of multiple asynchronous Stream Deque data structures 

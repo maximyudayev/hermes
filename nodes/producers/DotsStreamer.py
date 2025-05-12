@@ -25,7 +25,6 @@
 #
 # ############
 
-import time
 from nodes.producers.Producer import Producer
 from streams import DotsStream
 
@@ -147,9 +146,6 @@ class DotsStreamer(Producer):
     elif not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
-    else:
-      # Yield the processor to another thread.
-      time.sleep(0.001)
 
 
   def _stop_new_data(self):

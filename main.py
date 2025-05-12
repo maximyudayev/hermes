@@ -139,7 +139,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
   # Load video codec spec.
-  if args.logging_spec['stream_video']:
+  if 'stream_video' in args.logging_spec:
     with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
       try:
         args.logging_spec['video_codec'] = yaml.safe_load(f)

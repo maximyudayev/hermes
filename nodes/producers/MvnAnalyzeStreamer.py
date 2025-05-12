@@ -250,8 +250,6 @@ class MvnAnalyzeStreamer(Producer):
       if message_end_index is not None:
         self._buffer = self._buffer[message_end_index+1:]
         self._xsens_message_start_time_s = None
-      # Yield the processor to another thread.
-      time.sleep(0.001)
     else:
       self._send_end_packet()
 

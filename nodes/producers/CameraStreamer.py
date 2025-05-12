@@ -52,7 +52,6 @@ class CameraStreamer(Producer):
                camera_mapping: dict[str, str], # a dict mapping camera names to device indexes.
                fps: float,
                resolution: tuple[int],
-               camera_config_filepath: str, # path to the pylon .pfs config file to reproduce desired camera setup.
                pylon_max_buffer_size: int = 10,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
@@ -65,7 +64,6 @@ class CameraStreamer(Producer):
     camera_names, camera_ids = tuple(zip(*(camera_mapping.items())))
     self._camera_mapping: OrderedDict[str, str] = OrderedDict(zip(camera_ids, camera_names))
     self._pylon_max_buffer_size = pylon_max_buffer_size
-    self._camera_config_filepath = camera_config_filepath
     self._fps = fps
     self._get_frame_fn = self._get_frame
     self._stop_time_s = None
@@ -166,9 +164,6 @@ class CameraStreamer(Producer):
     elif is_timeout and not self._is_continue_capture:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()
-    else:
-      # Yield the processor to another thread.
-      time.sleep(0.001)
 
 
   def _keep_samples(self) -> None:
