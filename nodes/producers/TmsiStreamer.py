@@ -63,8 +63,6 @@ class TmsiStreamer(Producer):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = None,
-               print_status: bool = True,
-               print_debug: bool = False,
                **_)-> None:
     
     stream_info = {
@@ -74,12 +72,11 @@ class TmsiStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
+                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
-                     transmit_delay_sample_period_s=transmit_delay_sample_period_s,
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
   def create_stream(self, stream_info: dict) -> TmsiStream:
@@ -88,10 +85,6 @@ class TmsiStreamer(Producer):
 
   def _ping_device(self) -> None:
     return None
-
-
-  def _keep_samples(self) -> None:
-    pass
 
 
   def _connect(self) -> bool:
@@ -173,6 +166,15 @@ class TmsiStreamer(Producer):
       print(e)
       print("SAGA",'Unsuccessful connection to the TMSi streamer.', flush=True)
       return False
+
+
+  def _keep_samples(self) -> None:
+    # Clear the buffer queue of accumulated values during the system bring-up.
+    try:
+      while True:
+        self.data_queue.get_nowait()
+    except queue.Empty:
+      return
 
 
   def _process_data(self) -> None:

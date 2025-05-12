@@ -31,11 +31,15 @@ from io import TextIOWrapper
 from subprocess import Popen
 import os
 import time
-from utils.time_utils import get_time
+from utils.time_utils import get_time, get_time_str
 from typing import Any, Iterator
 import wave
 
-import ffmpeg
+try:
+  import ffmpeg
+except ImportError as e:
+  print(e, "\nFFmpeg not installed, will crash if you configure streaming of video/audio.", flush=True)
+
 import asyncio
 import concurrent.futures
 import h5py
@@ -141,7 +145,8 @@ class StreamState(BrokerState):
   def run(self) -> None:
     asyncio.run(self._context._log_data())
     self._context._release_thread_pool()
-    self._context._set_state(DumpState(self._context))
+    self._is_continue_fsm = False
+    # self._context._set_state(DumpState(self._context))
 
 
 class DumpState(BrokerState):
@@ -168,6 +173,8 @@ class Logger(LoggerInterface):
   def __init__(self,
                log_tag: str,
                log_dir: str,
+               log_time_s: float,
+               experiment: dict[str, str],
                stream_csv: bool = False,
                stream_hdf5: bool = False,
                stream_video: bool = False,
@@ -178,6 +185,8 @@ class Logger(LoggerInterface):
                dump_audio: bool = False,
                video_codec: VideoCodecDict = None,
                video_codec_num_cpu: int = 1,
+               is_video_scale_down: bool = False,
+               is_video_deflicker: bool = False,
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -194,10 +203,14 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._video_codec = video_codec
     self._video_codec_num_cpu = video_codec_num_cpu
+    self._is_video_scale_down = is_video_scale_down
+    self._is_video_deflicker = is_video_deflicker
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
-    
+    self._experiment = experiment
+    self._log_time_s = log_time_s
+
     # Initialize the logging writers.
     self._thread_pool: concurrent.futures.ThreadPoolExecutor
     self._hdf5_file: h5py.File = None
@@ -412,8 +425,9 @@ class Logger(LoggerInterface):
     self._hdf5_file = h5py.File(filepath_hdf5, 'w')
     # Create a dataset for each data key of each stream of each device.
     for (streamer_name, stream) in self._streams.items():
+      streamer_group = self._hdf5_file.create_group(streamer_name)
       for (device_name, device_info) in stream.get_stream_info_all().items():
-        device_group = self._hdf5_file.create_group(device_name)
+        device_group = streamer_group.create_group(device_name)
         self._next_data_indices_hdf5[streamer_name][device_name] = OrderedDict()
         for (stream_name, stream_info) in device_info.items():
           # Skip saving video and audio in the HDF5.
@@ -444,12 +458,12 @@ class Logger(LoggerInterface):
             continue
           # Create a unique file.
           filename_base = '%s_%s' % (self._log_tag, device_name)
-          filename_video = '%s.mp4' % (filename_base)
+          filename_video = '%s.mkv' % (filename_base)
           filepath_video = os.path.join(self._log_dir, filename_video)
           num_to_append = 0
           while os.path.exists(filepath_video):
             num_to_append += 1
-            filename_video = '%s_%02d.mp4' % (filename_base, num_to_append)
+            filename_video = '%s_%02d.mkv' % (filename_base, num_to_append)
             filepath_video = os.path.join(self._log_dir, filename_video)
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
@@ -457,29 +471,40 @@ class Logger(LoggerInterface):
           fps = stream_info['sampling_rate_hz']
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
           input_stream_format: str = stream_info['ffmpeg_input_format']
-
+          metadata_dict = {'metadata:g:%d'%i: '%s=%s'%(k,v) for i, (k,v) in enumerate([('title', '/'.join(self._experiment.values())),
+                                                                                       ('date', get_time_str(self._log_time_s, '%Y-%m-%d', False)),
+                                                                                       ('comment', 'HERMES multi-modal data acquisition system recording'),
+                                                                                       *map(lambda tup: ('X%s'%tup[0], tup[1]), list(self._experiment.items())),
+                                                                                       ('Xencoder', self._video_codec['codec_name']),
+                                                                                       ('Xencoded-by', 'HERMES')])}
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
-          # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
-          # ffmpeg.setpts()
-          video_writer: Popen = (
-            ffmpeg
-            .input('pipe:',
-                   format=input_stream_format,
-                   pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
-                   s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
-                   framerate=fps,
-                   cpucount=self._video_codec_num_cpu
-                   )
-            # .filter('scale', 1280, 720)
-            # .filter('deflicker', mode='pm', size=10) # remove line noise from room lights.
-            .output(filepath_video,
-                    vcodec=self._video_codec['codec_name'],
-                    pix_fmt=self._video_codec['pix_format'],
-                    cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.                    
-                    **self._video_codec['options']
-                    )
-            .run_async(pipe_stdin=True)
-          )
+          video_stream = ffmpeg.input('pipe:',
+                                      format=input_stream_format,
+                                      pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
+                                      s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
+                                      framerate=fps,
+                                      cpucount=self._video_codec_num_cpu)
+          # TODO: pass as arguments to the logger.
+          scaled_width = 1280
+          scaled_height = 720
+          deflicker_kernel_size = 10
+          if self._is_video_scale_down:
+            video_stream = ffmpeg.filter(video_stream, 'scale', scaled_width, scaled_height) # scale down the image to reduce stress on encoder.
+          if self._is_video_deflicker:
+            video_stream = ffmpeg.filter(video_stream, 'deflicker', mode='pm', size=deflicker_kernel_size) # remove line noise from room lights.
+          # TODO: use this to stream encoded video into a local file, and also as RTSP stream to the GUI.
+          # video_stream = ffmpeg.filter_multi_output
+          video_stream = ffmpeg.output(video_stream,
+                                       filename=filepath_video,
+                                       vcodec=self._video_codec['codec_name'],
+                                       pix_fmt=self._video_codec['pix_format'],
+                                       cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
+                                       **self._video_codec['options'],
+                                       **metadata_dict)
+          # video_stream = video_stream.global_args('-hide_banner')
+          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True)
+          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True)
+
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
           num_writers += 1
@@ -522,22 +547,9 @@ class Logger(LoggerInterface):
 
 
   def _log_metadata_csv(self) -> None:
+    # TODO: check logic later
     for (streamer_name, stream) in self._streams.items():
       for (device_name, device_info) in stream.get_stream_info_all().items():
-        # Get metadata for this device.
-        # To make it HDF5 compatible,
-        #  flatten the dictionary and then
-        #  prune objects that can't be converted to a string easily.
-        device_metadata = stream.get_metadata(device_name=device_name, only_str_values=True)
-        device_metadata = convert_dict_values_to_str(device_metadata, preserve_nested_dicts=False)
-        if self._csv_writer_metadata is not None:
-          self._csv_writer_metadata.write('\n%s,%s\n' % ('='*25,'='*25))
-          self._csv_writer_metadata.write('Device Name,%s' % (device_name))
-          self._csv_writer_metadata.write('\n%s,%s' % ('='*25,'='*25))
-          for (meta_key, meta_value) in device_metadata.items():
-            self._csv_writer_metadata.write('\n')
-            self._csv_writer_metadata.write('%s,"%s"' % (str(meta_key), str(meta_value)))
-          self._csv_writer_metadata.write('\n')
         # Get data notes for each stream.
         for (stream_name, stream_info) in device_info.items():
           data_notes = stream_info['data_notes']
@@ -557,41 +569,44 @@ class Logger(LoggerInterface):
 
 
   def _log_metadata_hdf5(self) -> None:
+    # Add experiment metadata on the HDF5 file.
+    file_metadata = convert_dict_values_to_str({**self._experiment,
+                                                'Date': get_time_str(self._log_time_s, '%Y-%m-%d', False),
+                                                'Time': get_time_str(self._log_time_s, '%H-%M-%S', False),
+                                                'Comment': 'HERMES multi-modal data acquisition system recording'}, preserve_nested_dicts=False)
+    file_group = self._hdf5_file['/']
+    file_group.attrs.update(file_metadata)
+    # Add metadata per stream.
+    # Flatten and prune the dictionary to make it HDF5 compatible.
     for (streamer_name, stream) in self._streams.items():
+      # Add the class name.
+      streamer_metadata = convert_dict_values_to_str({Stream.metadata_class_name_key: type(stream).__name__}, preserve_nested_dicts=False)
+      streamer_group = self._hdf5_file['/'.join([streamer_name])]
+      streamer_group.attrs.update(streamer_metadata)
       for (device_name, device_info) in stream.get_stream_info_all().items():
-        # Get metadata for this device.
-        # To make it HDF5 compatible,
-        #  flatten the dictionary and then
-        #  prune objects that can't be converted to a string easily.
-        device_metadata = stream.get_metadata(device_name=device_name, only_str_values=True)
-        device_metadata = convert_dict_values_to_str(device_metadata, preserve_nested_dicts=False)
-        # Write the device-level metadata.
-        if self._hdf5_file is not None:
-          device_group = self._hdf5_file['/'.join([device_name])]
-          device_group.attrs.update(device_metadata)
+        # NOTE: no per-device metadata for now.
         # Get data notes for each stream.
         for (stream_name, stream_info) in device_info.items():
-          data_notes = stream_info['data_notes']
-          if isinstance(data_notes, dict):
-            stream_metadata = data_notes
-          else:
-            stream_metadata = {'data_notes': data_notes}
-          stream_metadata = convert_dict_values_to_str(stream_metadata, preserve_nested_dicts=False)
-          if self._hdf5_file is not None:
-            try:
-              stream_group = self._hdf5_file['/'.join([device_name, stream_name])]
-              stream_group.attrs.update(stream_metadata)
-            except KeyError: # a writer was not created for this stream
-              pass
+          try:
+            stream_group = self._hdf5_file['/'.join([streamer_name, device_name, stream_name])]
+            data_notes = stream_info['data_notes']
+            if isinstance(data_notes, dict):
+              stream_metadata = data_notes
+            else:
+              stream_metadata = {'Notes': data_notes}
+            stream_metadata = convert_dict_values_to_str(stream_metadata, preserve_nested_dicts=False)
+            stream_group.attrs.update(stream_metadata)
+          except KeyError: # a writer was not created for this stream
+            pass
 
 
-  # TODO: provide metadata on video.
   def _log_metadata_video(self) -> None:
+    # NOTE: specified on container creation.
     pass
 
 
-  # TODO: provide metadata on audio.
   def _log_metadata_audio(self) -> None:
+    # NOTE: specified on container creation.
     pass
 
 
@@ -612,7 +627,7 @@ class Logger(LoggerInterface):
         for (device_name, device_info) in stream.get_stream_info_all().items():
           for (stream_name, stream_info) in device_info.items():
             try:
-              dataset: h5py.Dataset = self._hdf5_file['/'.join([device_name, stream_name])]
+              dataset: h5py.Dataset = self._hdf5_file['/'.join([streamer_name, device_name, stream_name])]
             except KeyError: # a dataset was not created for this stream
               continue
             starting_index = self._next_data_indices_hdf5[streamer_name][device_name][stream_name]
@@ -626,6 +641,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close()
+      # video_writer.stderr.close()
+      # video_writer.stdout.close()
       video_writer.wait()
     self._video_writers = []
 
@@ -663,7 +680,7 @@ class Logger(LoggerInterface):
                        device_name: str, 
                        stream_name: str) -> None:
     try:
-      dataset: h5py.Dataset = self._hdf5_file['/'.join([device_name, stream_name])]
+      dataset: h5py.Dataset = self._hdf5_file['/'.join([streamer_name, device_name, stream_name])]
     except KeyError: # a dataset was not created for this stream
       return
     new_data: Iterator[Any] = self._streams[streamer_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
@@ -700,9 +717,8 @@ class Logger(LoggerInterface):
     new_data: Iterator[tuple[bytes, bool, int]] = self._streams[streamer_name].pop_data(device_name=device_name, 
                                                                                         stream_name=stream_name, 
                                                                                         is_flush=self._is_flush)
-    for buffer, is_keyframe, pts in new_data:
-      # TODO: adjust the stream specification to use the `is_keyframe` and `pts` when providing frame to ffmpeg.
-      video_writer.stdin.write(buffer)
+    for frame_buffer, is_keyframe, frame_index in new_data:
+      video_writer.stdin.write(frame_buffer)
 
 
   # Write provided data to the CSV file.

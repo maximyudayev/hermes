@@ -51,17 +51,16 @@ class Producer(Node):
                host_ip: str,
                stream_info: dict,
                logging_spec: dict,
+               sampling_rate_hz: float,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
-               print_status: bool = True,
-               print_debug: bool = False) -> None:
-    super().__init__(host_ip=host_ip, 
-                     port_sync=port_sync, 
-                     port_killsig=port_killsig, 
-                     print_status=print_status, 
-                     print_debug=print_debug)
+               transmit_delay_sample_period_s: float = None) -> None:
+    super().__init__(host_ip=host_ip,
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
+    self._sampling_rate_hz = sampling_rate_hz
+    self._sampling_period = 1/sampling_rate_hz
     self._port_pub = port_pub
     self._is_continue_capture = True
     self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
@@ -154,9 +153,9 @@ class Producer(Node):
 
   def _store_and_broadcast(self, tag: str, **kwargs) -> None:
     # Get serialized object to send over ZeroMQ.
-    msg = serialize(**kwargs)
+    # msg = serialize(**kwargs)
     # Send the data packet on the PUB socket.
-    self._pub.send_multipart([tag.encode('utf-8'), msg])
+    # self._pub.send_multipart([tag.encode('utf-8'), msg])
     # Store the captured data into the data structure.
     self._stream.append_data(**kwargs)
 

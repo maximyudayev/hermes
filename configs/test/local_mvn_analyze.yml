@@ -38,19 +38,19 @@ print_debug   : True
 host_ip : "127.0.0.1"
 is_master_broker: True
 
-remote_subscriber_ips: []
 remote_publisher_ips: []
+remote_subscriber_ips: []
 
 is_remote_kill: False
 remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 1
+  stream_period_s     : 30
   
   stream_hdf5         : True
   stream_csv          : False
-  stream_video        : True
+  stream_video        : False
   stream_audio        : False
 
   dump_csv            : False
@@ -66,17 +66,17 @@ logging_spec:
 
 producer_specs:
   # Stream from one or more cameras.
-  - class: "CameraStreamer"
-    camera_mapping: # map camera names (usable as device names in the HDF5 file) to capture device indexes
-      basler_north : "40478064"
-      basler_east  : "40549960"
-      basler_south : "40549975"
-      basler_west  : "40549976"
-    fps: 30
-    resolution:
-      - 1440
-      - 2560
-    camera_config_filepath: "resources/AidFOG/pylon_30fps_2K.pfs"
+  - class: "MvnAnalyzeStreamer"
+    mvn_setup           : "full_body"
+    sampling_rate_hz    : 60
+    is_euler            : False
+    is_quaternion       : True
+    is_joint_angles     : True
+    is_linear_segments  : True
+    is_angular_segments : True
+    is_motion_trackers  : True
+    is_com              : True
+    is_time_code        : True
 
 
 consumer_specs: [] # DataVisualizer and DataLogger are mutually exclusive, select only one.

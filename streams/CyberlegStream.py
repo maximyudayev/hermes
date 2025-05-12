@@ -36,7 +36,7 @@ import dash_bootstrap_components as dbc
 ###############################################
 class CyberlegStream(Stream):
   def __init__(self, 
-               sampling_rate_hz: int = 0,
+               sampling_rate_hz: int = 10,
                **_) -> None:
     super().__init__()
 

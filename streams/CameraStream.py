@@ -66,19 +66,23 @@ class CameraStream(Stream):
                       data_notes=self._data_notes[camera_id]["frame"],
                       timesteps_before_solidified=self._timesteps_before_solidified)
       self.add_stream(device_name=camera_id,
-                      stream_name='timestamp',
-                      is_video=False,
+                      stream_name='frame_timestamp',
                       data_type='float64',
                       sample_size=[1],
                       sampling_rate_hz=fps,
-                      data_notes=self._data_notes[camera_id]["timestamp"])
+                      data_notes=self._data_notes[camera_id]["frame_timestamp"])
       self.add_stream(device_name=camera_id,
-                      stream_name='frame_sequence',
-                      is_video=False,
+                      stream_name='frame_index',
                       data_type='float64',
                       sample_size=[1],
                       sampling_rate_hz=fps,
-                      data_notes=self._data_notes[camera_id]["frame_sequence"])
+                      data_notes=self._data_notes[camera_id]["frame_index"])
+      self.add_stream(device_name=camera_id,
+                      stream_name='frame_sequence_id',
+                      data_type='float64',
+                      sample_size=[1],
+                      sampling_rate_hz=fps,
+                      data_notes=self._data_notes[camera_id]["frame_sequence_id"])
       self.add_stream(device_name=camera_id,
                       stream_name='toa_s',
                       data_type='float64',
@@ -111,11 +115,15 @@ class CameraStream(Stream):
         ('Serial Number', camera_id),
         (Stream.metadata_data_headings_key, camera_name),
       ])
-      self._data_notes[camera_id]["timestamp"] = OrderedDict([
-        ('Notes', 'Time of sampling of the frame w.r.t the camera onboard PTP clock'),
+      self._data_notes[camera_id]["frame_timestamp"] = OrderedDict([
+        ('Notes', 'Time of sampling of the frame w.r.t the camera onboard PTP clock.'),
       ])
-      self._data_notes[camera_id]["frame_sequence"] = OrderedDict([
-        ('Notes', 'Monotonically increasing index of the frame to track lost frames'),
+      self._data_notes[camera_id]["frame_index"] = OrderedDict([
+        ('Notes', 'Monotonically increasing index of the frame to track lost frames, '
+                  'starting from 0 when the recording started.'),
+      ])
+      self._data_notes[camera_id]["frame_sequence_id"] = OrderedDict([
+        ('Notes', 'Monotonically increasing index of the frame to track lost frames.'),
       ])
       self._data_notes[camera_id]['toa_s'] = OrderedDict([
         ('Notes', 'Time of arrival of the packet w.r.t. system clock.'),
