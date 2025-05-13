@@ -127,7 +127,7 @@ class MovellaFacade:
 
     def on_device_disconnected(device):
       device_id: str = str(device.deviceId())
-      print("%s disconnected"%device_id)
+      print("%s disconnected"%device_id, flush=True)
       self._connected_devices[device_id] = None
 
     # Attach callback handler to connection manager
@@ -165,9 +165,9 @@ class MovellaFacade:
       for device_id, device in self._connected_devices.items():
         device.setLogOptions(self._logging_mode)
         logFileName = "logfile_" + device.bluetoothAddress().replace(':', '-') + ".csv"
-        print(f"Enable logging to: {logFileName}")
+        print(f"Enable logging to: {logFileName}", flush=True)
         if not device.enableLogging(logFileName):
-          print(f"Failed to enable logging. Reason: {device.lastResultText()}")
+          print(f"Failed to enable logging. Reason: {device.lastResultText()}", flush=True)
           return False
 
     # Set dots to streaming mode and break out of the loop if successful.
@@ -185,7 +185,7 @@ class MovellaFacade:
           if self._is_more:
             continue
           else:
-            print("No more packets from Movella SDK, flush buffers into the output Queue.")
+            print("No more packets from Movella SDK, flush buffers into the output Queue.", flush=True)
             self._buffer.flush()
             break
 
@@ -201,7 +201,7 @@ class MovellaFacade:
   def _sync(self, attempts=1) -> bool:
     # NOTE: Syncing may not work on some devices due to poor BT drivers.
     while attempts > 0:
-      print(f"{attempts} attempts left to sync DOTs.")
+      print(f"{attempts} attempts left to sync DOTs.", flush=True)
       if self._manager.startSync(self._connected_devices[self._master_device_id].bluetoothAddress()):
         return True
       else:
@@ -234,9 +234,9 @@ class MovellaFacade:
     for device_id, device in self._connected_devices.items():
       if device is not None:
         if not device.stopMeasurement():
-          print("Failed to stop measurement.")
+          print("Failed to stop measurement.", flush=True)
         if self._is_enable_logging and not device.disableLogging():
-          print("Failed to disable logging.")
+          print("Failed to disable logging.", flush=True)
         self._connected_devices[device_id] = None
     self._is_more = False
     self._discovered_devices = list()

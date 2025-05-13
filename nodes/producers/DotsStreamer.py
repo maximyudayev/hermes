@@ -133,6 +133,10 @@ class DotsStreamer(Producer):
         else:
           arr = np.zeros((self._num_joints, data_getter['n_dim']), dtype=data_getter['dtype'])
         data[data_name] = arr
+      data['timestamp'] = np.zeros((self._num_joints), np.uint32)
+      data['toa_s'] = np.empty((self._num_joints), dtype=np.float64)
+      data['toa_s'].fill(np.nan)
+      data['counter'] = np.zeros((self._num_joints), np.uint32)
 
       for device, packet in snapshot.items():
         id = self._row_id_mapping[device]
@@ -142,6 +146,9 @@ class DotsStreamer(Producer):
           for data_name, _ in MOVELLA_PAYLOAD_MODE[self._payload_mode]['methods'].items():
             if packet[data_name].size:
               data[data_name][id] = packet[data_name]
+          data['timestamp'][id] = packet['timestamp']
+          data['toa_s'][id] = packet['toa_s']
+          data['counter'][id] = packet['counter']
 
       tag: str = "%s.data" % self._log_source_tag()
       self._publish(tag, process_time_s=process_time_s, data={'dots-imu': data})
