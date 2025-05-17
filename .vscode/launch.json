@@ -55,6 +55,28 @@
       "justMyCode": false
     },
     {
+      "name": "Local Cometa",
+			"type": "debugpy",
+			"request": "launch",
+      "cwd": "${workspaceFolder}",
+			"program": "main.py",
+			"args": [
+        "--experiment", "project=Tests", "type=Cometa", "trial=1",
+				"--host_ip", "127.0.0.1", "--is_master",
+				"--logging_spec", "stream_period_s=30", "stream_hdf5", "video_codec_config_filepath=resources/codecs/backpack_h264_qsv.yml",
+				"--producer_specs",
+				"class=CometaStreamer",
+          "device_mapping=\"gluteus_medius_left:1;rectus_femoris_left:2;semitendius_left:3;medial_gastrocnemius_left:4;gluteus_medius_right:5;rectus_femoris_right:6;semitendius_right:7;medial_gastrocnemius_right:8\"",
+          "sampling_rate_hz=2000",
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "subProcess": true,
+      "justMyCode": false
+    },
+    {
       "name": "Local Awinda",
 			"type": "debugpy",
 			"request": "launch",
@@ -256,8 +278,35 @@
       "subProcess": true,
 			"justMyCode": false
 		},
-
-
+    {
+      "name": "AidFOG Backpack (no glasses)",
+			"type": "debugpy",
+			"request": "launch",
+      "cwd": "${workspaceFolder}",
+			"program": "main.py",
+      "args": [
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=1", "visit=1", "task=1", "trial=1",
+        "--host_ip", "192.168.0.103",
+        "--kill", "--kill_ip", "192.168.0.100",
+        "--subscriber_ips", "192.168.0.100",
+        "--logging_spec", "stream_period_s=10", "stream_hdf5", "video_codec_config_filepath=resources/codecs/backpack_h264_qsv.yml",
+        "--producer_specs",
+        "class=DotsStreamer",
+          "device_mapping=\"knee_right:40195BFC800B01F2;foot_right:40195BFC800B003B;pelvis:40195BFD80C20052;knee_left:40195BFC800B017A;foot_left:40195BFD80C200D1\"",
+          "master_device=pelvis",
+          "num_joints=5",
+          "sampling_rate_hz=60",
+          "payload_mode=RateQuantitieswMag",
+          "filter_profile=General",
+          "is_sync_devices=True",
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+			"console": "integratedTerminal",
+      "subProcess": true,
+			"justMyCode": false
+		},
     {
       "name": "AidWear Terminal",
 			"type": "debugpy",

@@ -16,6 +16,11 @@ except ImportError:
   pass
 
 try:
+  from .CometaStream import CometaStream
+except ImportError:
+  pass
+
+try:
   from .EyeStream import EyeStream
 except ImportError:
   pass
