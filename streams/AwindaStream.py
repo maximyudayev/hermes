@@ -46,7 +46,7 @@ class AwindaStream(Stream):
                sampling_rate_hz: int = 100,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
-               transmission_delay_period_s: int = None,
+               transmission_delay_period_s: int | None = None,
                **_) -> None:
     super().__init__()
     
@@ -96,26 +96,26 @@ class AwindaStream(Stream):
     self.add_stream(device_name='awinda-imu',
                     stream_name='timestamp',
                     data_type='uint32',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     is_measure_rate_hz=True, # only 1 stream per device needs to be marked `True` if all streams get new data at a time
                     data_notes=self._data_notes['awinda-imu']['timestamp'])
     self.add_stream(device_name='awinda-imu',
                     stream_name='toa_s',
                     data_type='float64',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['awinda-imu']['toa_s'])
     self.add_stream(device_name='awinda-imu',
                     stream_name='counter_onboard',
                     data_type='uint16',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['awinda-imu']['counter_onboard'])
     self.add_stream(device_name='awinda-imu',
                     stream_name='counter',
                     data_type='uint32',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['awinda-imu']['counter'])
 
@@ -123,31 +123,34 @@ class AwindaStream(Stream):
       self.add_stream(device_name='awinda-connection',
                       stream_name='transmission_delay',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=1.0/self._transmission_delay_period_s,
                       data_notes=self._data_notes['awinda-connection']['transmission_delay'])
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     return {'awinda-imu': super()._get_fps('awinda-imu', 'timestamp')}
 
 
   # TODO: add `SkeletonVisualizer` for orientation data.
   def build_visulizer(self) -> dbc.Row:
-    acceleration_plot = LinePlotVisualizer(stream=self,
+    acceleration_plot = LinePlotVisualizer(unique_id='awinda-acc',
+                                           stream=self,
                                            data_path={'awinda-imu': ['acceleration']},
                                            legend_names=list(self._device_mapping.values()),
                                            plot_duration_timesteps=self._timesteps_before_solidified,
                                            update_interval_ms=self._update_interval_ms,
                                            col_width=6)
-    gyroscope_plot = LinePlotVisualizer(stream=self,
-                                        device_name={'awinda-imu': ['gyroscope']},
+    gyroscope_plot = LinePlotVisualizer(unique_id='awinda-gyr',
+                                        stream=self,
+                                        data_path={'awinda-imu': ['gyroscope']},
                                         legend_names=list(self._device_mapping.values()),
                                         plot_duration_timesteps=self._timesteps_before_solidified,
                                         update_interval_ms=self._update_interval_ms,
                                         col_width=6)
-    magnetometer_plot = LinePlotVisualizer(stream=self,
-                                           device_name={'awinda-imu': ['magnetometer']},
+    magnetometer_plot = LinePlotVisualizer(unique_id='awinda-mag',
+                                           stream=self,
+                                           data_path={'awinda-imu': ['magnetometer']},
                                            legend_names=list(self._device_mapping.values()),
                                            plot_duration_timesteps=self._timesteps_before_solidified,
                                            update_interval_ms=self._update_interval_ms,

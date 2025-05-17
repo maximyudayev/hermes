@@ -30,6 +30,7 @@ from typing import Any, Callable
 
 import zmq
 import threading
+import math
 
 from handlers.LoggingHandler import Logger
 from handlers.TransmissionDelayHandler import DelayEstimator
@@ -55,7 +56,7 @@ class Producer(Node):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None) -> None:
+               transmit_delay_sample_period_s: float = float('nan')) -> None:
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync,
                      port_killsig=port_killsig)
@@ -64,7 +65,7 @@ class Producer(Node):
     self._port_pub = port_pub
     self._is_continue_capture = True
     self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
-    self._publish_fn: Callable[[str, dict[str, Any]], None] = lambda tag, kwargs: None
+    self._publish_fn = lambda tag, **kwargs: None
 
     # Data structure for keeping track of data
     self._stream: Stream = self.create_stream(stream_info)
@@ -77,7 +78,7 @@ class Producer(Node):
     self._logger_thread.start()
 
     # Conditional creation of the transmission delay estimate thread.
-    if self._transmit_delay_sample_period_s:
+    if not math.isnan(self._transmit_delay_sample_period_s):
       self._delay_estimator = DelayEstimator(self._transmit_delay_sample_period_s)
       self._delay_thread = threading.Thread(target=self._delay_estimator, 
                                             kwargs={
@@ -191,7 +192,7 @@ class Producer(Node):
   def _cleanup(self) -> None:
     # Indicate to Logger to wrap up and exit.
     self._logger.cleanup()
-    if self._transmit_delay_sample_period_s:
+    if not math.isnan(self._transmit_delay_sample_period_s):
       self._delay_estimator.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
     self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 
@@ -203,6 +204,6 @@ class Producer(Node):
     self._pub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.
     self._logger_thread.join()
-    if self._transmit_delay_sample_period_s:
+    if not math.isnan(self._transmit_delay_sample_period_s):
       self._delay_thread.join()
     super()._cleanup()

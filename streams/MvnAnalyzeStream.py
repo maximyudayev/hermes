@@ -187,7 +187,7 @@ class MvnAnalyzeStream(Stream):
                is_time_code: bool = False,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
-               transmission_delay_period_s: int = None,
+               transmission_delay_period_s: int | None = None,
                **_) -> None:
 
     super().__init__()
@@ -226,14 +226,14 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-pose',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-pose']['counter'])
       self.add_stream(device_name='xsens-pose',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-pose']['time_since_start_s'])
     if is_euler:
@@ -262,14 +262,14 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-joints',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-joints']['counter'])
       self.add_stream(device_name='xsens-joints',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-joints']['time_since_start_s'])
 
@@ -278,32 +278,32 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-com',
                       stream_name='position',
                       data_type='float32',
-                      sample_size=(3),
+                      sample_size=(3,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-com']['position'])
       self.add_stream(device_name='xsens-com',
                       stream_name='velocity',
                       data_type='float32',
-                      sample_size=(3),
+                      sample_size=(3,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-com']['velocity'])
       self.add_stream(device_name='xsens-com',
                       stream_name='acceleration',
                       data_type='float32',
-                      sample_size=(3),
+                      sample_size=(3,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-com']['acceleration'])
       self.add_stream(device_name='xsens-com',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-com']['counter'])
       self.add_stream(device_name='xsens-com',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-com']['time_since_start_s'])
 
@@ -330,14 +330,14 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-linear-segments',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-linear-segments']['counter'])
       self.add_stream(device_name='xsens-linear-segments',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-linear-segments']['time_since_start_s'])
     
@@ -364,14 +364,14 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-angular-segments',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-angular-segments']['counter'])
       self.add_stream(device_name='xsens-angular-segments',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-angular-segments']['time_since_start_s'])
 
@@ -410,14 +410,14 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-motion-trackers',
                       stream_name='counter',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-motion-trackers']['counter'])
       self.add_stream(device_name='xsens-motion-trackers',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-motion-trackers']['time_since_start_s'])
 
@@ -426,25 +426,25 @@ class MvnAnalyzeStream(Stream):
       self.add_stream(device_name='xsens-time',
                       stream_name='timestamp_s',
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-time']['timestamp_s'])
       self.add_stream(device_name='xsens-time',
                       stream_name='counter',
                       data_type='uint32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       is_measure_rate_hz=True,
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-time']['counter'])
       self.add_stream(device_name='xsens-time',
                       stream_name='time_since_start_s',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['xsens-time']['time_since_start_s'])
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     return {device_name: super()._get_fps(device_name, 'counter') for device_name in self._streams_info.keys()}
   
 

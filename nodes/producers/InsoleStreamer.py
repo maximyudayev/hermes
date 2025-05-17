@@ -51,7 +51,7 @@ class InsoleStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                **_):
     
     stream_info = {
@@ -68,6 +68,7 @@ class InsoleStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> InsoleStream:
     return InsoleStream(**stream_info)
 

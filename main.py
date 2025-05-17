@@ -175,7 +175,7 @@ if __name__ == '__main__':
   # Add logging spec to each consumer.
   for spec in args.consumer_specs:
     spec['logging_spec']['log_dir'] = log_dir
-    args['logging_spec']['experiment'] = args.experiment
+    args['logging_spec']['experiment'] = args.experiment # type: ignore
     spec['log_history_filepath'] = log_history_filepath
 
   producer_specs: list[dict] = args.producer_specs

@@ -91,7 +91,7 @@ class CameraStream(Stream):
                       data_notes=self._data_notes[camera_id]['toa_s'])
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
 
 
@@ -101,6 +101,7 @@ class CameraStream(Stream):
                                     data_path={camera_id: 'frame'},
                                     legend_name=camera_name,
                                     update_interval_ms=self._update_interval_ms,
+                                    color_format=self._streams_info[camera_id]['frame']['color_format']['cv2'],
                                     col_width=6)
                     for camera_id, camera_name in self._camera_mapping.items()]
     return dbc.Row([camera_plot.layout for camera_plot in camera_plots])

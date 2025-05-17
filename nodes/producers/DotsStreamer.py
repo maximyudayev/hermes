@@ -28,7 +28,7 @@
 from nodes.producers.Producer import Producer
 from streams import DotsStream
 
-from handlers.MovellaHandler import MOVELLA_PAYLOAD_MODE, MovellaFacade
+from handlers.MovellaDots.MovellaHandler import MOVELLA_PAYLOAD_MODE, MovellaFacade
 from utils.zmq_utils import *
 
 import numpy as np
@@ -60,7 +60,7 @@ class DotsStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                timesteps_before_solidified: int = 0,
                **_):
 
@@ -93,6 +93,7 @@ class DotsStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> DotsStream:
     return DotsStream(**stream_info)
 
@@ -104,7 +105,7 @@ class DotsStreamer(Producer):
   def _connect(self) -> bool:
     self._handler = MovellaFacade(device_mapping=self._device_mapping,
                                   master_device=self._master_device,
-                                  sampling_rate_hz=self._sampling_rate_hz,
+                                  sampling_rate_hz=int(self._sampling_rate_hz),
                                   payload_mode=self._payload_mode,
                                   filter_profile=self._filter_profile,
                                   is_sync_devices=self._is_sync_devices)

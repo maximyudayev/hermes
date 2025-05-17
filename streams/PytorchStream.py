@@ -29,32 +29,35 @@ from streams import Stream
 import dash_bootstrap_components as dbc
 
 
-###############################################
-###############################################
-# A structure to store Cyberleg FSM state data.
-###############################################
-###############################################
-class CyberlegStream(Stream):
+##################################################
+##################################################
+# A structure to store PyTorch prediction outputs.
+##################################################
+##################################################
+class PytorchStream(Stream):
   def __init__(self, 
-               sampling_rate_hz: int = 10,
                **_) -> None:
     super().__init__()
 
-    self.add_stream(device_name='cyberleg-data',
-                    stream_name='activity',
+    # TODO: use user parameters to specify model output configuration (i.e. classifier, regressor, embedding, etc.)
+    self.add_stream(device_name='predictor',
+                    stream_name='prediction',
                     data_type='float32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
                     is_measure_rate_hz=True)
-    self.add_stream(device_name='cyberleg-data',
-                    stream_name='timestamp',
-                    data_type='float32',
-                    sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz)
 
+    self.add_stream(device_name='predictor',
+                    stream_name='inference_start_time_s',
+                    data_type='float64',
+                    sample_size=[1])
+    self.add_stream(device_name='predictor',
+                    stream_name='inference_end_time_s',
+                    data_type='float64',
+                    sample_size=[1])
 
+  
   def get_fps(self) -> dict[str, float | None]:
-    return {'cyberleg-data': super()._get_fps('cyberleg-data', 'activity')}
+    return {'predictor': super()._get_fps('predictor', 'timestamp_prediction')}
 
 
   def build_visulizer(self) -> dbc.Row | None:

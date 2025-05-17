@@ -61,6 +61,7 @@ class DummyPipeline(Pipeline):
                      port_killsig=port_killsig)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> DummyStream:
     return DummyStream(**stream_info)
 

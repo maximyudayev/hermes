@@ -41,7 +41,7 @@ class InsoleStream(Stream):
                sampling_rate_hz: int = 100,
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
-               transmission_delay_period_s: int = None,
+               transmission_delay_period_s: int | None = None,
                **_) -> None:
     super().__init__()
     self._sampling_rate_hz = sampling_rate_hz
@@ -114,12 +114,12 @@ class InsoleStream(Stream):
       self.add_stream(device_name='insoles-connection',
                       stream_name='transmission_delay',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=1.0/self._transmission_delay_period_s,
                       data_notes=self._data_notes['insoles-connection']['transmission_delay'])
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     return {'insoles-data': super()._get_fps('insoles-data', 'timestamp')}
 
 

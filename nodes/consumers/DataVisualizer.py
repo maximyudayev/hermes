@@ -51,7 +51,7 @@ class DataVisualizer(Consumer):
                host_ip: str,
                stream_specs: list[dict],
                logging_spec: dict,
-               log_history_filepath: str = None,
+               log_history_filepath: str | None = None,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,

@@ -27,103 +27,17 @@
 
 import queue
 import threading
-from typing import Any, Callable, Iterable, Mapping, TypedDict
+from typing import Any, Callable
 import movelladot_pc_sdk as mdda
 from collections import OrderedDict
 
-import numpy as np
-
+from handlers.MovellaDots.MovellaConstants import MOVELLA_LOGGING_MODE, MOVELLA_PAYLOAD_MODE
 from utils.datastructures import TimestampAlignedFifoBuffer
 from utils.user_settings import *
 from utils.time_utils import get_time
 
-MovellaDataGetter = TypedDict('MovellaDataGetter', {'func': Callable[[mdda.XsDataPacket], Any], 'n_dim': int, 'dtype': type, 'type_str': str})
-MovellaPayloadTuple = TypedDict('MovellaPayloadTuple', {'num_bytes': int, 'payload_mode': Any, 'methods': Mapping[str, MovellaDataGetter]})
 
-MOVELLA_DATA_GET_METHODS = {
-  "acceleration":         MovellaDataGetter(func=lambda packet: packet.calibratedAcceleration(),  n_dim=3, dtype=np.float32, type_str='float32'),
-  "gyroscope":            MovellaDataGetter(func=lambda packet: packet.calibratedGyroscopeData(), n_dim=3, dtype=np.float32, type_str='float32'),
-  "magnetometer":         MovellaDataGetter(func=lambda packet: packet.calibratedMagneticField(), n_dim=3, dtype=np.float32, type_str='float32'),
-  "quaternion":           MovellaDataGetter(func=lambda packet: packet.orientationQuaternion(),   n_dim=4, dtype=np.float32, type_str='float32'),
-  "euler":                MovellaDataGetter(func=lambda packet: packet.orientationEuler(),        n_dim=3, dtype=np.float32, type_str='float32'),
-  "free_acceleration":    MovellaDataGetter(func=lambda packet: packet.freeAcceleration(),        n_dim=3, dtype=np.float32, type_str='float32'),
-  "dq":                   MovellaDataGetter(func=lambda packet: packet.orientationIncrement(),    n_dim=4, dtype=np.float32, type_str='float32'),
-  "dv":                   MovellaDataGetter(func=lambda packet: packet.velocityIncrement(),       n_dim=3, dtype=np.float32, type_str='float32'),
-  "status":               MovellaDataGetter(func=lambda packet: packet.status(),                  n_dim=1, dtype=np.uint16,  type_str='unit32'),
-}
-
-foo: Callable[[Iterable[str]], Mapping[str, MovellaDataGetter]] = lambda l: {k:v for k,v in MOVELLA_DATA_GET_METHODS.items() if k in l}
-
-MOVELLA_PAYLOAD_MODE = {
-  "ExtendedQuaternion":     MovellaPayloadTuple(num_bytes=36, payload_mode=mdda.XsPayloadMode_ExtendedQuaternion,    methods=foo(["quaternion",
-                                                                                                                                  "free_acceleration",
-                                                                                                                                  "status"])),
-  "CompleteQuaternion":     MovellaPayloadTuple(num_bytes=32, payload_mode=mdda.XsPayloadMode_CompleteQuaternion,    methods=foo(["quaternion",
-                                                                                                                                  "free_acceleration"])),
-  "ExtendedEuler":          MovellaPayloadTuple(num_bytes=32, payload_mode=mdda.XsPayloadMode_ExtendedEuler,         methods=foo(["euler",
-                                                                                                                                  "free_acceleration",
-                                                                                                                                  "status"])),
-  "CompleteEuler":          MovellaPayloadTuple(num_bytes=28, payload_mode=mdda.XsPayloadMode_CompleteEuler,         methods=foo(["quaternion",
-                                                                                                                                  "free_acceleration"])),
-  "OrientationQuaternion":  MovellaPayloadTuple(num_bytes=20, payload_mode=mdda.XsPayloadMode_OrientationQuaternion, methods=foo(["quaternion"])),
-  "OrientationEuler":       MovellaPayloadTuple(num_bytes=16, payload_mode=mdda.XsPayloadMode_OrientationEuler,      methods=foo(["euler"])),
-  "FreeAcceleration":       MovellaPayloadTuple(num_bytes=16, payload_mode=mdda.XsPayloadMode_FreeAcceleration,      methods=foo(["free_acceleration"])),
-  "MFM":                    MovellaPayloadTuple(num_bytes=16, payload_mode=mdda.XsPayloadMode_MFM,                   methods=foo(["magnetometer"])),
-  "RateQuantitieswMag":     MovellaPayloadTuple(num_bytes=34, payload_mode=mdda.XsPayloadMode_RateQuantitieswMag,    methods=foo(["acceleration",
-                                                                                                                                  "gyroscope",
-                                                                                                                                  "magnetometer"])),
-  "RateQuantities":         MovellaPayloadTuple(num_bytes=28, payload_mode=mdda.XsPayloadMode_RateQuantities,        methods=foo(["acceleration",
-                                                                                                                                  "gyroscope"])),
-  "DeltaQuantitieswMag":    MovellaPayloadTuple(num_bytes=38, payload_mode=mdda.XsPayloadMode_DeltaQuantitieswMag,   methods=foo(["dq",
-                                                                                                                                  "dv",
-                                                                                                                                  "magnetometer"])),
-  "DeltaQuantities":        MovellaPayloadTuple(num_bytes=32, payload_mode=mdda.XsPayloadMode_DeltaQuantities,       methods=foo(["dq",
-                                                                                                                                  "dv"])),
-  "HighFidelitywMag":       MovellaPayloadTuple(num_bytes=35, payload_mode=mdda.XsPayloadMode_HighFidelitywMag,      methods=foo(["acceleration",
-                                                                                                                                  "gyroscope",
-                                                                                                                                  "magnetometer"])),
-  "HighFidelity":           MovellaPayloadTuple(num_bytes=29, payload_mode=mdda.XsPayloadMode_HighFidelity,          methods=foo(["acceleration",
-                                                                                                                                  "gyroscope"])),
-  "CustomMode1":            MovellaPayloadTuple(num_bytes=40, payload_mode=mdda.XsPayloadMode_CustomMode1,           methods=foo(["euler",
-                                                                                                                                  "free_acceleration",
-                                                                                                                                  "gyroscope"])),
-  "CustomMode2":            MovellaPayloadTuple(num_bytes=34, payload_mode=mdda.XsPayloadMode_CustomMode2,           methods=foo(["euler",
-                                                                                                                                  "free_acceleration",
-                                                                                                                                  "magnetometer"])),
-  "CustomMode3":            MovellaPayloadTuple(num_bytes=32, payload_mode=mdda.XsPayloadMode_CustomMode3,           methods=foo(["quaternion",
-                                                                                                                                  "gyroscope"])),
-  "CustomMode4":            MovellaPayloadTuple(num_bytes=51, payload_mode=mdda.XsPayloadMode_CustomMode4,           methods=foo(["quaternion",
-                                                                                                                                  "acceleration",
-                                                                                                                                  "gyroscope",
-                                                                                                                                  "magnetometer",
-                                                                                                                                  "status"])),
-  "CustomMode5":            MovellaPayloadTuple(num_bytes=44, payload_mode=mdda.XsPayloadMode_CustomMode5,           methods=foo(["quaternion",
-                                                                                                                                  "acceleration",
-                                                                                                                                  "gyroscope"])),
-}
-
-MOVELLA_PAYLOAD_MODE["ExtendedQuaternion"]["methods"]
-# NOTE: Movella sets different internal low-pass filter for different activities:
-#         'General' - general human daily activities.
-#         'Dynamic' - high-pace activities (e.g. sprints).
-MOVELLA_LOGGING_MODE = {
-  "Euler":        mdda.XsLogOptions_Euler,
-  "Quaternion":   mdda.XsLogOptions_Quaternion
-}
-MOVELLA_STATUS_MASK = {
-  0x0001: "Accelerometer out of range in x-axis",
-  0x0002: "Accelerometer out of range in y-axis",
-  0x0004: "Accelerometer out of range in z-axis",
-  0x0008: "Gyroscope out of range in x-axis",
-  0x0010: "Gyroscope out of range in y-axis",
-  0x0020: "Gyroscope out of range in z-axis",
-  0x0040: "Magnetometer out of range in x-axis",
-  0x0080: "Magnetometer out of range in y-axis",
-  0x0100: "Magnetometer out of range in z-axis",
-}
-
-
-class DotDataCallback(mdda.XsDotCallback):
+class DotDataCallback(mdda.XsDotCallback): # type: ignore
   def __init__(self,
                on_packet_received: Callable[[float, Any, Any], None]):
     super().__init__()
@@ -134,7 +48,7 @@ class DotDataCallback(mdda.XsDotCallback):
     self._on_packet_received(get_time(), device, packet)
 
 
-class DotConnectivityCallback(mdda.XsDotCallback):
+class DotConnectivityCallback(mdda.XsDotCallback): # type: ignore
   def __init__(self,
                on_advertisement_found: Callable,
                on_device_disconnected: Callable):
@@ -148,7 +62,7 @@ class DotConnectivityCallback(mdda.XsDotCallback):
 
 
   def onDeviceStateChanged(self, device, new_state, old_state):
-    if new_state == mdda.XDS_Destructing:
+    if new_state == mdda.XDS_Destructing: # type: ignore
       self._on_device_disconnected(device)
 
 
@@ -190,7 +104,7 @@ class MovellaFacade:
   def initialize(self) -> bool:
     self._is_more = True
     # Create connection manager
-    self._manager = mdda.XsDotConnectionManager()
+    self._manager = mdda.XsDotConnectionManager() # type: ignore
     if self._manager is None:
       return False
 
@@ -204,9 +118,9 @@ class MovellaFacade:
       if self._is_keep_data:
         device_id: str = str(device.deviceId())
         timestamp = packet.sampleTimeFine()
-        data = dict([("device_id", device_id),
-                     ("timestamp", timestamp),
-                     ("toa_s", toa_s)])
+        data = {"device_id": device_id,
+                "timestamp": timestamp,
+                "toa_s": toa_s}
         for data_name, data_getter in self._payload_mode["methods"].items():
           data[data_name] = data_getter["func"](packet)
         self._packet_queue.put({"key": device_id, "data": data, "timestamp": timestamp})

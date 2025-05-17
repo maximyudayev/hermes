@@ -34,7 +34,7 @@ from utils.datastructures import NonOverflowingCounterAlignedFifoBuffer
 from utils.time_utils import get_time
 
 
-class AwindaDataCallback(xda.XsCallback):
+class AwindaDataCallback(xda.XsCallback): # type: ignore
   def __init__(self,
                on_each_packet_received: Callable[[float, Any, Any], None]):
     super().__init__()
@@ -46,7 +46,7 @@ class AwindaDataCallback(xda.XsCallback):
     self._on_each_packet_received(get_time(), device, packet)
 
 
-class AwindaConnectivityCallback(xda.XsCallback):
+class AwindaConnectivityCallback(xda.XsCallback): # type: ignore
   def __init__(self,
                on_wireless_device_connected: Callable[[Any], None]):
     super().__init__()
@@ -55,7 +55,7 @@ class AwindaConnectivityCallback(xda.XsCallback):
 
   def onConnectivityChanged(self, dev, newState):
     # TODO: add additional logic in case devices disconnect, etc.
-    if newState == xda.XCS_Wireless:
+    if newState == xda.XCS_Wireless: # type: ignore
       self._on_wireless_device_connected(dev)
 
 
@@ -80,8 +80,8 @@ class XsensFacade:
 
   def initialize(self) -> bool:
     self._is_measuring = True
-    self._control = xda.XsControl.construct()
-    port_info_array = xda.XsScanner.scanPorts()
+    self._control = xda.XsControl.construct() # type: ignore
+    port_info_array = xda.XsScanner.scanPorts() # type: ignore
 
     # Open the detected devices and pick the Awinda station
     try:
@@ -140,14 +140,14 @@ class XsensFacade:
 
     # Put devices in Config Mode and request desired data and rate
     self._master_device.gotoConfig()
-    config_array = xda.XsOutputConfigurationArray()
+    config_array = xda.XsOutputConfigurationArray() # type: ignore
     # For data that accompanies every packet (timestamp, status, etc.), the selected sample rate will be ignored
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, self._sampling_rate_hz)) 
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, self._sampling_rate_hz))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, self._sampling_rate_hz))
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, self._sampling_rate_hz)) # NOTE: also has XDI_MagneticFieldCorrected
-    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, self._sampling_rate_hz))
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, self._sampling_rate_hz)) # type: ignore
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, self._sampling_rate_hz)) # type: ignore
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, self._sampling_rate_hz)) # type: ignore
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, self._sampling_rate_hz)) # type: ignore
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, self._sampling_rate_hz)) # type: ignore # NOTE: also has XDI_MagneticFieldCorrected
+    config_array.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, self._sampling_rate_hz)) # type: ignore
     
     if not self._master_device.setOutputConfiguration(config_array):
       print("Could not configure the Awinda master device. Aborting.", flush=True)

@@ -74,6 +74,7 @@ class CyberlegStreamer(Producer):
                      port_killsig=port_killsig)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> CyberlegStream:
     return CyberlegStream(**stream_info)
 

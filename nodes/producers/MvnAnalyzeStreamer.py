@@ -88,19 +88,34 @@ class MvnMsgType(IntEnum):
   TIME_CODE           = 25
 
 MvnMetadata = TypedDict('MvnMetadata', {
-  'message_type':       int,
-  'counter':            int,
-  'datagram_counter':   int,
-  'num_items':          int,
-  'time_since_start_s': int,
-  'char_id':            int,
-  'num_segments':       int,
-  'num_props':          int,
-  'num_fingers':        int,
-  'reserved':           int,
-  'payload_size':       int})
+  'message_type':       int | None,
+  'counter':            int | None,
+  'datagram_counter':   int | None,
+  'num_items':          int | None,
+  'time_since_start_s': int | None,
+  'char_id':            int | None,
+  'num_segments':       int | None,
+  'num_props':          int | None,
+  'num_fingers':        int | None,
+  'reserved':           int | None,
+  'payload_size':       int | None})
 
-MvnDataTuple: TypeAlias = tuple[dict[str, Any], int]
+
+def MvnMetadataEmpty() -> MvnMetadata:
+  return MvnMetadata(message_type=None,
+                     counter=None,
+                     datagram_counter=None,
+                     num_items=None,
+                     time_since_start_s=None,
+                     char_id=None,
+                     num_segments=None,
+                     num_props=None,
+                     num_fingers=None,
+                     reserved=None,
+                     payload_size=None)
+    
+
+MvnDataTuple: TypeAlias = tuple[dict[str, Any], int | None]
 MvnCommonData: TypeAlias = dict[str, Any]
 
 MVN_UDP_ID_STRING = "MXTP".encode('utf-8')
@@ -147,7 +162,7 @@ class MvnAnalyzeStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                **_):
 
     self._mvn_segment_setup = MVN_SEGMENT_SETUP[mvn_setup]
@@ -187,7 +202,7 @@ class MvnAnalyzeStreamer(Producer):
 
     # Initialize state.
     self._buffer: bytes = b''
-    self._socket: socket.socket = None
+    self._socket: socket.socket
     self._xsens_sample_index = None # The current Xsens timestep being processed (each timestep will send multiple messages).
     self._xsens_message_start_time_s = None    # When an Xsens message was first received.
     self._xsens_timestep_receive_time_s = None # When the first Xsens message for an Xsens timestep was received.
@@ -215,6 +230,7 @@ class MvnAnalyzeStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> MvnAnalyzeStream:
     return MvnAnalyzeStream(**stream_info)
 
@@ -256,8 +272,8 @@ class MvnAnalyzeStreamer(Producer):
 
   # Helper to read a specified number of bytes starting at a specified index
   #   and to return an updated index counter.
-  def _read_bytes(self, message: bytes, starting_index: int, num_bytes: int) -> tuple[bytes, int]:
-    if None in [message, starting_index, num_bytes]:
+  def _read_bytes(self, message: bytes, starting_index: int | None, num_bytes: int) -> tuple[bytes | None, int | None]:
+    if message is None or starting_index is None or num_bytes is None:
       res = None
       next_index = None
     elif starting_index + num_bytes <= len(message):
@@ -270,17 +286,18 @@ class MvnAnalyzeStreamer(Producer):
 
 
   def _read_socket_into_buffer(self) -> None:
-    try:
-      if MvnNetProto.UDP == self._mvn_protocol:
+    if MvnNetProto.UDP == self._mvn_protocol:
+      try:
         data = self._socket.recv(self._buffer_read_size)
-
-      if len(self._buffer)+len(data) <= self._buffer_max_size:
-        self._buffer += data
-      else:
-        # Remove old data if the buffer is overflowing.
-        self._buffer = data
-    except socket.timeout:
-      print('MVN UDP receive socket timed out on receive.', flush=True)
+        if len(self._buffer)+len(data) <= self._buffer_max_size:
+          self._buffer += data
+        else:
+          # Remove old data if the buffer is overflowing.
+          self._buffer = data
+      except socket.timeout:
+        print('MVN UDP receive socket timed out on receive.', flush=True)
+    else:
+      raise ValueError("[MVN Analyze Streamer]: currently unsupported network protocol ", self._mvn_protocol)
 
     # Record this as the message arrival time if it's the first time
     #  seeing this message start code in the buffer.
@@ -290,7 +307,7 @@ class MvnAnalyzeStreamer(Producer):
 
 
   def _process_buffer(self) -> int | None:
-    message = self._buffer
+    message: bytes = self._buffer
 
     # Use the starting code to determine the initial index.
     next_index = message.find(MVN_UDP_ID_STRING)
@@ -336,57 +353,69 @@ class MvnAnalyzeStreamer(Producer):
       # The message had a type that is not currently being processed/recorded.
       # No processing is required, but the pointer should still be advanced to ignore the message.
       print('Unknown MVN message type: ', metadata['message_type'], flush=True)
-      return payload_end_index-1
+      return payload_end_index-1 if payload_end_index is not None else None
 
     # Check that the entire message was parsed.
-    assert payload_end_index == next_index, 'The Xsens payload should end at byte %d, but the last byte processed was %d' % (payload_end_index, next_index-1)
+    if payload_end_index != next_index and next_index is not None:
+      print('The Xsens payload should end at byte %d, but the last byte processed was %d' % (payload_end_index, next_index-1))
+      return None
 
     tag: str = "%s.data" % (self._log_source_tag())
     self._publish(tag=tag, process_time_s=self._xsens_timestep_receive_time_s, data=data)
 
     # The message was successfully parsed.
     # Return the last index of the message that was used.
-    return next_index-1
+    return next_index-1 if next_index is not None else None
 
 
-  def _process_header(self, message: bytes, next_index: int) -> tuple[MvnMetadata, str]:
+  def _process_header(self, message: bytes, next_index: int | None) -> tuple[MvnMetadata, int | None]:
     # Parse the header.
     # Each datagram starts with 24-byte header.
     # NOTE: network byte-order (big-endian).
     start_code,       next_index = self._read_bytes(message, next_index, len(MVN_UDP_ID_STRING))
     message_type,     next_index = self._read_bytes(message, next_index, 2)
-    counter,          next_index = self._read_bytes(message, next_index, 4)
-    datagram_counter, next_index = self._read_bytes(message, next_index, 1)
+    counter,          next_index = self._read_bytes(message, next_index, 4) # message index basically
+    datagram_counter, next_index = self._read_bytes(message, next_index, 1) # index of datagram chunk when message sent in multiple datagrams
     num_items,        next_index = self._read_bytes(message, next_index, 1) # number of segments or points in the datagram
-    time_code,        next_index = self._read_bytes(message, next_index, 4)
-    char_id,          next_index = self._read_bytes(message, next_index, 1)
-    num_segments,     next_index = self._read_bytes(message, next_index, 1)
-    num_props,        next_index = self._read_bytes(message, next_index, 1)
-    num_fingers,      next_index = self._read_bytes(message, next_index, 1)
+    time_code,        next_index = self._read_bytes(message, next_index, 4) # ms since the start of recording
+    char_id,          next_index = self._read_bytes(message, next_index, 1) # id of the tracker person (if multiple)
+    num_segments,     next_index = self._read_bytes(message, next_index, 1) # we always have 23 body segments
+    num_props,        next_index = self._read_bytes(message, next_index, 1) # number of props (swords etc)
+    num_fingers,      next_index = self._read_bytes(message, next_index, 1) # number of finger track segments
     reserved,         next_index = self._read_bytes(message, next_index, 2)
-    payload_size,     next_index = self._read_bytes(message, next_index, 2)
+    payload_size,     next_index = self._read_bytes(message, next_index, 2) # number of bytes in the actual data of the message
 
     # Decode (and verify) header information.
-    try:
-      message_type      = int(message_type)
-      payload_size      = int.from_bytes(payload_size,      byteorder='big', signed=False) # number of bytes in the actual data of the message
-      counter           = int.from_bytes(counter,           byteorder='big', signed=False) # message index basically
-      datagram_counter  = int.from_bytes(datagram_counter,  byteorder='big', signed=False) # index of datagram chunk
-      time_code         = int.from_bytes(time_code,         byteorder='big', signed=False) # ms since the start of recording
-      char_id           = int.from_bytes(char_id,           byteorder='big', signed=False) # id of the tracker person (if multiple)
-      num_items         = int.from_bytes(num_items,         byteorder='big', signed=False) # number of points in this message
-      num_segments      = int.from_bytes(num_segments,      byteorder='big', signed=False) # we always have 23 body segments
-      num_fingers       = int.from_bytes(num_fingers,       byteorder='big', signed=False) # number of finger track segments
-      num_props         = int.from_bytes(num_props,         byteorder='big', signed=False) # number of props (swords etc)
-      reserved          = int.from_bytes(reserved,          byteorder='big', signed=False)
+    message_type = int(message_type) if message_type is not None else None
 
-      # TODO: enable multi-datagram case. All packets fit in a single datagram size.
-      assert datagram_counter == (1 << 7), 'Not a single last message'
-      assert char_id == 0, 'We only support a single person (a single character).'
-    except TypeError:
-      # Not all message parts were received.
-      # This will be dealt with below, after checking if some of it was at least received.
-      pass
+    (payload_size,
+     counter,
+     datagram_counter,
+     time_code,
+     char_id,
+     num_items,
+     num_segments,
+     num_fingers,
+     num_props,
+     reserved) = map(lambda val: int.from_bytes(val, byteorder='big', signed=False) if val is not None else None, 
+                     [payload_size,
+                      counter,
+                      datagram_counter,
+                      time_code,
+                      char_id,
+                      num_items,
+                      num_segments,
+                      num_fingers,
+                      num_props,
+                      reserved])
+
+    # TODO: enable multi-datagram case. All packets fit in a single datagram size.
+    if datagram_counter != (1 << 7):
+      print('Not a single last message')
+      return MvnMetadataEmpty(), None
+    if char_id != 0:
+      print('We only support a single person (a single character).')
+      return MvnMetadataEmpty(), None
 
     # If the message type and sample counter are known,
     #  use this time as the best-guess timestamp for the data.
@@ -401,7 +430,7 @@ class MvnAnalyzeStreamer(Producer):
       counter=counter,
       datagram_counter=datagram_counter,
       num_items=num_items,
-      time_since_start_s=time_code*1000.0,
+      time_since_start_s=(time_code*1000) if time_code is not None else None,
       char_id=char_id,
       num_segments=num_segments,
       num_props=num_props,
@@ -410,7 +439,7 @@ class MvnAnalyzeStreamer(Producer):
       payload_size=payload_size), next_index
 
 
-  def _process_pose(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_pose(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Mutually-exclusive Euler or Quaternion data contain:
     #   Euler:
     #     Segment positions (x/y/z) in cm
@@ -431,33 +460,36 @@ class MvnAnalyzeStreamer(Producer):
     orientations = np.zeros((self._num_segments, num_orientation_elements), dtype=np.float32)
 
     # Read the position and rotation of each segment.
-    for _ in range(metadata['num_segments']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      position, next_index = self._read_bytes(message, next_index, 3*4)
-      orientation, next_index = self._read_bytes(message, next_index, num_orientation_elements*4)
+    if metadata['num_segments'] is not None:
+      for _ in range(metadata['num_segments']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        position, next_index = self._read_bytes(message, next_index, 3*4)
+        orientation, next_index = self._read_bytes(message, next_index, num_orientation_elements*4)
 
-      segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
-      position = np.array(struct.unpack('!3f', position), np.float32)
-      orientation = np.array(struct.unpack('!%df' % num_orientation_elements, orientation), np.float32)
+        if segment_id is not None and position is not None and orientation is not None:
+          segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
+          position = np.array(struct.unpack('!3f', position), np.float32)
+          orientation = np.array(struct.unpack('!%df' % num_orientation_elements, orientation), np.float32)
 
-      if segment_id in self._segment_id_mapping.keys():
-        # If using the Euler stream, received data is YZX so swap order to get XYZ.
-        #   NOTE: that positions from the quaternion stream are already XYZ.
-        if is_euler:
-          position = position[[2,0,1]]
-          orientation = orientation[[2,0,1]]
+          if segment_id in self._segment_id_mapping.keys():
+            # If using the Euler stream, received data is YZX so swap order to get XYZ.
+            #   NOTE: that positions from the quaternion stream are already XYZ.
+            if is_euler:
+              position = position[[2,0,1]]
+              orientation = orientation[[2,0,1]]
 
-        # NOTE: segment IDs from Xsens are 1-based,
-        #       but otherwise should be usable as the matrix index.
-        id = self._segment_id_mapping[segment_id]
-        positions[id, :] = position
-        orientations[id, :] = orientation
+            # NOTE: segment IDs from Xsens are 1-based,
+            #       but otherwise should be usable as the matrix index.
+            id = self._segment_id_mapping[segment_id]
+            positions[id, :] = position
+            orientations[id, :] = orientation
 
     # NOTE: loops over any prop and glove data because we are not processing it yet.
-    for _ in range(metadata['num_props'] + metadata['num_fingers']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      position, next_index = self._read_bytes(message, next_index, 3*4)
-      orientation, next_index = self._read_bytes(message, next_index, num_orientation_elements*4)
+    if metadata['num_props'] is not None and metadata['num_fingers'] is not None:
+      for _ in range(metadata['num_props'] + metadata['num_fingers']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        position, next_index = self._read_bytes(message, next_index, 3*4)
+        orientation, next_index = self._read_bytes(message, next_index, num_orientation_elements*4)
 
     return {
       orientation_stream_name: orientations,
@@ -466,7 +498,7 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_joint_angles(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_joint_angles(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Joint angle data contains:
     #   The parent and child segments of the joint.
     #     These are represented as a single integer: 256*segment_id + point_id
@@ -474,20 +506,22 @@ class MvnAnalyzeStreamer(Producer):
     joint_angles = np.zeros((self._num_joints, 3), dtype=np.float32)
 
     # Read the ids and rotations of each joint.
-    for _ in range(metadata['num_items']):
-      point_id_parent, next_index = self._read_bytes(message, next_index, 4)
-      point_id_child, next_index = self._read_bytes(message, next_index, 4)
-      angle_over_segment, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_items'] is not None:
+      for _ in range(metadata['num_items']):
+        point_id_parent, next_index = self._read_bytes(message, next_index, 4)
+        point_id_child, next_index = self._read_bytes(message, next_index, 4)
+        angle_over_segment, next_index = self._read_bytes(message, next_index, 3*4)
 
-      point_id_parent = int.from_bytes(point_id_parent, byteorder='big', signed=False)
-      point_id_child = int.from_bytes(point_id_child, byteorder='big', signed=False)
-      angle_over_segment = np.array(struct.unpack('!3f', angle_over_segment), np.float32)
+        if point_id_parent is not None and point_id_child is not None and angle_over_segment is not None:
+          point_id_parent = int.from_bytes(point_id_parent, byteorder='big', signed=False)
+          point_id_child = int.from_bytes(point_id_child, byteorder='big', signed=False)
+          angle_over_segment = np.array(struct.unpack('!3f', angle_over_segment), np.float32)
 
-      # Convert these id's into mapping into the numpy array.
-      joint_id = point_id_parent << 16 + point_id_child
+          # Convert these id's into mapping into the numpy array.
+          joint_id = point_id_parent << 16 + point_id_child
 
-      if joint_id in self._joint_id_mapping.keys():
-        joint_angles[self._joint_id_mapping[joint_id], :] = angle_over_segment
+          if joint_id in self._joint_id_mapping.keys():
+            joint_angles[self._joint_id_mapping[joint_id], :] = angle_over_segment
 
     return {
       'angle': joint_angles,
@@ -495,16 +529,17 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_com(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_com(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Center of mass data contains:
     #   x/y/z position in cm.
     position, next_index = self._read_bytes(message, next_index, 3*4)
     velocity, next_index = self._read_bytes(message, next_index, 3*4)
     acceleration, next_index = self._read_bytes(message, next_index, 3*4)
 
-    position = np.array(struct.unpack('!3f', position), np.float32)
-    velocity = np.array(struct.unpack('!3f', velocity), np.float32)
-    acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
+    if position is not None and velocity is not None and acceleration is not None:
+      position = np.array(struct.unpack('!3f', position), np.float32)
+      velocity = np.array(struct.unpack('!3f', velocity), np.float32)
+      acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
 
     return {
       'position': position,
@@ -514,36 +549,39 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_linear_segments(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_linear_segments(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Linear segments data contains:
     #   The global position, velocity and acceleration of the segment.
     positions = np.zeros((self._num_segments, 3), dtype=np.float32)
     velocities = np.zeros((self._num_segments, 3), dtype=np.float32)
     accelerations = np.zeros((self._num_segments, 3), dtype=np.float32)
 
-    for _ in range(metadata['num_items']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      position, next_index = self._read_bytes(message, next_index, 3*4)
-      velocity, next_index = self._read_bytes(message, next_index, 3*4)
-      acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_items'] is not None:
+      for _ in range(metadata['num_items']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        position, next_index = self._read_bytes(message, next_index, 3*4)
+        velocity, next_index = self._read_bytes(message, next_index, 3*4)
+        acceleration, next_index = self._read_bytes(message, next_index, 3*4)
 
-      segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
-      position = np.array(struct.unpack('!3f', position), np.float32)
-      velocity = np.array(struct.unpack('!3f', velocity), np.float32)
-      acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
+        if segment_id is not None and position is not None and velocity is not None and acceleration is not None:
+          segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
+          position = np.array(struct.unpack('!3f', position), np.float32)
+          velocity = np.array(struct.unpack('!3f', velocity), np.float32)
+          acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
 
-      if segment_id in self._segment_id_mapping.keys():
-        id = self._segment_id_mapping[segment_id]
-        positions[id, :] = position
-        velocities[id, :] = velocity
-        accelerations[id, :] = acceleration
+          if segment_id in self._segment_id_mapping.keys():
+            id = self._segment_id_mapping[segment_id]
+            positions[id, :] = position
+            velocities[id, :] = velocity
+            accelerations[id, :] = acceleration
 
     # NOTE: loops over any prop and glove data because we are not processing it yet.
-    for _ in range(metadata['num_props'] + metadata['num_fingers']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      position, next_index = self._read_bytes(message, next_index, 3*4)
-      velocity, next_index = self._read_bytes(message, next_index, 3*4)
-      acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_props'] is not None and metadata['num_fingers'] is not None:
+      for _ in range(metadata['num_props'] + metadata['num_fingers']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        position, next_index = self._read_bytes(message, next_index, 3*4)
+        velocity, next_index = self._read_bytes(message, next_index, 3*4)
+        acceleration, next_index = self._read_bytes(message, next_index, 3*4)
 
     return {
       'position': positions,
@@ -553,36 +591,42 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_angular_segments(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_angular_segments(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Angular segments data contains:
     #   The quaternion orientation, angular velocity and angular acceleration of the segment.
     orientations = np.zeros((self._num_segments, 4), dtype=np.float32)
     velocities = np.zeros((self._num_segments, 3), dtype=np.float32)
     accelerations = np.zeros((self._num_segments, 3), dtype=np.float32)
 
-    for _ in range(metadata['num_items']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      orientation, next_index = self._read_bytes(message, next_index, 4*4)
-      velocity, next_index = self._read_bytes(message, next_index, 3*4)
-      acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_items'] is not None:
+      for _ in range(metadata['num_items']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        orientation, next_index = self._read_bytes(message, next_index, 4*4)
+        velocity, next_index = self._read_bytes(message, next_index, 3*4)
+        acceleration, next_index = self._read_bytes(message, next_index, 3*4)
 
-      segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
-      orientation = np.array(struct.unpack('!4f', orientation), np.float32)
-      velocity = np.array(struct.unpack('!3f', velocity), np.float32)
-      acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
+        if (segment_id is not None and
+            orientation is not None and
+            velocity is not None and
+            acceleration is not None):
+          segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
+          orientation = np.array(struct.unpack('!4f', orientation), np.float32)
+          velocity = np.array(struct.unpack('!3f', velocity), np.float32)
+          acceleration = np.array(struct.unpack('!3f', acceleration), np.float32)
 
-      if segment_id in self._segment_id_mapping.keys():
-        id = self._segment_id_mapping[segment_id]
-        orientations[id, :] = orientation
-        velocities[id, :] = velocity
-        accelerations[id, :] = acceleration
+          if segment_id in self._segment_id_mapping.keys():
+            id = self._segment_id_mapping[segment_id]
+            orientations[id, :] = orientation
+            velocities[id, :] = velocity
+            accelerations[id, :] = acceleration
 
     # NOTE: loops over any prop and glove data because we are not processing it yet.
-    for _ in range(metadata['num_props'] + metadata['num_fingers']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      orientation, next_index = self._read_bytes(message, next_index, 4*4)
-      velocity, next_index = self._read_bytes(message, next_index, 3*4)
-      acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_props'] is not None and metadata['num_fingers'] is not None:
+      for _ in range(metadata['num_props'] + metadata['num_fingers']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        orientation, next_index = self._read_bytes(message, next_index, 4*4)
+        velocity, next_index = self._read_bytes(message, next_index, 3*4)
+        acceleration, next_index = self._read_bytes(message, next_index, 3*4)
 
     return {
       'quaternion': orientations,
@@ -592,7 +636,7 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_motion_trackers(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_motion_trackers(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Trackers data contains:
     #   The quaternion orientation for the segment with a tracker, free acceleration and magnetic field.
     orientations = np.zeros((self._num_sensors, 4), dtype=np.float32)
@@ -601,28 +645,35 @@ class MvnAnalyzeStreamer(Producer):
     local_gyroscopes = np.zeros((self._num_sensors, 3), dtype=np.float32)
     local_magnetometers = np.zeros((self._num_sensors, 3), dtype=np.float32)
 
-    for _ in range(metadata['num_items']):
-      segment_id, next_index = self._read_bytes(message, next_index, 4)
-      orientation, next_index = self._read_bytes(message, next_index, 4*4)
-      global_free_acceleration, next_index = self._read_bytes(message, next_index, 3*4)
-      local_acceleration, next_index = self._read_bytes(message, next_index, 3*4)
-      local_gyroscope, next_index = self._read_bytes(message, next_index, 3*4)
-      local_magnetometer, next_index = self._read_bytes(message, next_index, 3*4)
+    if metadata['num_items'] is not None:
+      for _ in range(metadata['num_items']):
+        segment_id, next_index = self._read_bytes(message, next_index, 4)
+        orientation, next_index = self._read_bytes(message, next_index, 4*4)
+        global_free_acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+        local_acceleration, next_index = self._read_bytes(message, next_index, 3*4)
+        local_gyroscope, next_index = self._read_bytes(message, next_index, 3*4)
+        local_magnetometer, next_index = self._read_bytes(message, next_index, 3*4)
 
-      segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
-      orientation = np.array(struct.unpack('!4f', orientation), np.float32)
-      global_free_acceleration = np.array(struct.unpack('!3f', global_free_acceleration), np.float32)
-      local_acceleration = np.array(struct.unpack('!3f', local_acceleration), np.float32)
-      local_gyroscope = np.array(struct.unpack('!3f', local_gyroscope), np.float32)
-      local_magnetometer = np.array(struct.unpack('!3f', local_magnetometer), np.float32)
+        if (segment_id is not None and
+            orientation is not None and
+            global_free_acceleration is not None and
+            local_acceleration is not None and
+            local_gyroscope is not None and
+            local_magnetometer is not None):
+          segment_id = int.from_bytes(segment_id, byteorder='big', signed=False)
+          orientation = np.array(struct.unpack('!4f', orientation), np.float32)
+          global_free_acceleration = np.array(struct.unpack('!3f', global_free_acceleration), np.float32)
+          local_acceleration = np.array(struct.unpack('!3f', local_acceleration), np.float32)
+          local_gyroscope = np.array(struct.unpack('!3f', local_gyroscope), np.float32)
+          local_magnetometer = np.array(struct.unpack('!3f', local_magnetometer), np.float32)
 
-      if segment_id in self._sensor_id_mapping.keys():
-        id = self._sensor_id_mapping[segment_id]
-        orientations[id, :] = orientation
-        global_free_accelerations[id, :] = global_free_acceleration
-        local_accelerations[id, :] = local_acceleration
-        local_gyroscopes[id, :] = local_gyroscope
-        local_magnetometers[id, :] = local_magnetometer
+          if segment_id in self._sensor_id_mapping.keys():
+            id = self._sensor_id_mapping[segment_id]
+            orientations[id, :] = orientation
+            global_free_accelerations[id, :] = global_free_acceleration
+            local_accelerations[id, :] = local_acceleration
+            local_gyroscopes[id, :] = local_gyroscope
+            local_magnetometers[id, :] = local_magnetometer
 
     return {
       'quaternion': orientations,
@@ -634,19 +685,23 @@ class MvnAnalyzeStreamer(Producer):
     }, next_index
 
 
-  def _process_time_code(self, message: bytes, next_index: int, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
+  def _process_time_code(self, message: bytes, next_index: int | None, metadata: MvnMetadata, extra_data: MvnCommonData) -> MvnDataTuple:
     # Time data contains:
     #  A string for the sample timestamp formatted as HH:MM:SS.mmm
     str_length, next_index = self._read_bytes(message, next_index, 4)
-    str_length = int.from_bytes(str_length, byteorder='big', signed=True)
-    assert str_length == 12, 'Unexpected number of bytes in the time code string: %d instead of 12' % str_length
+    time_code_s = float('nan')
+    if str_length is not None:
+      str_length = int.from_bytes(str_length, byteorder='big', signed=True)
+      
+      if str_length != 12:
+        print('Unexpected number of bytes in the time code string: %d instead of 12' % str_length)
 
-    time_code_str, next_index = self._read_bytes(message, next_index, str_length)
-    time_code_str = time_code_str.decode('utf-8')
-
-    # The received string is a time in UTC without a date.
-    # Convert this to local time with the current date, then to seconds since epoch.
-    time_code_s = get_time_s_from_utc_time_no_date_str(time_code_str, input_time_format='%H:%M:%S.%f')
+      time_code_str, next_index = self._read_bytes(message, next_index, str_length)
+      if time_code_str is not None:  
+        time_code_str = time_code_str.decode('utf-8')
+        # The received string is a time in UTC without a date.
+        # Convert this to local time with the current date, then to seconds since epoch.
+        time_code_s = get_time_s_from_utc_time_no_date_str(time_code_str, input_time_format='%H:%M:%S.%f')
 
     return {
       'timestamp_s': time_code_s,

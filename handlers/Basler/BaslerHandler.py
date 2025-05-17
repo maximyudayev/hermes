@@ -48,11 +48,11 @@ class ImageEventHandler(pylon.ImageEventHandler):
     # Register with the pylon loop, specify strategy for frame grabbing.
     for cam in cam_array:
       cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
-    self._start_sequence_id = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), None) for cam in cam_array])
-    self._buffer: deque[tuple[str, np.ndarray, bool, int, np.uint64, np.int64, float]] = deque()
+    self._start_sequence_id: OrderedDict[str, np.uint64] = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), None) for cam in cam_array]) # type: ignore
+    self._buffer: deque[tuple[str, bytes, bool, np.uint64, np.uint64, np.uint64, float]] = deque()
 
 
-  def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult):
+  def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult): # type: ignore
     # Gets called on every image.
     #   Runs in a pylon thread context, always wrap in the `try .. except`
     #   to capture errors inside the grabbing as this can't be properly
@@ -63,14 +63,14 @@ class ImageEventHandler(pylon.ImageEventHandler):
           res.Release()
         else:
           toa_s: float = get_time()
-          frame_buffer: bytes = res.GetBuffer()
-          camera_id: str = camera.GetDeviceInfo().GetSerialNumber()
-          timestamp: np.uint64 = res.GetTimeStamp()
-          sequence_id: np.int64 = res.GetImageNumber()
+          frame_buffer: bytes = bytes(res.GetBuffer())
+          camera_id: str = str(camera.GetDeviceInfo().GetSerialNumber())
+          timestamp: np.uint64 = np.uint64(res.GetTimeStamp())
+          sequence_id: np.uint64 = np.uint64(res.GetImageNumber())
           # Presentation time in the units of the timebase of the stream, w.r.t. the start of the video recording.
           if self._start_sequence_id[camera_id] is None:
             self._start_sequence_id[camera_id] = sequence_id
-          frame_index = sequence_id - self._start_sequence_id[camera_id] # NOTE: not safe against overflow, but int64
+          frame_index = sequence_id - self._start_sequence_id[camera_id] # NOTE: not safe against overflow, but int64.
           # If there are any skipped images in between, it will take encoder a lot of processing.
           #   Mark the frame as keyframe so it encodes the frame as a whole, not differentially.
           is_keyframe: bool = res.GetNumberOfSkippedImages() > 0
@@ -90,7 +90,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       pass
 
 
-  def get_frame(self) -> tuple[str, bytes, bool, int, np.uint64, np.uint64, float] | None:
+  def get_frame(self) -> tuple[str, bytes, bool, np.uint64, np.uint64, np.uint64, float] | None:
     try:
       return self._buffer.popleft()
     except IndexError:

@@ -50,7 +50,7 @@ class DataLogger(Consumer):
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               log_history_filepath: str = None,
+               log_history_filepath: str | None = None,
                **_):
 
     # Inherits FSM and Consumer ZeroMQ functionality.

@@ -76,7 +76,7 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-time', 
                     stream_name='device_time_s',
                     data_type='float64', 
-                    sample_size=(1),
+                    sample_size=(1,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-time']['device_time_s'])
 
@@ -84,7 +84,7 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-gaze', 
                     stream_name='confidence',
                     data_type='float64', 
-                    sample_size=(1),
+                    sample_size=(1,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-gaze']['confidence'])
     self.add_stream(device_name='eye-gaze', 
@@ -102,19 +102,19 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-gaze', 
                     stream_name='point_3d',
                     data_type='float64', 
-                    sample_size=(3),
+                    sample_size=(3,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-gaze']['point_3d'])
     self.add_stream(device_name='eye-gaze', 
                     stream_name='position',
                     data_type='float64', 
-                    sample_size=(2),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-gaze']['position'])
     self.add_stream(device_name='eye-gaze', 
                     stream_name='timestamp',
                     data_type='float64', 
-                    sample_size=(1),
+                    sample_size=(1,),
                     sampling_rate_hz=fps_video_world,
                     is_measure_rate_hz=True,
                     data_notes=self._data_notes['eye-gaze']['timestamp'])
@@ -217,13 +217,13 @@ class EyeStream(Stream):
       self.add_stream(device_name='eye-fixations',
                       stream_name='id',
                       data_type='int32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['id'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='timestamp',
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       is_measure_rate_hz=True,
                       data_notes=self._data_notes['eye-fixations']['timestamp'])
@@ -236,19 +236,19 @@ class EyeStream(Stream):
       self.add_stream(device_name='eye-fixations',
                       stream_name='dispersion',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['dispersion'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='duration',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['duration'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='confidence',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['confidence'])
       self.add_stream(device_name='eye-fixations',
@@ -263,14 +263,14 @@ class EyeStream(Stream):
       self.add_stream(device_name='eye-blinks',
                       stream_name='timestamp',
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       is_measure_rate_hz=True,
                       data_notes=self._data_notes['eye-blinks']['timestamp'])
       self.add_stream(device_name='eye-blinks',
                       stream_name='confidence',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-blinks']['confidence'])
       
@@ -280,19 +280,19 @@ class EyeStream(Stream):
       self.add_stream(device_name='eye-video-world',
                       stream_name='frame_timestamp',
                       data_type='float64',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_world,
                       data_notes=self._data_notes['eye-video-world']['frame_timestamp'])
       self.add_stream(device_name='eye-video-world', 
                       stream_name='frame_index',
                       data_type='uint64', 
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_world, 
                       data_notes=self._data_notes['eye-video-world']['frame_index'])
       self.add_stream(device_name='eye-video-world', 
                       stream_name='frame_sequence_id',
                       data_type='uint64', 
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_world, 
                       data_notes=self._data_notes['eye-video-world']['frame_sequence_id'])
       self.add_stream(device_name='eye-video-world', 
@@ -310,19 +310,19 @@ class EyeStream(Stream):
       self.add_stream(device_name='eye-video-eye0', 
                       stream_name='frame_timestamp',
                       data_type='float64', 
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_eye0, 
                       data_notes=self._data_notes['eye-video-eye0']['frame_timestamp'])
       self.add_stream(device_name='eye-video-eye0', 
                       stream_name='frame_index',
                       data_type='uint64', 
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_eye0, 
                       data_notes=self._data_notes['eye-video-eye0']['frame_index'])
       self.add_stream(device_name='eye-video-eye0', 
                       stream_name='frame_sequence_id',
                       data_type='uint64', 
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=fps_video_eye0, 
                       data_notes=self._data_notes['eye-video-eye0']['frame_sequence_id'])
       self.add_stream(device_name='eye-video-eye0', 
@@ -339,19 +339,19 @@ class EyeStream(Stream):
         self.add_stream(device_name='eye-video-eye1', 
                         stream_name='frame_timestamp',
                         data_type='float64', 
-                        sample_size=(1),
+                        sample_size=(1,),
                         sampling_rate_hz=fps_video_eye1, 
                         data_notes=self._data_notes['eye-video-eye1']['frame_timestamp'])
         self.add_stream(device_name='eye-video-eye1', 
                         stream_name='frame_index',
                         data_type='uint64', 
-                        sample_size=(1),
+                        sample_size=(1,),
                         sampling_rate_hz=fps_video_eye1, 
                         data_notes=self._data_notes['eye-video-eye1']['frame_index'])
         self.add_stream(device_name='eye-video-eye1', 
                         stream_name='frame_sequence_id',
                         data_type='uint64', 
-                        sample_size=(1),
+                        sample_size=(1,),
                         sampling_rate_hz=fps_video_eye1, 
                         data_notes=self._data_notes['eye-video-eye1']['frame_sequence_id'])
         self.add_stream(device_name='eye-video-eye1', 
@@ -366,7 +366,7 @@ class EyeStream(Stream):
                         timesteps_before_solidified=self._timesteps_before_solidified)
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     fps = {
       'eye-gaze': super()._get_fps('eye-gaze', 'timestamp'),
       'eye-pupil': super()._get_fps('eye-pupil', 'timestamp'),
@@ -397,6 +397,7 @@ class EyeStream(Stream):
                                 gaze_data_path={'eye-gaze': 'position'},
                                 legend_name=device,
                                 update_interval_ms=self._update_interval_ms,
+                                color_format=self._streams_info['eye-video-world']['frame']['color_format']['cv2'],
                                 col_width=6)
                     for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
 
@@ -405,6 +406,7 @@ class EyeStream(Stream):
                                  data_path={device: 'frame'},
                                  legend_name=device,
                                  update_interval_ms=self._update_interval_ms,
+                                 color_format=self._streams_info[device]['frame']['color_format']['cv2'],
                                  col_width=6)
                     for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
     

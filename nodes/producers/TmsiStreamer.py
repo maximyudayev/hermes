@@ -25,17 +25,17 @@
 #
 # ############
 
-from handlers.TMSiSDK.device.tmsi_device import TMSiDevice
-from handlers.TMSiSDK.sample_data_server.sample_data import SampleData
+from handlers.Tmsi.device.tmsi_device import TMSiDevice
+from handlers.Tmsi.sample_data_server.sample_data import SampleData
 from nodes.producers.Producer import Producer
 from streams import TmsiStream
 
-from handlers.TMSiSDK.tmsi_sdk import TMSiSDK
-from handlers.TMSiSDK.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
-from handlers.TMSiSDK.sample_data_server.sample_data_server import SampleDataServer
-from handlers.TMSiSDK.tmsi_utilities.support_functions import array_to_matrix
-from handlers.TMSiSDK.device.devices.saga.saga_API_enums import SagaBaseSampleRate
-from handlers.TMSiSDK.device.tmsi_channel import ChannelType
+from handlers.Tmsi.tmsi_sdk import TMSiSDK
+from handlers.Tmsi.device.tmsi_device_enums import DeviceInterfaceType, DeviceType, MeasurementType
+from handlers.Tmsi.sample_data_server.sample_data_server import SampleDataServer
+from handlers.Tmsi.tmsi_utilities.support_functions import array_to_matrix
+from handlers.Tmsi.device.devices.saga.saga_API_enums import SagaBaseSampleRate
+from handlers.Tmsi.device.tmsi_channel import ChannelType
 
 import queue
 from utils.print_utils import *
@@ -62,7 +62,7 @@ class TmsiStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                **_)-> None:
     
     stream_info = {
@@ -79,7 +79,8 @@ class TmsiStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
-  def create_stream(self, stream_info: dict) -> TmsiStream:
+  @classmethod
+  def create_stream(cls, stream_info: dict) -> TmsiStream:
     return TmsiStream(**stream_info)
 
 

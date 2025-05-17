@@ -64,3 +64,8 @@ try:
   from .DummyStream import DummyStream
 except ImportError:
   pass
+
+try:
+  from .PytorchStream import PytorchStream
+except ImportError:
+  pass

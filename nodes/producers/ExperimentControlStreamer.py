@@ -61,14 +61,12 @@ class ExperimentControlStreamer(Producer):
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
-                     sampling_rate_hz=None,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig)
 
 
-  # Instantiate Stream datastructure object specific to this Streamer.
-  #   Should also be a class method to create Stream objects on consumers. 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> ExperimentControlStream:
     return ExperimentControlStream(**stream_info)
 

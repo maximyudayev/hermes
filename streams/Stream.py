@@ -29,11 +29,10 @@ from abc import ABC, abstractmethod
 
 import copy
 from collections import OrderedDict, deque
-from typing import Any, Iterable, Iterator, Mapping
+from typing import Any, Dict, Iterable, Iterator, Mapping
 import dash_bootstrap_components as dbc
 from threading import Lock
 
-from utils.dict_utils import convert_dict_values_to_str
 from utils.time_utils import get_time
 from utils.types import VIDEO_FORMAT, DataFifoDict, DeviceLockDict, ExtraDataInfoDict, NewDataDict, StreamInfoDict
 
@@ -83,7 +82,7 @@ class Stream(ABC):
   # Computed based on how fast data becomes available to the data structure, hence suitable
   #   to measure frame rate on the subscriber, local or remote.
   @abstractmethod
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     pass
 
 
@@ -120,7 +119,7 @@ class Stream(ABC):
                  is_measure_rate_hz: bool = False,
                  data_notes: Mapping[str, str] = {},
                  is_video: bool = False,
-                 color_format: str = None,
+                 color_format: str | None = None,
                  is_audio: bool = False,
                  timesteps_before_solidified: int = 0,
                  extra_data_info: ExtraDataInfoDict = {}) -> None:
@@ -156,9 +155,9 @@ class Stream(ABC):
                   sample_size: Iterable[int],
                   sampling_rate_hz: float = 0.0,
                   is_measure_rate_hz: bool = False,
-                  data_notes: str | dict = {},
+                  data_notes: Mapping[str, str] = {},
                   is_video: bool = False,
-                  color_format: str = None,
+                  color_format: str | None = None,
                   is_audio: bool = False,
                   timesteps_before_solidified: int = 0,
                   extra_data_info: ExtraDataInfoDict = {}) -> None:
@@ -179,14 +178,15 @@ class Stream(ABC):
     # Record color formats to use by FFmpeg and OpenCV, for saving and displaying frames.
     if is_video:
       try:
-        video_format = VIDEO_FORMAT[color_format]
-        self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = video_format.ffmpeg_input_format
-        self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': video_format.ffmpeg_pix_fmt, 'cv2': video_format.cv2_cvt_color}
+        if color_format is not None:
+          video_format = VIDEO_FORMAT[color_format]
+          self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = video_format.ffmpeg_input_format
+          self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': video_format.ffmpeg_pix_fmt, 'cv2': video_format.cv2_cvt_color}
+        else: raise KeyError
       except KeyError:
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
     # Some metadata to keep track of during running to measure the actual frame rate.
     if is_measure_rate_hz:
-      sampling_rate_hz: float = sampling_rate_hz if sampling_rate_hz is not None else 0.0
       # Set at start actual rate equal to desired sample rate
       self._streams_info[device_name][stream_name]['actual_rate_hz'] = sampling_rate_hz
       # Create a circular buffer of 1 second, w.r.t. desired sample rate
@@ -260,7 +260,7 @@ class Stream(ABC):
   def pop_data(self, 
                device_name: str, 
                stream_name: str,
-               num_oldest_to_pop: int = None,
+               num_oldest_to_pop: int | None = None,
                is_flush: bool = False) -> Iterator[Any]:
     # O(1) complexity to check length of a Deque.
     num_available: int = len(self._data[device_name][stream_name])
@@ -287,7 +287,7 @@ class Stream(ABC):
   def peek_data_new(self,
                     device_name: str,
                     stream_name: str,
-                    num_newest_to_peek: int = None) -> Iterator[Any]:
+                    num_newest_to_peek: int | None = None) -> Iterator[Any]:
     self._locks[device_name].acquire()
     num_peekable: int = min(self._streams_info[device_name][stream_name]['timesteps_before_solidified'], 
                             len(self._data[device_name][stream_name]))
@@ -310,7 +310,7 @@ class Stream(ABC):
   def clear_data(self,
                  device_name: str,
                  stream_name: str,
-                 num_oldest_to_clear: int = None) -> None:
+                 num_oldest_to_clear: int | None = None) -> None:
     # Create the device/stream entry if it doesn't exist, else clear it.
     self._data.setdefault(device_name, OrderedDict())
     if stream_name not in self._data[device_name]:
@@ -353,7 +353,7 @@ class Stream(ABC):
 
   # Get the names of streams.
   # If device_name is None, will assume streams are the same for every device.
-  def get_stream_names(self, device_name: str = None) -> list[str]:
+  def get_stream_names(self, device_name: str | None = None) -> list[str]:
     if device_name is None:
       device_name = self.get_device_names()[0]
     return list(self._streams_info[device_name].keys())
@@ -375,12 +375,12 @@ class Stream(ABC):
   #     dt_circular_index,
   #     dt_running_sum,
   #     old_toa
-  def get_stream_info(self, device_name: str, stream_name: str) -> OrderedDict[str, Any]:
+  def get_stream_info(self, device_name: str, stream_name: str) -> Dict[str, Any]:
     return self._streams_info[device_name][stream_name]
 
 
   # Get all information about all streams.
-  def get_stream_info_all(self) -> OrderedDict[str, OrderedDict[str, OrderedDict[str, Any]]]:
+  def get_stream_info_all(self) -> StreamInfoDict:
     return copy.deepcopy(self._streams_info)
 
 

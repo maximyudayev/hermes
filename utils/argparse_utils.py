@@ -26,6 +26,7 @@
 # ############
 
 import argparse
+from typing import Any, Sequence
 
 
 def validate_ip(s: str) -> str:
@@ -43,7 +44,7 @@ def validate_ip(s: str) -> str:
 
 def validate_path(s: str) -> str:
   try:
-    pass
+    return s
   except:
     raise argparse.ArgumentTypeError("Invalid path to config file: ", s)
     # raise argparse.ArgumentTypeError("Config file does not exist: ", s)
@@ -64,43 +65,46 @@ def parse_type(s: str) -> int | float | str:
 
 class ParseExperimentKwargs(argparse.Action):
   def __call__(self, parser, namespace, values, option_string = None):
-    setattr(namespace, self.dest, dict())
-    for value in values:
-      key, value = value.split('=')
-      getattr(namespace, self.dest)[key] = value
+    if isinstance(values, (list, tuple)):
+      setattr(namespace, self.dest, dict())
+      for value in values:
+        key, value = value.split('=')
+        getattr(namespace, self.dest)[key] = value
 
 
 class ParseLoggingKwargs(argparse.Action):
   def __call__(self, parser, namespace, values, option_string = None):
-    setattr(namespace, self.dest, dict())
-    for value in values:
-      if '=' in value:
-        key, val = value.split('=')
-        getattr(namespace, self.dest)[key] = parse_type(val)
-      else:
-        getattr(namespace, self.dest)[value] = True
+    if isinstance(values, (list, tuple)):
+      setattr(namespace, self.dest, dict())
+      for value in values:
+        if '=' in value:
+          key, val = value.split('=')
+          getattr(namespace, self.dest)[key] = parse_type(val)
+        else:
+          getattr(namespace, self.dest)[value] = True
 
 
 class ParseNodeKwargs(argparse.Action):
   def __call__(self, parser, namespace, values, option_string = None):
-    new_items = list()
-    # Parse the input values as a dictionary
-    id = -1
-    for value in values:
-      key, val = value.split('=')
-      if key == 'class':
-        id += 1
-        new_items.append(dict([(key, val)]))
-      elif '"' in val:
-        new_items[id][key] = dict()
-        for pair_str in val.split('"')[1].split(';'):
-          k, v = pair_str.split(':')
-          new_items[id][key][k] = v
-      elif ',' in val:
-        new_items[id][key] = list(map(parse_type, val.split(',')))
-      else:
-        new_items[id][key] = parse_type(val)
-    # Extend the list with the new dictionary
-    items = getattr(namespace, self.dest, list())
-    items.extend(new_items)
-    setattr(namespace, self.dest, items)
+    if isinstance(values, (list, tuple)):
+      new_items = list()
+      # Parse the input values as a dictionary
+      id = -1
+      for value in values:
+        key, val = value.split('=')
+        if key == 'class':
+          id += 1
+          new_items.append(dict([(key, val)]))
+        elif '"' in val:
+          new_items[id][key] = dict()
+          for pair_str in val.split('"')[1].split(';'):
+            k, v = pair_str.split(':')
+            new_items[id][key][k] = v
+        elif ',' in val:
+          new_items[id][key] = list(map(parse_type, val.split(',')))
+        else:
+          new_items[id][key] = parse_type(val)
+      # Extend the list with the new dictionary
+      items = getattr(namespace, self.dest, list())
+      items.extend(new_items)
+      setattr(namespace, self.dest, items)

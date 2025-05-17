@@ -29,6 +29,7 @@ import threading
 from handlers.LoggingHandler import Logger
 from nodes.Node import Node
 from nodes.producers.Producer import Producer
+from nodes.pipelines.Pipeline import Pipeline
 from nodes.pipelines import PIPELINES
 from nodes.producers import PRODUCERS
 from streams import Stream
@@ -56,7 +57,7 @@ class Consumer(Node):
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               log_history_filepath: str = None) -> None:
+               log_history_filepath: str | None = None) -> None:
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync, 
                      port_killsig=port_killsig)
@@ -73,8 +74,8 @@ class Consumer(Node):
       class_args = stream_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Producer] = {**PRODUCERS,**PIPELINES}[class_name]
-      class_object: Stream = class_type.create_stream(class_type, class_args)
+      class_type: type[Producer] | type[Pipeline] = {**PRODUCERS,**PIPELINES}[class_name]
+      class_object: Stream = class_type.create_stream(class_args)
       # Store the streamer object.
       self._streams.setdefault(class_type._log_source_tag(), class_object)
       self._is_producer_ended.setdefault(class_type._log_source_tag(), False)

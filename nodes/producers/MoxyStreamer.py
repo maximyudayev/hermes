@@ -77,10 +77,10 @@ class MoxyStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                **_):
     self._devices = devices
-    self._previous_counters: dict[str, int] = {dev: None for dev in devices}
+    self._previous_counters: dict[str, int | None] = {dev: None for dev in devices}
 
     stream_info = {
       "devices": devices,
@@ -97,6 +97,7 @@ class MoxyStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> MoxyStream:
     return MoxyStream(**stream_info)
 
@@ -125,7 +126,7 @@ class MoxyStreamer(Producer):
 
     self.scanner.on_found = on_found
     self.scanner.on_update = on_update
-    return self.node.discover_devices()
+    return self.node.discover_devices(self._devices)
 
 
   def _keep_samples(self) -> None:

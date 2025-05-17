@@ -26,7 +26,8 @@
 # ############
 
 from collections import OrderedDict
-from handlers.MovellaHandler import MOVELLA_STATUS_MASK, MOVELLA_PAYLOAD_MODE
+from handlers.MovellaDots.MovellaHandler import MOVELLA_PAYLOAD_MODE
+from handlers.MovellaDots.MovellaConstants import MOVELLA_STATUS_MASK
 from streams import Stream
 from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
@@ -46,7 +47,7 @@ class DotsStream(Stream):
                payload_mode: str = 'RateQuantitieswMag',
                timesteps_before_solidified: int = 0,
                update_interval_ms: int = 100,
-               transmission_delay_period_s: int = None,
+               transmission_delay_period_s: int | None = None,
                **_) -> None:
     super().__init__()
     self._num_joints = num_joints
@@ -74,19 +75,19 @@ class DotsStream(Stream):
     self.add_stream(device_name='dots-imu',
                     stream_name='timestamp',
                     data_type='uint32',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['dots-imu']['timestamp'])
     self.add_stream(device_name='dots-imu',
                     stream_name='toa_s',
                     data_type='float64',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     data_notes=self._data_notes['dots-imu']['toa_s'])
     self.add_stream(device_name='dots-imu',
                     stream_name='counter',
                     data_type='uint32',
-                    sample_size=(self._num_joints),
+                    sample_size=(self._num_joints,),
                     sampling_rate_hz=self._sampling_rate_hz,
                     is_measure_rate_hz=True,
                     data_notes=self._data_notes['dots-imu']['counter'])
@@ -95,12 +96,12 @@ class DotsStream(Stream):
       self.add_stream(device_name='dots-connection',
                       stream_name='transmission_delay',
                       data_type='float32',
-                      sample_size=(1),
+                      sample_size=(1,),
                       sampling_rate_hz=1.0/self._transmission_delay_period_s,
                       data_notes=self._data_notes['dots-connection']['transmission_delay'])
 
 
-  def get_fps(self) -> dict[str, float]:
+  def get_fps(self) -> dict[str, float | None]:
     return {'dots-imu': super()._get_fps('dots-imu', 'timestamp')}
 
 

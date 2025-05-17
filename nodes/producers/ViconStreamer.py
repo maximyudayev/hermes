@@ -72,6 +72,7 @@ class ViconStreamer(Producer):
                      port_killsig=port_killsig)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> ViconStream:  
     return ViconStream(**stream_info)
 

@@ -1,7 +1,7 @@
-from nodes.Node import Node
+from nodes.producers.Producer import Producer
 
 
-PRODUCERS: dict[str, Node] = {}
+PRODUCERS: dict[str, type[Producer]] = {}
 try:
   from nodes.producers.DotsStreamer import DotsStreamer
   PRODUCERS["DotsStreamer"] = DotsStreamer

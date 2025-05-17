@@ -28,7 +28,7 @@
 from nodes.producers.Producer import Producer
 from streams import AwindaStream
 
-from handlers.XsensHandler import XsensFacade
+from handlers.XsensAwinda.XsensHandler import XsensFacade
 from utils.zmq_utils import *
 
 import numpy as np
@@ -57,7 +57,7 @@ class AwindaStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                **_):
 
     self._num_joints = num_joints
@@ -81,7 +81,8 @@ class AwindaStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
-  def create_stream(self, stream_info: dict) -> AwindaStream:  
+  @classmethod
+  def create_stream(cls, stream_info: dict) -> AwindaStream:  
     return AwindaStream(**stream_info)
 
 
@@ -92,7 +93,7 @@ class AwindaStreamer(Producer):
   def _connect(self) -> bool:
     self._handler = XsensFacade(device_mapping=self._device_mapping,
                                 radio_channel=self._radio_channel,
-                                sampling_rate_hz=self._sampling_rate_hz)
+                                sampling_rate_hz=int(self._sampling_rate_hz))
     # Keep reconnecting until success
     while not self._handler.initialize():
       self._handler.cleanup()

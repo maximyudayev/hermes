@@ -29,6 +29,7 @@ from nodes.pipelines.Pipeline import Pipeline
 
 import time
 
+from streams.PytorchStream import PytorchStream
 from utils.zmq_utils import *
 
 
@@ -69,8 +70,9 @@ class PytorchWorker(Pipeline):
                      port_killsig=port_killsig)
 
 
-  def create_stream(cls, stream_info: dict):
-    pass
+  @classmethod
+  def create_stream(cls, stream_info: dict) -> PytorchStream:
+    return PytorchStream(**stream_info)
 
 
   def _process_data(self) -> None:

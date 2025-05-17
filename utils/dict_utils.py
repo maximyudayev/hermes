@@ -89,7 +89,7 @@ def flatten_dict(d: dict | OrderedDict) -> dict | OrderedDict:
 
 # Worker method for the above, which will return a list of items for the flattened dictionary.
 def _get_flattened_dict_items(d: dict | OrderedDict, 
-                              parent_key: str = None, 
+                              parent_key: str | None = None, 
                               parent_key_joiner: str = '|') -> list:
   d_items = []
   for (key, value) in d.items():

@@ -28,7 +28,7 @@
 from nodes.producers.Producer import Producer
 from streams import CameraStream
 
-from handlers.BaslerHandler import ImageEventHandler
+from handlers.Basler.BaslerHandler import ImageEventHandler
 import pypylon.pylon as pylon
 from utils.print_utils import *
 from utils.zmq_utils import *
@@ -56,7 +56,7 @@ class CameraStreamer(Producer):
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
-               transmit_delay_sample_period_s: float = None,
+               transmit_delay_sample_period_s: float = float('nan'),
                timesteps_before_solidified: int = 0,
                **_):
 
@@ -66,7 +66,7 @@ class CameraStreamer(Producer):
     self._pylon_max_buffer_size = pylon_max_buffer_size
     self._fps = fps
     self._get_frame_fn = self._get_frame
-    self._stop_time_s = None
+    self._stop_time_s = float('nan')
 
     stream_info = {
       "camera_mapping": camera_mapping,
@@ -85,6 +85,7 @@ class CameraStreamer(Producer):
                      transmit_delay_sample_period_s=transmit_delay_sample_period_s)
 
 
+  @classmethod
   def create_stream(cls, stream_info: dict) -> CameraStream:
     return CameraStream(**stream_info)
 
@@ -105,14 +106,14 @@ class CameraStreamer(Producer):
     # Instantiate cameras.
     cam: pylon.InstantCamera
     self._cam_array: pylon.InstantCameraArray = pylon.InstantCameraArray(len(devices))
-    for idx, cam in enumerate(self._cam_array):
+    for idx, cam in enumerate(self._cam_array): # type: ignore
       cam.Attach(self._tl.CreateDevice(devices[idx]))
 
     # Connect to the cameras.
     self._cam_array.Open()
 
     # Configure the cameras according to the user settings.
-    for idx, cam in enumerate(self._cam_array):
+    for idx, cam in enumerate(self._cam_array): # type: ignore
       # For consistency load persistent settings stored in the camera.
       # NOTE: avoid overwriting this user set in Pylon viewer.
       # cam.UserSetSelector = "UserSet1"
@@ -174,7 +175,7 @@ class CameraStreamer(Producer):
                      camera_id: str,
                      frame_buffer: bytes,
                      is_keyframe: bool,
-                     frame_index: int,
+                     frame_index: np.uint64,
                      timestamp: np.uint64,
                      sequence_id: np.uint64,
                      toa_s: float) -> None:

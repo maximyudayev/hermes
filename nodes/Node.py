@@ -179,7 +179,7 @@ class Node(NodeInterface):
 
 
   @property
-  def _is_done(self) -> str:
+  def _is_done(self) -> bool:
     return self.__is_done
   
 
@@ -247,7 +247,7 @@ class Node(NodeInterface):
   # Listens for events when new data is received from or when new data can be written to sockets,
   #   based on the active Poller settings of the Node implementation.
   def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
-    return tuple(zip(*(self._poller.poll())))
+    return tuple(zip(*(self._poller.poll()))) # type: ignore
 
 
   # Actions to perform on the poll event.
