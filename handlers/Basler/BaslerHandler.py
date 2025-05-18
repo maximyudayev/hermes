@@ -26,6 +26,7 @@
 # ############
 
 from collections import OrderedDict, deque
+import queue
 from pypylon import pylon
 import numpy as np
 
@@ -50,6 +51,7 @@ class ImageEventHandler(pylon.ImageEventHandler):
       cam.RegisterImageEventHandler(self, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
     self._start_sequence_id: OrderedDict[str, np.uint64] = OrderedDict([(cam.GetDeviceInfo().GetSerialNumber(), None) for cam in cam_array]) # type: ignore
     self._buffer: deque[tuple[str, bytes, bool, np.uint64, np.uint64, np.uint64, float]] = deque()
+    self._queue: queue.Queue[tuple[str, bytes, bool, np.uint64, np.uint64, np.uint64, float]] = queue.Queue()
 
 
   def OnImageGrabbed(self, camera: pylon.InstantCamera, res: pylon.GrabResult): # type: ignore
@@ -77,13 +79,13 @@ class ImageEventHandler(pylon.ImageEventHandler):
           # Release the buffer for Pylon to reuse for the next frame.
           res.Release()
           # Put the newly allocated converted image into our queue/pipe for Streamer to consume.
-          self._buffer.append((camera_id,
-                               frame_buffer,
-                               is_keyframe,
-                               frame_index,
-                               timestamp,
-                               sequence_id,
-                               toa_s))
+          self._queue.put((camera_id,
+                           frame_buffer,
+                           is_keyframe,
+                           frame_index,
+                           timestamp,
+                           sequence_id,
+                           toa_s))
       else:
         raise RuntimeError("Grab Failed")
     except Exception as e:
@@ -92,8 +94,8 @@ class ImageEventHandler(pylon.ImageEventHandler):
 
   def get_frame(self) -> tuple[str, bytes, bool, np.uint64, np.uint64, np.uint64, float] | None:
     try:
-      return self._buffer.popleft()
-    except IndexError:
+      return self._queue.get(timeout=5)
+    except queue.Empty:
       return None
 
 
