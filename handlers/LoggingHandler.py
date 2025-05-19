@@ -185,8 +185,6 @@ class Logger(LoggerInterface):
                dump_audio: bool = False,
                video_codec: VideoCodecDict | None = None,
                video_codec_num_cpu: int = 1,
-               is_video_scale_down: bool = False,
-               is_video_deflicker: bool = False,
                audio_format: str = "wav",
                stream_period_s: float = 30.0,
                **_):
@@ -203,8 +201,6 @@ class Logger(LoggerInterface):
     self._dump_audio = dump_audio
     self._video_codec = video_codec
     self._video_codec_num_cpu = video_codec_num_cpu
-    self._is_video_scale_down = is_video_scale_down
-    self._is_video_deflicker = is_video_deflicker
     self._audio_format = audio_format
     self._log_tag = log_tag
     self._log_dir = log_dir
@@ -480,19 +476,13 @@ class Logger(LoggerInterface):
                                                                                        ('Xencoded-by', 'HERMES')])}
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           video_stream = ffmpeg.input('pipe:', # type: ignore
+                                      hwaccel='cuda',
+                                      hwaccel_output_format='cuda',
                                       format=input_stream_format,
                                       pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
                                       s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
                                       framerate=fps,
                                       cpucount=self._video_codec_num_cpu)
-          # TODO: pass as arguments to the logger.
-          scaled_width = 1280
-          scaled_height = 720
-          deflicker_kernel_size = 10
-          if self._is_video_scale_down:
-            video_stream = ffmpeg.filter(video_stream, 'scale', scaled_width, scaled_height) # type: ignore # scale down the image to reduce stress on encoder.
-          if self._is_video_deflicker:
-            video_stream = ffmpeg.filter(video_stream, 'deflicker', mode='pm', size=deflicker_kernel_size) # type: ignore # remove line noise from room lights.
           # TODO: use this to stream encoded video into a local file, and also as RTSP stream to the GUI.
           # video_stream = ffmpeg.filter_multi_output
           video_stream = ffmpeg.output(video_stream, # type: ignore
@@ -503,8 +493,7 @@ class Logger(LoggerInterface):
                                        **self._video_codec['options'],
                                        **metadata_dict)
           # video_stream = video_stream.global_args('-hide_banner')
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True)
-          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True) # type: ignore
+          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -642,8 +631,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close() # type: ignore
-      # video_writer.stderr.close() # type: ignore
-      # video_writer.stdout.close() # type: ignore
+      video_writer.stderr.close() # type: ignore
+      video_writer.stdout.close() # type: ignore
       video_writer.wait()
     self._video_writers = []
 

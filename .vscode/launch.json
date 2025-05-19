@@ -11,9 +11,9 @@
       "cwd": "${workspaceFolder}",
 			"program": "main.py",
 			"args": [
-        "--experiment", "project=Tests", "type=Cameras", "trial=1",
+        "--experiment", "project=Tests", "type=Cameras", "trial=2",
 				"--host_ip", "127.0.0.1", "--is_master",
-				"--logging_spec", "stream_period_s=1", "stream_hdf5", "stream_video", "video_codec_config_filepath=resources/codecs/terminal_h264_qsv.yml",
+				"--logging_spec", "stream_period_s=1", "stream_hdf5", "stream_video", "video_codec_config_filepath=resources/codecs/p4_h264_nvenc.yml",
 				"--producer_specs",
         "class=CameraStreamer",
           "camera_mapping=\"n1:40478064;n2:40549960;n3:40549975;n4:40549976\"",
