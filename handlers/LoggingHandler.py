@@ -476,13 +476,12 @@ class Logger(LoggerInterface):
                                                                                        ('Xencoded-by', 'HERMES')])}
           # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
           video_stream = ffmpeg.input('pipe:', # type: ignore
-                                      hwaccel='cuda',
-                                      hwaccel_output_format='cuda',
                                       format=input_stream_format,
                                       pix_fmt=input_stream_pix_fmt, # color format of piped input frames.
                                       s='{}x{}'.format(frame_width, frame_height), # size of frames from the sensor.
                                       framerate=fps,
-                                      cpucount=self._video_codec_num_cpu)
+                                      cpucount=self._video_codec_num_cpu,
+                                      **self._video_codec['input_options'])
           # TODO: use this to stream encoded video into a local file, and also as RTSP stream to the GUI.
           # video_stream = ffmpeg.filter_multi_output
           video_stream = ffmpeg.output(video_stream, # type: ignore
@@ -490,7 +489,7 @@ class Logger(LoggerInterface):
                                        vcodec=self._video_codec['codec_name'],
                                        pix_fmt=self._video_codec['pix_format'],
                                        cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
-                                       **self._video_codec['options'],
+                                       **self._video_codec['output_options'],
                                        **metadata_dict)
           # video_stream = video_stream.global_args('-hide_banner')
           video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore

@@ -32,7 +32,7 @@ import movelladot_pc_sdk as mdda
 import numpy as np
 
 
-MovellaDataGetter = TypedDict('MovellaDataGetter', {'func': Callable[[mdda.XsDataPacket], Any], 'n_dim': int, 'dtype': type, 'type_str': str}) # type: ignore
+MovellaDataGetter = TypedDict('MovellaDataGetter', {'func': Callable[[mdda.XsDataPacket], Any], 'n_dim': tuple, 'dtype': type, 'type_str': str}) # type: ignore
 MovellaPayloadTuple = TypedDict('MovellaPayloadTuple', {'num_bytes': int, 'payload_mode': Any, 'methods': Mapping[str, MovellaDataGetter]})
 
 
@@ -59,15 +59,15 @@ class MovellaPayloadEnum:
 
 
 MOVELLA_DATA_GET_METHODS = {
-  "acceleration":         MovellaDataGetter(func=lambda packet: packet.calibratedAcceleration(),  n_dim=3, dtype=np.float32, type_str='float32'),
-  "gyroscope":            MovellaDataGetter(func=lambda packet: packet.calibratedGyroscopeData(), n_dim=3, dtype=np.float32, type_str='float32'),
-  "magnetometer":         MovellaDataGetter(func=lambda packet: packet.calibratedMagneticField(), n_dim=3, dtype=np.float32, type_str='float32'),
-  "quaternion":           MovellaDataGetter(func=lambda packet: packet.orientationQuaternion(),   n_dim=4, dtype=np.float32, type_str='float32'),
-  "euler":                MovellaDataGetter(func=lambda packet: packet.orientationEuler(),        n_dim=3, dtype=np.float32, type_str='float32'),
-  "free_acceleration":    MovellaDataGetter(func=lambda packet: packet.freeAcceleration(),        n_dim=3, dtype=np.float32, type_str='float32'),
-  "dq":                   MovellaDataGetter(func=lambda packet: packet.orientationIncrement(),    n_dim=4, dtype=np.float32, type_str='float32'),
-  "dv":                   MovellaDataGetter(func=lambda packet: packet.velocityIncrement(),       n_dim=3, dtype=np.float32, type_str='float32'),
-  "status":               MovellaDataGetter(func=lambda packet: packet.status(),                  n_dim=1, dtype=np.uint16,  type_str='unit32'),
+  "acceleration":         MovellaDataGetter(func=lambda packet: packet.calibratedAcceleration(),  n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "gyroscope":            MovellaDataGetter(func=lambda packet: packet.calibratedGyroscopeData(), n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "magnetometer":         MovellaDataGetter(func=lambda packet: packet.calibratedMagneticField(), n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "quaternion":           MovellaDataGetter(func=lambda packet: packet.orientationQuaternion(),   n_dim=(4,), dtype=np.float32, type_str='float32'),
+  "euler":                MovellaDataGetter(func=lambda packet: packet.orientationEuler(),        n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "free_acceleration":    MovellaDataGetter(func=lambda packet: packet.freeAcceleration(),        n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "dq":                   MovellaDataGetter(func=lambda packet: packet.orientationIncrement(),    n_dim=(4,), dtype=np.float32, type_str='float32'),
+  "dv":                   MovellaDataGetter(func=lambda packet: packet.velocityIncrement(),       n_dim=(3,), dtype=np.float32, type_str='float32'),
+  "status":               MovellaDataGetter(func=lambda packet: packet.status(),                  n_dim=(),   dtype=np.uint16,  type_str='uint16'),
 }
 
 foo: Callable[[Iterable[str]], Mapping[str, MovellaDataGetter]] = lambda l: {k:v for k,v in MOVELLA_DATA_GET_METHODS.items() if k in l}

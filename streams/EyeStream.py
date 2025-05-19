@@ -123,7 +123,7 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-pupil', 
                     stream_name='confidence',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['confidence'])
     self.add_stream(device_name='eye-pupil', 
@@ -141,31 +141,31 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-pupil', 
                     stream_name='circle3d_radius',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['circle3d_radius'])
     self.add_stream(device_name='eye-pupil', 
                     stream_name='diameter',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['diameter'])
     self.add_stream(device_name='eye-pupil', 
                     stream_name='diameter3d',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['diameter3d'])
     self.add_stream(device_name='eye-pupil', 
                     stream_name='polar_phi',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['polar_phi'])
     self.add_stream(device_name='eye-pupil', 
                     stream_name='polar_theta',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['polar_theta'])
     self.add_stream(device_name='eye-pupil', 
@@ -177,7 +177,7 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-pupil', 
                     stream_name='projected_sphere_angle',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['projected_sphere_angle'])
     self.add_stream(device_name='eye-pupil', 
@@ -201,13 +201,13 @@ class EyeStream(Stream):
     self.add_stream(device_name='eye-pupil', 
                     stream_name='sphere_radius',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     data_notes=self._data_notes['eye-pupil']['sphere_radius'])
     self.add_stream(device_name='eye-pupil', 
                     stream_name='timestamp',
                     data_type='float64', 
-                    sample_size=(2,1),
+                    sample_size=(2,),
                     sampling_rate_hz=fps_video_world,
                     is_measure_rate_hz=True,
                     data_notes=self._data_notes['eye-pupil']['timestamp'])
@@ -218,44 +218,36 @@ class EyeStream(Stream):
                       stream_name='id',
                       data_type='int32',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['id'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='timestamp',
                       data_type='float64',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
-                      is_measure_rate_hz=True,
                       data_notes=self._data_notes['eye-fixations']['timestamp'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='norm_pos',
                       data_type='float32',
-                      sample_size=(2,1),
-                      sampling_rate_hz=0,
+                      sample_size=(2,),
                       data_notes=self._data_notes['eye-fixations']['norm_pos'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='dispersion',
                       data_type='float32',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['dispersion'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='duration',
                       data_type='float32',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['duration'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='confidence',
                       data_type='float32',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-fixations']['confidence'])
       self.add_stream(device_name='eye-fixations',
                       stream_name='gaze_point_3d',
                       data_type='float32',
-                      sample_size=(3,1),
-                      sampling_rate_hz=0,
+                      sample_size=(3,),
                       data_notes=self._data_notes['eye-fixations']['gaze_point_3d'])
       
     # Create streams for blinks data.
@@ -264,14 +256,11 @@ class EyeStream(Stream):
                       stream_name='timestamp',
                       data_type='float64',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
-                      is_measure_rate_hz=True,
                       data_notes=self._data_notes['eye-blinks']['timestamp'])
       self.add_stream(device_name='eye-blinks',
                       stream_name='confidence',
                       data_type='float32',
                       sample_size=(1,),
-                      sampling_rate_hz=0,
                       data_notes=self._data_notes['eye-blinks']['confidence'])
       
 
@@ -457,7 +446,7 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-gaze']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
+                      'which should be more precise than the system time when the data was received (the time_s field). '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ('PupilCapture key', 'gaze.Xd. > timestamp'),
     ])
@@ -540,15 +529,19 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-pupil']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
+                      'which should be more precise than the system time when the data was received (the time_s field). '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ('PupilCapture key', 'gaze.Xd. > base_data > timestamp'),
     ])
 
-    # Fixations data
+    # Fixations data.
+    self._data_notes['eye-fixations']['id'] = OrderedDict([
+      ('Description', 'The index of the fixation which relates it to other data.'),
+      ('PupilCapture key', 'fixations. > id'),
+    ])
     self._data_notes['eye-fixations']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
+                      'which should be more precise than the system time when the data was received (the time_s field). '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ('PupilCapture key', 'fixations. > timestamp'),
     ])
@@ -589,14 +582,14 @@ class EyeStream(Stream):
     ])
     self._data_notes['eye-blinks']['timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Capture software, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
+                      'which should be more precise than the system time when the data was received (the time_s field). '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ('PupilCapture key', 'blinks. > timestamp'),
     ])
 
     # Time
     self._data_notes['eye-time']['device_time_s'] = OrderedDict([
-      ('Description', 'The timestamp fetched from the Pupil Core service, which can be used for alignment to system time in time_s.  '
+      ('Description', 'The timestamp fetched from the Pupil Core service, which can be used for alignment to system time in time_s. '
                       'As soon as system time time_s was recorded, a command was sent to Pupil Capture to get its time; '
                       'so a slight communication delay is included on the order of milliseconds.  '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
@@ -606,7 +599,7 @@ class EyeStream(Stream):
     for i in range(2):
       self._data_notes['eye-video-eye%s' % i]['frame_timestamp'] = OrderedDict([
         ('Description', 'The timestamp recorded by the Pupil Core service, '
-                        'which should be more precise than the system time when the data was received (the time_s field).  '
+                        'which should be more precise than the system time when the data was received (the time_s field). '
                         'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
       ])
       self._data_notes['eye-video-eye%s' % i]['frame_index'] = OrderedDict([
@@ -622,7 +615,7 @@ class EyeStream(Stream):
     # World video
     self._data_notes['eye-video-world']['frame_timestamp'] = OrderedDict([
       ('Description', 'The timestamp recorded by the Pupil Core service, '
-                      'which should be more precise than the system time when the data was received (the time_s field).  '
+                      'which should be more precise than the system time when the data was received (the time_s field). '
                       'Note that Pupil Core time was synchronized with system time at the start of recording, accounting for communication delays.'),
     ])
     self._data_notes['eye-video-world']['frame_index'] = OrderedDict([

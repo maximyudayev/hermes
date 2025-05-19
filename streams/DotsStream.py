@@ -67,7 +67,7 @@ class DotsStream(Stream):
       self.add_stream(device_name='dots-imu',
                       stream_name=data_name,
                       data_type=data_getter['type_str'],
-                      sample_size=(self._num_joints, data_getter['n_dim']),
+                      sample_size=(self._num_joints, *data_getter['n_dim']),
                       sampling_rate_hz=self._sampling_rate_hz,
                       data_notes=self._data_notes['dots-imu'][data_name],
                       timesteps_before_solidified=self._timesteps_before_solidified)
