@@ -128,10 +128,10 @@ class DotsStreamer(Producer):
       data = {}
       for data_name, data_getter in MOVELLA_PAYLOAD_MODE[self._payload_mode]['methods'].items():
         if data_getter['dtype'] in [np.float64, np.float32]:
-          arr = np.empty((self._num_joints, data_getter['n_dim']), dtype=data_getter['dtype'])
+          arr = np.empty((self._num_joints, *data_getter['n_dim']), dtype=data_getter['dtype'])
           arr.fill(np.nan)
         else:
-          arr = np.zeros((self._num_joints, data_getter['n_dim']), dtype=data_getter['dtype'])
+          arr = np.zeros((self._num_joints, *data_getter['n_dim']), dtype=data_getter['dtype'])
         data[data_name] = arr
       data['timestamp'] = np.zeros((self._num_joints), np.uint32)
       data['toa_s'] = np.empty((self._num_joints), dtype=np.float64)
