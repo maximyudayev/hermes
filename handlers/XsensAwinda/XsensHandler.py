@@ -76,6 +76,7 @@ class XsensFacade:
                                                           timesteps_before_stale=timesteps_before_stale,
                                                           num_bits_timestamp=16)
     self._packet_queue = queue.Queue()
+    self._is_more = True
 
 
   def initialize(self) -> bool:
@@ -161,9 +162,12 @@ class XsensFacade:
           next_packet = packet_queue.get(timeout=timeout)
           self._buffer.plop(**next_packet)
         except queue.Empty:
-          print("No more packets from Movella SDK, flush buffers into the output Queue.", flush=True)
-          self._buffer.flush()
-          break
+          if self._is_more:
+            continue
+          else:
+            print("No more packets from Xsens SDK, flush buffers into the output Queue.", flush=True)
+            self._buffer.flush()
+            break
 
     self._packet_funneling_thread = threading.Thread(target=funnel_packets, args=(self._packet_queue,))
 
@@ -191,6 +195,7 @@ class XsensFacade:
 
   def cleanup(self) -> None:
     self._control.close()
+    self._is_more = False
     self._control.destruct()
 
   
