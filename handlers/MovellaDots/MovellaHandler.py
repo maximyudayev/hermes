@@ -73,6 +73,7 @@ class DotConnectivityCallback(mdda.XsDotCallback): # type: ignore
 class MovellaFacade:
   def __init__(self,
                device_mapping: dict[str, str],
+               mac_mapping: dict[str, str],
                master_device: str,
                sampling_rate_hz: int,
                payload_mode: str = 'RateQuantitieswMag',
@@ -82,8 +83,9 @@ class MovellaFacade:
                is_enable_logging: bool = False,
                timesteps_before_stale: int = 100) -> None:
     self._is_all_discovered_queue = queue.Queue(maxsize=1)
-    self._device_mapping = device_mapping
-    self._discovered_devices = list()
+    self._device_mapping = dict(zip(device_mapping.values(), device_mapping.keys()))
+    self._mac_mapping = dict(zip(mac_mapping.values(), mac_mapping.keys()))
+    self._discovered_devices: OrderedDict[str, Any] = OrderedDict([(v, None) for v in mac_mapping.values()])
     self._connected_devices: OrderedDict[str, Any] = OrderedDict([(v, None) for v in device_mapping.values()])
     sampling_period = round(1/sampling_rate_hz * 10000)
     self._buffer = TimestampAlignedFifoBuffer(keys=device_mapping.values(),
@@ -110,9 +112,11 @@ class MovellaFacade:
 
     def on_advertisement_found(port_info) -> None:
       if not port_info.isBluetooth(): return
-      self._discovered_devices.append(port_info)
-      if len(self._discovered_devices) == len(self._device_mapping): self._is_all_discovered_queue.put(True)
-      print("discovered %s"%port_info.bluetoothAddress(), flush=True)
+      address = port_info.bluetoothAddress()
+      if (mac_no_colon := ''.join(address.split(':'))) in self._mac_mapping.keys():
+        self._discovered_devices[address] = port_info
+        print("discovered %s"%self._mac_mapping[mac_no_colon], flush=True)
+      if all(self._discovered_devices.values()): self._is_all_discovered_queue.put(True)
 
     def on_packet_received(toa_s, device, packet):
       if self._is_keep_data:
@@ -127,7 +131,7 @@ class MovellaFacade:
 
     def on_device_disconnected(device):
       device_id: str = str(device.deviceId())
-      print("%s disconnected"%device_id, flush=True)
+      print("%s disconnected"%self._device_mapping[device_id], flush=True)
       self._connected_devices[device_id] = None
 
     # Attach callback handler to connection manager
@@ -140,14 +144,16 @@ class MovellaFacade:
     self._is_all_discovered_queue.get()
     self._manager.disableDeviceDetection()
 
-    for port_info in self._discovered_devices:
+    for address, port_info in self._discovered_devices.items():
+      mac_no_colon = ''.join(address.split(':'))
       if not self._manager.openPort(port_info): 
-        print("failed to connect to %s"%port_info.bluetoothAddress(), flush=True)
+        print("failed to connect to %s"%mac_no_colon, flush=True)
         return False
       device = self._manager.device(port_info.deviceId())
       device_id: str = str(port_info.deviceId())
-      self._connected_devices[device_id] = device
-      print("connected to %s"%port_info.bluetoothAddress(), flush=True)
+      if device_id in self._device_mapping.keys():
+        self._connected_devices[device_id] = device
+        print("connected to %s"%''.join(address.split(':')), flush=True)
 
     # Make sure all connected devices have the same filter profile and output rate
     for device_id, device in self._connected_devices.items():
@@ -239,7 +245,7 @@ class MovellaFacade:
           print("Failed to disable logging.", flush=True)
         self._connected_devices[device_id] = None
     self._is_more = False
-    self._discovered_devices = list()
+    self._discovered_devices = OrderedDict([(v, None) for v in self._mac_mapping.keys()])
     if self._is_sync_devices:
       self._manager.stopSync()
 
