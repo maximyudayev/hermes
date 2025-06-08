@@ -37,11 +37,11 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 10
+  stream_period_s     : 30
   
   stream_hdf5         : True
   stream_csv          : False
-  stream_video        : True
+  stream_video        : False
   stream_audio        : False
 
   dump_csv            : False
@@ -56,32 +56,18 @@ logging_spec:
 
 
 producer_specs:
-  # Stream from the Pupil Labs eye tracker, including gaze and video data.
-  - class: "EyeStreamer"
-    pupil_capture_ip        : "localhost"
-    pupil_capture_port      : "50020"
-    video_image_format      : "jpeg"
-    gaze_estimate_stale_s   : 0.2
-    is_binocular            : True # uses both eyes for gaze data and for video.
-    is_stream_video_world   : True
-    is_stream_video_eye     : False
-    is_stream_fixation      : True
-    is_stream_blinks        : True
-    shape_video_world: 
-      - 720
-      - 1280
-      - 3
-    shape_video_eye0: 
-      - 192
-      - 192
-      - 3
-    shape_video_eye1: 
-      - 192
-      - 192
-      - 3
-    fps_video_world       : 30.0
-    fps_video_eye0        : 120.0
-    fps_video_eye1        : 120.0
+  - class: "AwindaStreamer"
+    device_mapping:
+      pelvis          : "00B4D3E4"
+      upper_leg_right : "00B4D3D7"
+      lower_leg_right : "00B4D3E2"
+      foot_right      : "00B4D3DD"
+      upper_leg_left  : "00B4D3E7"
+      lower_leg_left  : "00B4D3D4"
+      foot_left       : "00B4D3D8"
+    num_joints        : 7
+    sampling_rate_hz  : 100
+    radio_channel     : 15
 
 
 consumer_specs: []

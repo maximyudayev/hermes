@@ -25,14 +25,6 @@
 #
 # ############
 
-project       : "RevalExo"
-trial_type    : "test" # recommend "test" for testing and "real" data
-subject_id    : 0 # UID of the subject
-trial_id      : 0 # UID of the trial
-duration_s    : null
-
-print_status  : True
-print_debug   : True
 
 host_ip : "127.0.0.1"
 is_master_broker: True
