@@ -54,28 +54,24 @@ class Pipeline(Node):
                port_pub: str = PORT_BACKEND,
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
-               port_killsig: str = PORT_KILL,
-               print_status: bool = True,
-               print_debug: bool = False) -> None:
+               port_killsig: str = PORT_KILL) -> None:
     # import within this context to avoid circular imports.
     from nodes.pipelines import PIPELINES
     from nodes.producers import PRODUCERS
 
     super().__init__(host_ip=host_ip,
-                     port_sync=port_sync, 
-                     port_killsig=port_killsig, 
-                     print_status=print_status,
-                     print_debug=print_debug)
+                     port_sync=port_sync,
+                     port_killsig=port_killsig)
     self._port_pub = port_pub
     self._port_sub = port_sub
     self._is_continue_produce = True
     self._is_more_data_in = True
+    self._publish_fn = lambda tag, kwargs: None
 
-    # Data structure for keeping track of data.
+    # Data structure for keeping track of the Pipeline's output data.
     self._out_stream: Stream = self.create_stream(stream_info)
 
     # Instantiate all desired Streams that the Pipeline will process.
-    # NOTE: inheriting Nodes must add extra logger if desired to save inputs that are used to process outputs.
     self._in_streams: OrderedDict[str, Stream] = OrderedDict()
     self._poll_data_fn = self._poll_data_packets
     self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
@@ -84,17 +80,17 @@ class Pipeline(Node):
       class_args = stream_spec.copy()
       del(class_args['class'])
       # Create the class object.
-      class_type: type[Producer] = {**PRODUCERS,**PIPELINES}[class_name]
-      class_object: Stream = class_type.create_stream(class_type, class_args)
+      class_type: type[Producer] | type[Pipeline] = {**PRODUCERS,**PIPELINES}[class_name]
+      class_object: Stream = class_type.create_stream(class_args)
       # Store the streamer object.
       self._in_streams.setdefault(class_type._log_source_tag(), class_object)
       self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
 
-    # Create the DataLogger object
+    # Create the Logger object.
     self._logger = Logger(self._log_source_tag(), **logging_spec)
 
-    # Launch datalogging thread with reference to the Stream object, to save Pipeline's outputs.
-    self._logger_thread = threading.Thread(target=self._logger, 
+    # Launch datalogging thread with reference to the Stream objects, to save Pipeline's outputs and inputs.
+    self._logger_thread = threading.Thread(target=self._logger,
                                            args=(OrderedDict([
                                              (self._log_source_tag(), self._out_stream),
                                              *list(self._in_streams.items())
@@ -130,7 +126,6 @@ class Pipeline(Node):
   # Launch data receiving and result producing.
   def _activate_data_poller(self) -> None:
     self._poller.register(self._sub, zmq.POLLIN)
-    self._poller.register(self._pub, zmq.POLLOUT)
 
 
   # Process custom event first, then Node generic (killsig).
@@ -138,10 +133,12 @@ class Pipeline(Node):
     if self._sub in poll_res[0]:
       # Receiving a modality packet, process until all data sources sent 'END' packet.
       self._poll_data_fn()
-    if self._pub in poll_res[0]:
-      # Process available data and put result on the network.
       self._process_data()
     super()._on_poll(poll_res)
+
+
+  def _on_sync_complete(self) -> None:
+    self._publish_fn = self._store_and_broadcast
 
 
   # Gets called every time one of the requestes modalities produced new data.
@@ -169,10 +166,10 @@ class Pipeline(Node):
     elif len(message) == 3 and CMD_END.encode('utf-8') in message:
       topic = message[0]
       topic_tree: list[str] = topic.decode('utf-8').split('.')
-      self._is_producer_ended[topic[0]] = True
+      self._is_producer_ended[topic_tree[0]] = True
       if all(list(self._is_producer_ended.values())):
         self._is_more_data_in = False
-        not self._is_more_data_in and not self._is_continue_produce
+        # not self._is_more_data_in and not self._is_continue_produce
 
 
   # Iteration loop logic for the worker.
@@ -183,9 +180,13 @@ class Pipeline(Node):
     pass
 
 
+  def _publish(self, tag: str, **kwargs) -> None:
+    self._publish_fn(tag, **kwargs)
+
+
   # Common method to save and publish the captured sample
   # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ
-  def _publish(self, tag: str, **kwargs) -> None:
+  def _store_and_broadcast(self, tag: str, **kwargs) -> None:
     # Get serialized object to send over ZeroMQ.
     msg = serialize(**kwargs)
     # Send the data packet on the PUB socket.
@@ -217,7 +218,12 @@ class Pipeline(Node):
     # Indicate to Logger to wrap up and exit.
     self._logger.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
-    self._sync.recv() # no need to read contents of the message.
+    self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 
+    host, cmd = self._sync.recv_multipart() # no need to read contents of the message.
+    print("%s received %s from %s." % (self._log_source_tag(),
+                                       cmd.decode('utf-8'),
+                                       host.decode('utf-8')),
+                                       flush=True)
     self._pub.close()
     self._sub.close()
     # Join on the logging background thread last, so that all things can finish in parallel.
