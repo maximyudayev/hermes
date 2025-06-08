@@ -114,8 +114,10 @@ class MovellaFacade:
       if not port_info.isBluetooth(): return
       address = port_info.bluetoothAddress()
       if (mac_no_colon := ''.join(address.split(':'))) in self._mac_mapping.keys():
-        self._discovered_devices[address] = port_info
+        self._discovered_devices[mac_no_colon] = port_info
         print("discovered %s"%self._mac_mapping[mac_no_colon], flush=True)
+      else:
+        print("discovered %s"%address, flush=True)
       if all(self._discovered_devices.values()): self._is_all_discovered_queue.put(True)
 
     def on_packet_received(toa_s, device, packet):
