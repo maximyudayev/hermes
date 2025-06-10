@@ -280,5 +280,20 @@
       "subProcess": true,
       "justMyCode": false
     },
+
+
+    {
+      "name": "GUI AidWear",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "annotation/multimodal_annotation.py",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "subProcess": true,
+      "justMyCode": false
+    },
   ]
 }

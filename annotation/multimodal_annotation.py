@@ -26,18 +26,45 @@
 # ############
 
 
+from dash import html
 import dash_bootstrap_components as dbc
 
 from components import AnnotationComponent, GazeComponent, VideoComponent, SkeletonComponent, LinePlotComponent
 
 from utils.gui_utils import app
+import cv2
 
 
 if __name__ == '__main__':
+  camera_layout_1 = VideoComponent.VideoComponent(
+    video_path='data/subject_example/eye_eye-video-world.mkv',
+    hdf5_path='data/subject_example/cameras.hdf5',
+    unique_id='40478064',
+    legend_name='camera_1',
+    color_format=cv2.COLOR_YUV420P2RGB
+  )
+  # camera_layout_2 = VideoComponent.VideoComponent()
+  # camera_layout_3 = VideoComponent.VideoComponent()
+  # camera_layout_4 = VideoComponent.VideoComponent()
+  
   # TODO: Init all Dash widgets before launching the server and the GUI thread.
   # NOTE: order Dash widgets in the order of streamer specs provided upstream.
   app.layout = dbc.Container([
-    LinePlotComponent.LinePlotComponent()
+    dbc.Row([
+      html.Div(
+        [
+          html.P("Enter the video frame ID"),
+          dbc.Input(id="frame-id", type="number", min=0, step=1),
+        ])
+    ]),
+    dbc.Row([
+      camera_layout_1.layout,
+      # camera_layout_2
+    ]),
+    # dbc.Row([
+    #   camera_layout_3,
+    #   camera_layout_4
+    # ]),
   ])
 
   # TODO: add range of timestamps in the experiment and construct the slider w.r.t it.
