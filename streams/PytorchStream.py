@@ -65,6 +65,16 @@ class PytorchStream(Stream):
                     data_type='float64',
                     sample_size=(1,),
                     data_notes=self._data_notes['pytorch-worker']['inference_latency_s'])
+    self.add_stream(device_name='pytorch-worker',
+                    stream_name='delay_since_first_sensor_s',
+                    data_type='float64',
+                    sample_size=(1,),
+                    data_notes=self._data_notes['pytorch-worker']['delay_since_first_sensor_s'])
+    self.add_stream(device_name='pytorch-worker',
+                    stream_name='delay_since_snapshot_ready_s',
+                    data_type='float64',
+                    sample_size=(1,),
+                    data_notes=self._data_notes['pytorch-worker']['delay_since_snapshot_ready_s'])
 
   
   def get_fps(self) -> dict[str, float | None]:
@@ -89,5 +99,13 @@ class PytorchStream(Stream):
     ])
     self._data_notes['pytorch-worker']['inference_latency_s'] = OrderedDict([
       ('Description', 'Amount of time it took for the forward pass for the new sample w.r.t. system clock'),
+      ('Units', 'seconds'),
+    ])
+    self._data_notes['pytorch-worker']['delay_since_first_sensor_s'] = OrderedDict([
+      ('Description', 'Amount of time between arrival of the 1st sensor packet and inference start'),
+      ('Units', 'seconds'),
+    ])
+    self._data_notes['pytorch-worker']['delay_since_snapshot_ready_s'] = OrderedDict([
+      ('Description', 'Amount of time between availability of the full sensor snapshot and inference start'),
       ('Units', 'seconds'),
     ])

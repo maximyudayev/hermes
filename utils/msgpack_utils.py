@@ -39,9 +39,18 @@ def encode_ndarray(obj):
 
 
 def decode_ndarray(obj):
-  if '__numpy__' in obj:
-    obj = np.frombuffer(obj['bytes'], dtype=obj['dtype']).reshape(obj['shape'])
+  if b'__numpy__' in obj:
+    obj = np.frombuffer(obj[b'bytes'], dtype=obj[b'dtype']).reshape(obj[b'shape'])
   return obj
+
+
+def convert_bytes_keys_to_strings(obj):
+  if isinstance(obj, dict):
+    return {(key.decode('utf-8') if isinstance(key, bytes) else key): convert_bytes_keys_to_strings(value) for key, value in obj.items()}
+  elif isinstance(obj, list):
+    return [convert_bytes_keys_to_strings(item) for item in obj]
+  else:
+    return obj
 
 
 # Serializes the message objects.
@@ -52,4 +61,5 @@ def serialize(**kwargs) -> bytes:
 
 # Deserializes the message back into a dictionary-like message.
 def deserialize(msg) -> dict:
-  return msgpack.unpackb(msg, object_hook=decode_ndarray)
+  raw_dict = msgpack.unpackb(msg, object_hook=decode_ndarray)
+  return convert_bytes_keys_to_strings(raw_dict) # type: ignore

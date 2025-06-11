@@ -133,7 +133,6 @@ class Pipeline(Node):
     if self._sub in poll_res[0]:
       # Receiving a modality packet, process until all data sources sent 'END' packet.
       self._poll_data_fn()
-      self._process_data()
     super()._on_poll(poll_res)
 
 
@@ -148,6 +147,7 @@ class Pipeline(Node):
     msg = deserialize(payload)
     topic_tree: list[str] = topic.decode('utf-8').split('.')
     self._in_streams[topic_tree[0]].append_data(**msg)
+    self._process_data(topic=topic_tree[0], msg=msg)
 
 
   # When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
@@ -155,28 +155,29 @@ class Pipeline(Node):
   #   It's more efficient to dynamically switch the callback instead of checking every message.
   def _poll_ending_data_packets(self) -> None:
     # Process until all data sources sent 'END' packet.
-    message = self._sub.recv_multipart()
-    # Regular data packets.
-    if len(message) == 2:
-      topic, payload = message[0], message[1]
-      msg = deserialize(payload)
-      topic_tree: list[str] = topic.decode('utf-8').split('.')
-      self._in_streams[topic_tree[0]].append_data(**msg)
+    topic, payload = self._sub.recv_multipart()
     # 'END' empty packet from a Producer.
-    elif len(message) == 3 and CMD_END.encode('utf-8') in message:
-      topic = message[0]
+    if CMD_END.encode('utf-8') in payload:
       topic_tree: list[str] = topic.decode('utf-8').split('.')
       self._is_producer_ended[topic_tree[0]] = True
       if all(list(self._is_producer_ended.values())):
         self._is_more_data_in = False
+        # If triggered to stop and no more available data, send empty 'END' packet and join.
         # not self._is_more_data_in and not self._is_continue_produce
+        self._send_end_packet()
+    # Regular data packets.
+    else:
+      msg = deserialize(payload)
+      topic_tree: list[str] = topic.decode('utf-8').split('.')
+      self._in_streams[topic_tree[0]].append_data(**msg)
+      self._process_data(topic=topic_tree[0], msg=msg)
 
 
   # Iteration loop logic for the worker.
   # Contained logic has to deal with async multiple modalities.
   # Must end with calling `_send_end_packet` 
   @abstractmethod
-  def _process_data(self) -> None:
+  def _process_data(self, topic: str, msg: dict) -> None:
     pass
 
 
