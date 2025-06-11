@@ -31,6 +31,7 @@ from streams import PytorchStream
 from utils.time_utils import get_time
 from utils.zmq_utils import *
 
+import numpy as np
 import torch
 from torch import nn
 from collections import deque
@@ -75,7 +76,7 @@ class PytorchWorker(Pipeline):
     self._model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
     self._model.eval()
     # to keep the latest valid IMU sample (because at some time frames a single IMU sample can be None).
-    self._buffer = [deque([[0.0]*input_size[1]], maxlen=1)]*input_size[0]
+    self._buffer: list[deque[np.ndarray]] = [deque([np.zeros(input_size[1])], maxlen=1) for _ in range(input_size[0])]
     # Globally turn off gradient calculation. Inference-only mode.
     torch.set_grad_enabled(False)
 
@@ -101,49 +102,41 @@ class PytorchWorker(Pipeline):
 
 
   def _generate_prediction(self) -> tuple[list[float], int]:
-    # TODO: get only acc and gyr from the received IMU samples.
-    latest_valid_samples = [buf[0] for buf in self._buffer] # Shape (5, 6)
-    # TODO: specify in which order, the interleaved (flattened) channels are expected into the model
-    #       i.e. 6 DOF of #1, 6 DOF of #2 ...
-    #       OR 15 values of acc, 15 values of gyro (also, XXXXX.YYYYY.ZZZZZ or XYZ.XYZ.XYZ.XYZ.XYZ?)
-    input_tensor = torch.tensor(latest_valid_samples, dtype=torch.float32).unsqueeze(0).permute(0, 2, 1) # Shape (1, 30, 1)
-
+    input_tensor = torch.tensor(np.concatenate([buf[0] for buf in self._buffer]), dtype=torch.float32)[None,:,None]
     output = self._model(input_tensor, inference=True)
+    return output.squeeze().numpy(), output.squeeze().argmax().item()
 
-    return output, output.squeeze().argmax().item()
 
+  def _process_data(self, topic: str, msg: dict) -> None:
+    acc = msg['data']['dots-imu']['acceleration']
+    gyr = msg['data']['dots-imu']['gyroscope']
+    toa_s = msg['data']['dots-imu']['toa_s']
 
-  def _process_data(self) -> None:
-    if self._is_continue_produce:
-      acc_it = list(self._in_streams['dots'].peek_data_new(device_name='dots-imu', stream_name='acceleration', num_newest_to_peek=1))
-      gyr_it = list(self._in_streams['dots'].peek_data_new(device_name='dots-imu', stream_name='gyroscope', num_newest_to_peek=1))
+    for i, sensor_sample in enumerate(np.concatenate((acc, gyr), axis=1)):
+      # Replace the circular buffer's values for valid newly arrivied sensor samples.
+      #   NOTE: shape (6,), contents may be NaN for missed packets.
+      if all(map(lambda el: not np.isnan(el), sensor_sample)):
+        self._buffer[i].append(sensor_sample)
 
-      # TODO: place retrieved data into.
-      # TODO: specify timesteps before solidified. 
-      for i, sensor_sample in enumerate(snapshot):
-        if sensor_sample is not None:
-          self._buffer[i].append(sensor_sample)
+    start_time_s: float = get_time()
+    logits, prediction = self._generate_prediction()
+    end_time_s: float = get_time()
 
-      start_time_s: float = get_time()
-      logits, prediction = self._generate_prediction()
-      end_time_s: float = get_time()
+    data = {
+      'logits': logits,
+      'prediction': prediction,
+      'inference_latency_s': end_time_s-start_time_s,
+      'delay_since_first_sensor_s': start_time_s-np.min(toa_s),
+      'delay_since_snapshot_ready_s': start_time_s-msg['process_time_s']
+    }
 
-      data = {
-        'logits': logits,
-        'prediction': prediction,
-        'inference_latency_s': end_time_s-start_time_s,
-      }
-
-      tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=end_time_s, data={'pytorch-worker': data})
-    elif not self._is_continue_produce:
-      # If triggered to stop and no more available data, send empty 'END' packet and join.
-      self._send_end_packet()
+    tag: str = "%s.data" % self._log_source_tag()
+    self._publish(tag, process_time_s=end_time_s, data={'pytorch-worker': data})
 
 
   def _stop_new_data(self):
     pass
-  
+
 
   def _cleanup(self) -> None:
     super()._cleanup()
