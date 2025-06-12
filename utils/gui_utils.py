@@ -27,6 +27,7 @@
  
 from dash import Dash
 from flask import Flask
+import dash_bootstrap_components as dbc
 
 server = Flask(__name__)
-app = Dash(__name__, server=server)
+app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
