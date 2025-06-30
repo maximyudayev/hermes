@@ -46,17 +46,20 @@ class VideoComponent(BaseComponent):
                color_format: int,
                col_width: int = 6,
                is_eye_camera: bool = False,
-               is_reference_camera: bool = False):
+               is_reference_camera: bool = False,
+               is_highlight: bool = False,
+               show_gaze_data: bool = False):
     super().__init__(unique_id=unique_id,
                      col_width=col_width)
 
     self._legend_name = legend_name
-    self._unique_id = unique_id
     self._color_format = color_format
     self._video_path = video_path
     self._hdf5_path = hdf5_path
     self._is_eye_camera = is_eye_camera
     self._is_reference_camera = is_reference_camera
+    self._is_highlight = is_highlight
+    self._show_gaze_data = show_gaze_data and is_eye_camera
     
     # Get video properties
     self._width, self._height, self._fps, self._total_frames = self._get_video_properties()
@@ -64,7 +67,11 @@ class VideoComponent(BaseComponent):
     # Read HDF5 metadata for synchronization
     self._read_sync_metadata()
     
-    # Initialize truncation points (will be set later)
+    # Read gaze data if needed
+    if self._show_gaze_data:
+        self._read_gaze_data()
+    
+    # Initialize truncation points
     self._start_frame = 0
     self._end_frame = self._total_frames - 1
     self._truncated_frame_count = int(self._total_frames)
@@ -73,11 +80,16 @@ class VideoComponent(BaseComponent):
     self._video: Callable[[int], bytes] = lambda frame_id: self._get_frame_at_index(frame_id)
 
     # Create layout with timestamp display
-    self._image = dcc.Graph(id="%s-video"%(self._unique_id), config={'displayModeBar': False})
+    self._image = dcc.Graph(
+        id="%s-video"%(self._unique_id), 
+        config={'displayModeBar': False, 'responsive': True},
+        clear_on_unhover=True,
+        style={'height': '100%', 'width': '100%', 'cursor': 'pointer' if not is_highlight else 'default'}
+    )
     self._timestamp_display = html.Div(
         id="%s-timestamp"%(self._unique_id), 
         className="text-center small text-muted",
-        style={'fontSize': '12px'}
+        style={'fontSize': '11px', 'height': '20px', 'lineHeight': '20px'}
     )
     
     self._layout = dbc.Col([
@@ -95,8 +107,9 @@ class VideoComponent(BaseComponent):
     elif frame_index >= self._total_frames:
         frame_index = self._total_frames - 1
     
-    # Seek to the timestamp
-    timestamp = frame_index / self._fps
+    # Seek to the timestamp because it is much faster than using frame index
+    # TODO: IS THE FPS CONSTANT? If not, what is the solution? Convert toa/timestamps to video timestamps? 
+    timestamp = frame_index / self._fps 
     
     try:
         out, _ = (
@@ -109,24 +122,77 @@ class VideoComponent(BaseComponent):
         print(f"Error getting frame {frame_index}: {e}")
         return np.zeros((self._height * self._width * 3), dtype=np.uint8).tobytes()
 
+  def _read_gaze_data(self):
+    """Read eye gaze data from HDF5"""
+    try:
+        with h5py.File(self._hdf5_path, 'r') as hdf5:
+            # Read gaze positions (normalized coordinates)
+            gaze_position_path = '/eye/eye-gaze/position'
+            gaze_timestamp_path = '/eye/eye-gaze/timestamp'
+            
+            if gaze_position_path in hdf5 and gaze_timestamp_path in hdf5:
+                self._gaze_positions = hdf5[gaze_position_path][:]  # Shape: (N, 2) for x, y
+                self._gaze_timestamps = hdf5[gaze_timestamp_path][:]
+                print(f"Loaded {len(self._gaze_positions)} gaze data points")
+            else:
+                print("Gaze data paths not found in HDF5")
+                self._show_gaze_data = False
+                self._gaze_positions = None
+                self._gaze_timestamps = None
+    except Exception as e:
+        print(f"Error reading gaze data: {e}")
+        self._show_gaze_data = False
+        self._gaze_positions = None
+        self._gaze_timestamps = None
+
+  def _get_gaze_for_frame(self, frame_index: int):
+    """Get gaze position for a specific frame"""
+    if not self._show_gaze_data or self._gaze_positions is None:
+        return None
+    
+    # Get frame timestamp
+    if frame_index >= len(self._timestamps):
+        return None
+        
+    frame_timestamp = self._timestamps[frame_index]
+    
+    # Find closest gaze timestamp
+    time_diffs = np.abs(self._gaze_timestamps - frame_timestamp)
+    closest_idx = np.argmin(time_diffs)
+    
+    # Get normalized gaze position
+    gaze_x, gaze_y = self._gaze_positions[closest_idx]
+    
+    # Convert from normalized [0,1] with origin at bottom-left to pixel coordinates
+    # Image coordinates have origin at top-left, so we flip Y?
+    pixel_x = int(gaze_x * self._width)
+    pixel_y = int((1.0 - gaze_y) * self._height)  # Flip Y coordinate
+    
+    return (pixel_x, pixel_y)
+
   def get_frame_for_timestamp(self, target_timestamp: float) -> int:
-    """Find the frame index closest to a given timestamp"""
+    """Find the frame index closest to a given timestamp with offset"""
     if self._is_eye_camera and self._timestamps is not None:
         time_diffs = np.abs(self._timestamps - target_timestamp)
         closest_idx = np.argmin(time_diffs)
-        return int(closest_idx)
+        # Apply offset for eye camera
+        offset_idx = closest_idx + self._sync_offset
+        # Ensure within bounds
+        offset_idx = max(0, min(len(self._timestamps) - 1, offset_idx))
+        return int(offset_idx)
     elif not self._is_eye_camera and self._toa_s is not None:
         time_diffs = np.abs(self._toa_s - target_timestamp)
         closest_idx = np.argmin(time_diffs)
+        # No offset for regular cameras
         return int(closest_idx)
     return 0
 
   def get_timestamp_at_frame(self, frame_index: int) -> float:
     """Get the timestamp for a given frame"""
     if self._is_eye_camera and self._timestamps is not None and frame_index < len(self._timestamps):
-        return float(self._timestamps[frame_index])
+        return self._timestamps[frame_index].item()
     elif not self._is_eye_camera and self._toa_s is not None and frame_index < len(self._toa_s):
-        return float(self._toa_s[frame_index])
+        return self._toa_s[frame_index].item()
     return 0.0
 
   def _get_video_properties(self) -> Tuple[int, int, float, int]:
@@ -154,6 +220,7 @@ class VideoComponent(BaseComponent):
             print(f"Error reading timestamps for eye video from {path}: {e}")
 
       else:
+        # Using frame_sequence_id or toa_s for synchronization, could not find a drastic difference between the two, sticking with toa_s for now
         seq_path = f'/cameras/{self._unique_id}/frame_sequence_id'
         toa_path = f'/cameras/{self._unique_id}/toa_s'
         
@@ -193,46 +260,88 @@ class VideoComponent(BaseComponent):
   #   to get access to the class instance object with reference to corresponding file.
   def _activate_callbacks(self):
     @app.callback(
-      [Output("%s-video"%(self._unique_id), component_property='figure'),
-       Output("%s-timestamp"%(self._unique_id), component_property='children')],
-      [Input("frame-id", component_property="value"),
-       Input("sync-timestamp", component_property="data")],
-      prevent_initial_call=True
+      [Output("%s-video"%(self._unique_id), "figure"),
+       Output("%s-timestamp"%(self._unique_id), "children")],
+      [Input("frame-id", "data"),
+       Input("sync-timestamp", "data"),
+       Input("offset-update-trigger", "data")],  # Add trigger for offset updates
+      prevent_initial_call=False
     )
-    def update_live_data(slider_position, sync_timestamp):
-      try:
-          # Determine which frame to show
-          if self._is_reference_camera:
-              # Reference camera: direct mapping from slider
-              actual_frame = self._start_frame + slider_position
-          else:
-              # Other cameras and eye: find frame matching sync timestamp
-              if sync_timestamp is not None:
-                  actual_frame = self.get_frame_for_timestamp(sync_timestamp)
-              else:
-                  actual_frame = self._start_frame + slider_position
-          
-          # Get the frame
-          img_bytes = self._video(actual_frame)
-          img = np.frombuffer(img_bytes, np.uint8).reshape([self._height, self._width, 3])
-          
-          fig = px.imshow(img=img)
-          fig.update_layout(
-              title_text=self._legend_name,
-              coloraxis_showscale=False
-          )
-          fig.update_xaxes(showticklabels=False)
-          fig.update_yaxes(showticklabels=False)
-          
-          # Get timestamp for display
-          timestamp = self.get_timestamp_at_frame(actual_frame)
-          
-          if self._is_eye_camera:
-              timestamp_text = f"frame_timestamp: {timestamp} (frame: {actual_frame})"
-          else:
-              timestamp_text = f"toa_s: {timestamp} (frame: {actual_frame})"
-          
-          return fig, timestamp_text
-      except Exception as e:
-          print(f"Error loading frame: {e}")
-          return {}, "Error"
+    def update_live_data(slider_position, sync_timestamp, offset_trigger):
+        try:
+            # Determine which frame to show
+            if self._is_reference_camera:
+                # Reference camera: direct mapping from slider
+                actual_frame = self._start_frame + slider_position
+            else:
+                # Other cameras and eye: find frame matching sync timestamp
+                if sync_timestamp is not None:
+                    actual_frame = self.get_frame_for_timestamp(sync_timestamp)
+                else:
+                    actual_frame = self._start_frame + slider_position
+            
+            # Get the frame
+            img_bytes = self._video(actual_frame)
+            img = np.frombuffer(img_bytes, np.uint8).reshape([self._height, self._width, 3])
+            
+            # Create figure
+            fig = px.imshow(img=img)
+            
+            # Add gaze marker if enabled and available
+            if self._show_gaze_data and self._is_eye_camera:
+                gaze_pos = self._get_gaze_for_frame(actual_frame)
+                if gaze_pos is not None:
+                    gaze_x, gaze_y = gaze_pos
+                    
+                    fig.add_shape(
+                        type="circle",
+                        x0=gaze_x - 15, y0=gaze_y - 15,
+                        x1=gaze_x + 15, y1=gaze_y + 15,
+                        line=dict(color="red", width=3),
+                        fillcolor="rgba(255, 0, 0, 0.3)"
+                    )
+                    
+                    fig.add_shape(
+                        type="line",
+                        x0=gaze_x - 25, y0=gaze_y,
+                        x1=gaze_x + 25, y1=gaze_y,
+                        line=dict(color="red", width=2)
+                    )
+                    fig.add_shape(
+                        type="line",
+                        x0=gaze_x, y0=gaze_y - 25,
+                        x1=gaze_x, y1=gaze_y + 25,
+                        line=dict(color="red", width=2)
+                    )
+            
+            # Update layout
+            title = self._legend_name
+            if self._show_gaze_data and self._is_eye_camera:
+                title += " (with gaze)"
+            
+            fig.update_layout(
+                title_text=title,
+                title_font_size=11,
+                coloraxis_showscale=False,
+                margin=dict(l=0, r=0, t=20, b=0),
+                autosize=True,
+                height=None
+            )
+            
+            fig.update_xaxes(showticklabels=False, showgrid=False)
+            fig.update_yaxes(showticklabels=False, showgrid=False)
+            
+            # Get timestamp for display
+            timestamp = self.get_timestamp_at_frame(actual_frame)
+            
+            if self._is_eye_camera:
+                timestamp_text = f"frame_timestamp: {timestamp:.5f} (frame: {actual_frame})"
+                if self._sync_offset != 0:
+                    timestamp_text += f" [offset: {self._sync_offset:+d}]"
+            else:
+                timestamp_text = f"toa_s: {timestamp:.5f} (frame: {actual_frame})"
+            
+            return fig, timestamp_text
+        except Exception as e:
+            print(f"Error loading frame: {e}")
+            return {}, "Error"
