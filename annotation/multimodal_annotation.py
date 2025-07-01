@@ -25,6 +25,11 @@
 #
 # ############
 
+# Hotfix run using python multimodal_annotation.py (adding parent directory to path)
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 from dash import html, dcc, Input, Output, State, callback_context
 import dash_bootstrap_components as dbc
