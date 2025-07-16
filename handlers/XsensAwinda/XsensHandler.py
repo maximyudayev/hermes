@@ -30,7 +30,7 @@ import threading
 from typing import Any, Callable
 import xsensdeviceapi as xda
 
-from utils.datastructures import NonOverflowingCounterAlignedFifoBuffer
+from utils.datastructures.fifo import NonOverflowingCounterAlignedFifoBuffer
 from utils.time_utils import get_time
 
 
