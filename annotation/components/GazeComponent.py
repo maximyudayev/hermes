@@ -30,12 +30,8 @@ from .VideoComponent import VideoComponent
 import h5py
 import numpy as np
 from utils.gui_utils import app
-from dash import Output, Input, State, Patch
-import plotly.graph_objects as go
-import plotly.express as px
-import io
+from dash import Output, Input, Patch
 import base64
-from PIL import Image
 
 
 class GazeComponent(VideoComponent):
@@ -60,6 +56,26 @@ class GazeComponent(VideoComponent):
     # Read gaze data if needed
     if self._show_gaze_data:
       self._read_gaze_data()
+
+      self._fig.add_shape(
+        type="circle",
+        x0=0 - 15, y0=0 - 15,
+        x1=0 + 15, y1=0 + 15,
+        line=dict(color="red", width=3),
+        fillcolor="rgba(255, 0, 0, 0.3)"
+      )
+      self._fig.add_shape(
+        type="line",
+        x0=0 - 25, y0=0,
+        x1=0 + 25, y1=0,
+        line=dict(color="red", width=2)
+      )
+      self._fig.add_shape(
+        type="line",
+        x0=0, y0=0 - 25,
+        x1=0, y1=0 + 25,
+        line=dict(color="red", width=2)
+      )
 
 
   def _read_gaze_data(self):
@@ -161,10 +177,9 @@ class GazeComponent(VideoComponent):
       Input("frame-id", "data"),
       Input("sync-timestamp", "data"),
       Input("offset-update-trigger", "data"),
-      State("%s-video"%(self._unique_id), "figure"),
       # prevent_initial_call=False
     )
-    def update_vision(slider_position, sync_timestamp, offset_trigger, old_figure):
+    def update_vision(slider_position, sync_timestamp, offset_trigger):
       try:
         # Determine which frame to show
         if self._is_reference_camera:
@@ -178,60 +193,29 @@ class GazeComponent(VideoComponent):
             frame_id = self._start_frame + slider_position
 
         img = self._get_frame(frame_id)
-        fig = px.imshow(img=np.frombuffer(img, np.uint8).reshape(self._height_scaled, self._width_scaled, 3), binary_string=True)
-
-        # Convert bytes to PIL Image
-        # pil_image = Image.frombytes('RGB', size=(self._width, self._height), data=img)
-        
-        # Save to bytes buffer
-        # buffer = io.BytesIO()
-        # pil_image.save(buffer, format='PNG')
-        # buffer.seek(0)
-        
-        # Encode to base64
-        # img_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-        # patched_figure = Patch()
-        # old_figure["data"][0]["source"] = f"data:image/png;base64,{img_base64}"
+        fig = Patch()
+        fig["data"][0]["source"] = "data:image/jpeg;base64,%s"%base64.b64encode(img).decode('utf-8')
 
         # Add gaze marker if enabled and available
-        # if self._show_gaze_data:
         if self._show_gaze_data:
           gaze_pos = self._get_gaze_for_frame(frame_id)
           if gaze_pos is not None:
             gaze_x, gaze_y = gaze_pos
-
-            fig.add_shape(
-              type="circle",
-              x0=gaze_x - 15, y0=gaze_y - 15,
-              x1=gaze_x + 15, y1=gaze_y + 15,
-              line=dict(color="red", width=3),
-              fillcolor="rgba(255, 0, 0, 0.3)"
-            )
-            fig.add_shape(
-              type="line",
-              x0=gaze_x - 25, y0=gaze_y,
-              x1=gaze_x + 25, y1=gaze_y,
-              line=dict(color="red", width=2)
-            )
-            fig.add_shape(
-              type="line",
-              x0=gaze_x, y0=gaze_y - 25,
-              x1=gaze_x, y1=gaze_y + 25,
-              line=dict(color="red", width=2)
-            )
-
-        # Update layout
-        fig.update_layout(
-          title_text=self._legend_name,
-          title_font_size=11,
-          coloraxis_showscale=False,
-          margin=dict(l=0, r=0, t=20, b=0),
-          autosize=True,
-          height=None
-        )
-
-        fig.update_xaxes(showticklabels=False, showgrid=False)
-        fig.update_yaxes(showticklabels=False, showgrid=False)
+            fig["layout"]["shapes"][0].update({
+              'x0': gaze_x-15,
+              'y0': gaze_y-15,
+              'x1': gaze_x+15,
+              'y1': gaze_y+15})
+            fig["layout"]["shapes"][1].update({
+              'x0': gaze_x-25,
+              'y0': gaze_y,
+              'x1': gaze_x+25,
+              'y1': gaze_y})
+            fig["layout"]["shapes"][2].update({
+              'x0': gaze_x,
+              'y0': gaze_y-25,
+              'x1': gaze_x,
+              'y1': gaze_y+25})
 
         # Get timestamp for display
         timestamp = self.get_timestamp_at_frame(frame_id)

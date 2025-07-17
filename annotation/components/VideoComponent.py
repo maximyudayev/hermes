@@ -31,15 +31,15 @@ import numpy as np
 from utils.datastructures.cache import FFmpegCache
 from .BaseComponent import BaseComponent
 from utils.gui_utils import app
-from dash import Output, Input, State, dcc, html, Patch
+from dash import Output, Input, dcc, html, Patch
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 import plotly.express as px
-import io
 import base64
-from PIL import Image
 import h5py
 import ffmpeg
+
+# JPEG End of Image marker
+EOI = b'\xFF\xD9'
 
 
 class VideoComponent(BaseComponent):
@@ -72,14 +72,29 @@ class VideoComponent(BaseComponent):
     self._start_frame = 0
     self._end_frame = self._total_frames - 1
     self._truncated_frame_count = int(self._total_frames)
-    self._window_s = 1.0
 
-    # Create FFmpeg decode cache
-    self._cache = FFmpegCache(decode_fn=self._decode)
+    # Create FFmpeg decode cache, will prefetch a window, centered 1/3 of requested cache miss frame
+    self._prefetch_window_s = 5.0
+    self._num_prefetch_frames = round(self._fps*self._prefetch_window_s)
+    self._cache = FFmpegCache(decode_fn=self._decode, decode_fetch_offset=round(self._num_prefetch_frames/3))
     self._cache.start()
+
+    # Create image placeholder
+    self._fig = px.imshow(img=np.zeros([self._height_scaled, self._width_scaled, 3], np.uint8), binary_string=True)
+    self._fig.update_layout(
+      title_text=self._legend_name,
+      title_font_size=11,
+      coloraxis_showscale=False,
+      margin=dict(l=0, r=0, t=20, b=0),
+      autosize=True,
+      height=None
+    )
+    self._fig.update_xaxes(showticklabels=False, showgrid=False)
+    self._fig.update_yaxes(showticklabels=False, showgrid=False)
 
     # Create layout with timestamp display
     self._image = dcc.Graph(
+      figure=self._fig,
       id="%s-video"%(self._unique_id), 
       config={'displayModeBar': False, 'responsive': True},
       clear_on_unhover=True,
@@ -108,33 +123,23 @@ class VideoComponent(BaseComponent):
 
   def _decode(self, frame_id: int) -> Dict[int, bytes]:
     # Seek to the timestamp because it is much faster than using frame index
-    # TODO: get the timestamp from the HDF5
-    num_frames = round(self._fps*self._window_s)
+    # TODO: get the timestamp from the HDF5? Now assumes no video frames lost
     timestamp_start = frame_id / self._fps
-    timestamp_end = (frame_id+num_frames-1) / self._fps
-
+    # Get multiple frames for caching, to mask decoding latency
     buf, _ = (
       ffmpeg.input(
         filename=self._video_path,
         ss=timestamp_start,
-        t=timestamp_end,
-        hwaccel='d3d11va',
       )
-      .filter('scale', width=self._width_scaled, height=self._height_scaled)
       .output(
         'pipe:',
-        format='rawvideo',
-        vframes=num_frames,
-        pix_fmt='rgb24'
+        format='image2pipe',
+        vframes=self._num_prefetch_frames,
       )
       .run(capture_stdout=True, quiet=True)
     )
-    # Split buffer
-    imgs = (
-      buf[start_byte:end_byte] for start_byte, end_byte in zip(
-        range(0, self._frame_buf_size*(num_frames-1), self._frame_buf_size),
-        range(self._frame_buf_size, self._frame_buf_size*num_frames, self._frame_buf_size)))
-    new_cache = dict(zip(range(frame_id, frame_id+num_frames), imgs))
+    # Split continuous images buffer of jpeg-encoded frames by known end-of-image delimeter
+    new_cache = dict(zip(range(frame_id, frame_id+self._num_prefetch_frames), map(lambda frame: frame+EOI, buf.split(EOI)[:-1])))
     return new_cache
 
 
@@ -249,37 +254,11 @@ class VideoComponent(BaseComponent):
             frame_id = self._start_frame + slider_position
 
         img = self._get_frame(frame_id)
-        fig = px.imshow(img=np.frombuffer(img, np.uint8).reshape(self._height_scaled, self._width_scaled, 3), binary_string=True)
-
-        # Update layout
-        fig.update_layout(
-          title_text=self._legend_name,
-          title_font_size=11,
-          coloraxis_showscale=False,
-          margin=dict(l=0, r=0, t=20, b=0),
-          autosize=True,
-          height=None
-        )
-
-        fig.update_xaxes(showticklabels=False, showgrid=False)
-        fig.update_yaxes(showticklabels=False, showgrid=False)
-
-        # Convert bytes to PIL Image
-        # pil_image = Image.frombytes('RGB', size=(self._width, self._height), data=img)
-
-        # Save to bytes buffer
-        # buffer = io.BytesIO()
-        # pil_image.save(buffer, format='PNG')
-        # buffer.seek(0)
-        
-        # Encode to base64
-        # img_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-        # patched_figure = Patch()
-        # old_figure["data"][0]["source"] = f"data:image/png;base64,{img_base64}"
+        fig = Patch()
+        fig["data"][0]["source"] = "data:image/jpeg;base64,%s"%base64.b64encode(img).decode('utf-8')
 
         # Get timestamp for display
         timestamp = self.get_timestamp_at_frame(frame_id)
-
         timestamp_text = f"toa_s: {timestamp:.5f} (frame: {frame_id})"
 
         return fig, timestamp_text

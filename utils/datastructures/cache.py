@@ -31,8 +31,6 @@ from dataclasses import dataclass
 from collections import defaultdict
 import threading
 
-import numpy as np
-
 from utils.time_utils import get_time
 
 
@@ -43,9 +41,10 @@ class DataRequest:
 
 
 class FFmpegCache:
-  def __init__(self, decode_fn: Callable[[Any], Dict[Any, bytes]]):
+  def __init__(self, decode_fn: Callable[[Any], Dict[Any, bytes]], decode_fetch_offset: int):
     self._cache: Dict[Any, bytes] = {}
     self._decode_fn = decode_fn
+    self._decode_frame_offset = decode_fetch_offset
     self._request_queue: queue.Queue[DataRequest] = queue.Queue()
     # Events to notify when specific data becomes available
     self._data_events: Dict[Any, threading.Event] = defaultdict(threading.Event)
@@ -96,7 +95,10 @@ class FFmpegCache:
     Replace this with your actual data source (database, API, etc.)
     """
     # Call user-provided IO operation
-    return self._decode_fn(key)
+    if (window_start_frame := key - self._decode_frame_offset) > 0:
+      return self._decode_fn(window_start_frame)
+    else:
+      return self._decode_fn(0)
 
 
   def get_data(self, key: Any) -> bytes:

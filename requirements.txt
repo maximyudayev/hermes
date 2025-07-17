@@ -10,8 +10,7 @@ openpyxl
 orjson
 pyzmq
 msgpack
-pillows
-dash[async]
+dash
 dash-bootstrap-components
 
 # Optional packages for supported sensors
