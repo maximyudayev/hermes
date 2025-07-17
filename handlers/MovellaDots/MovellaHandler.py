@@ -32,7 +32,7 @@ import movelladot_pc_sdk as mdda
 from collections import OrderedDict
 
 from handlers.MovellaDots.MovellaConstants import MOVELLA_LOGGING_MODE, MOVELLA_PAYLOAD_MODE
-from utils.datastructures import TimestampAlignedFifoBuffer
+from utils.datastructures.fifo import TimestampAlignedFifoBuffer
 from utils.user_settings import *
 from utils.time_utils import get_time
 

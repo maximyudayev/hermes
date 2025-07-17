@@ -94,7 +94,7 @@ class LinePlotVisualizer(Visualizer):
                          name=self._legend_names[j]),
               row=i+1,
               col=1)
-        fig.update(title_text=device_name)
+        # fig.update(title_text=device_name)
         return fig
       else:
         return old_fig

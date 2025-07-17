@@ -163,6 +163,7 @@ if __name__ == '__main__':
 
   # TODO: ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
 
+
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment
   args.logging_spec['log_time_s'] = log_time_s
@@ -220,3 +221,4 @@ if __name__ == '__main__':
     local_broker()
 
   # TODO: collect files from remote IPs at the end of the experiments.
+

@@ -32,7 +32,6 @@ from wsgiref.simple_server import make_server
 import dash_bootstrap_components as dbc
 
 from utils.gui_utils import server, app
-from utils.print_utils import *
 from utils.zmq_utils import *
 
 

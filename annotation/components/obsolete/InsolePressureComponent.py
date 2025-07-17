@@ -24,14 +24,40 @@
 # by Maxim Yudayev [https://yudayev.com].
 #
 # ############
- 
-from dash import Dash
-from flask import Flask
-import dash_bootstrap_components as dbc
-import os
 
-current_dir = os.path.dirname(os.path.abspath(__file__))  # utils folder
-parent_dir = os.path.dirname(current_dir)  # AidWear folder
-assets_folder = os.path.join(parent_dir, 'annotation', 'assets')
-server = Flask(__name__)
-app = Dash(__name__, server=server, assets_folder=assets_folder, external_stylesheets=[dbc.themes.BOOTSTRAP])
+from annotation.components.BaseComponent import BaseComponent
+from utils.gui_utils import app
+from dash import Output, Input, dcc
+import dash_bootstrap_components as dbc
+import plotly.express as px
+
+
+class InsolePressureComponent(BaseComponent):
+  def __init__(self,
+               legend_names: list[str],
+               col_width: int = 6):
+    super().__init__(col_width=col_width)
+
+    self._legend_names = legend_names
+
+    self._pressure_figure = dcc.Graph()
+    self._layout = dbc.Col([self._pressure_figure], width=self._col_width)
+    self._activate_callbacks()
+
+
+  # Callback definition must be wrapped inside an object method 
+  #   to get access to the class instance object with reference to corresponding file. 
+  def _activate_callbacks(self):
+    @app.callback(
+        Output(self._pressure_figure, component_property='figure'),
+        Input(),
+        prevent_initial_call=True
+    )
+    def update_live_data(n):
+      # TODO: get the desired pressure map frame from the HDF5 file.
+      # TODO: implement custom shape for the pressure heatmap
+      fig = px.choropleth(
+
+      )
+      fig.update(title_text=device_name)
+      return fig

@@ -24,14 +24,40 @@
 # by Maxim Yudayev [https://yudayev.com].
 #
 # ############
- 
-from dash import Dash
-from flask import Flask
-import dash_bootstrap_components as dbc
-import os
 
-current_dir = os.path.dirname(os.path.abspath(__file__))  # utils folder
-parent_dir = os.path.dirname(current_dir)  # AidWear folder
-assets_folder = os.path.join(parent_dir, 'annotation', 'assets')
-server = Flask(__name__)
-app = Dash(__name__, server=server, assets_folder=assets_folder, external_stylesheets=[dbc.themes.BOOTSTRAP])
+from abc import ABC, abstractmethod
+import dash_bootstrap_components as dbc
+
+
+#############################################
+#############################################
+# Interface class to visualize Producer data.
+#############################################
+#############################################
+class BaseComponent(ABC):
+  def __init__(self,
+               unique_id: str,
+               col_width: int):
+    self._col_width = col_width
+    self._unique_id = unique_id
+    self._sync_offset = 0  # Initialize sync offset, only relevant for data components, not the control components
+
+
+  @property
+  def layout(self) -> dbc.Col:
+    return self._layout
+
+
+  @abstractmethod
+  def _activate_callbacks(self) -> None:
+    pass
+
+
+  def set_sync_offset(self, offset: int):
+    """Set synchronization offset for this component"""
+    self._sync_offset = int(offset)
+    
+  
+  def get_sync_offset(self):
+    """Get current synchronization offset"""
+    return self._sync_offset
