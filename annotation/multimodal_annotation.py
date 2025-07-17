@@ -30,7 +30,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dash import html, dcc, Input, Output, State, callback_context
+from dash import ClientsideFunction, html, dcc, Input, Output, State, callback_context
 import dash_bootstrap_components as dbc
 from pathlib import Path
 
@@ -100,6 +100,9 @@ shared_stores = html.Div([
   # Event stores
   dcc.Store(id="keyboard-event", data=None),
   dcc.Store(id="feedback-message", data=None),
+
+  # Hidden div to trigger keyboard setup
+  html.Div(id="keyboard-setup-trigger", style={'display': 'none'}),
 
   # Hidden frame input with different ID, NO LONGER USED, REPLACED BY frame-id 
   dbc.Input(id="frame-input", type="number", value=0, style={'display': 'none'}),
