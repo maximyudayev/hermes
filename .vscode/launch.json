@@ -45,7 +45,7 @@
       "cwd": "${workspaceFolder}",
       "program": "main.py",
       "args": [
-        "--experiment", "project=Tests", "type=AI", "trial=0",
+        "--experiment", "project=Tests", "type=AI", "trial=1",
         "--config_file", "configs/test/local_pytorch.yml"
       ],
       "env": {

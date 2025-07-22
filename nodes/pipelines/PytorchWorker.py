@@ -30,12 +30,14 @@ from streams import PytorchStream
 
 from utils.time_utils import get_time
 from utils.zmq_utils import *
+from utils.ai_utils import *
 
 import numpy as np
 import torch
 from torch import nn
 from collections import deque
 from pytorch_tcn import TCN
+#from scipy.signal import butter, lfilter, lfilter_zi # TODO: install scipy
 
 
 ######################################################
@@ -86,6 +88,17 @@ class PytorchWorker(Pipeline):
       "sampling_rate_hz": sampling_rate_hz
     }
 
+    # Initialize highpass filter
+    self.b, self.a, self.zi = init_iir_filter(fs=sampling_rate_hz, cutoff_hz=0.3, order=4, num_channels=input_size[1])
+
+    # Initialize vars needed for pre-processing: (x-mean)/std
+    self._mean = np.zeros(6, dtype=np.float32)    
+    self._var = np.ones(6, dtype=np.float32)       
+    self._count = 0 
+
+    # to keep state for label smoothing
+    self.smooth_state = (False, 0, 0)  # (in_fog, consec_ones, consec_zeros)
+
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
                      logging_spec=logging_spec,
@@ -104,7 +117,10 @@ class PytorchWorker(Pipeline):
   def _generate_prediction(self) -> tuple[list[float], int]:
     input_tensor = torch.tensor(np.concatenate([buf[0] for buf in self._buffer]), dtype=torch.float32)[None,:,None]
     output = self._model(input_tensor, inference=True)
-    return output.squeeze().numpy(), output.squeeze().argmax().item()
+    logits = output.squeeze().numpy()
+    prediction = output.squeeze().argmax().item()
+    prediction, self.smooth_state = smooth(prediction, self.smooth_state)
+    return logits, prediction
 
 
   def _process_data(self, topic: str, msg: dict) -> None:
@@ -113,10 +129,11 @@ class PytorchWorker(Pipeline):
     toa_s = msg['data']['dots-imu']['toa_s']
 
     for i, sensor_sample in enumerate(np.concatenate((acc, gyr), axis=1)):
-      # Replace the circular buffer's values for valid newly arrivied sensor samples.
-      #   NOTE: shape (6,), contents may be NaN for missed packets.
       if all(map(lambda el: not np.isnan(el), sensor_sample)):
-        self._buffer[i].append(sensor_sample)
+        # pre-process valid sample
+        norm_sample, self.zi, self._count, self._mean, self._var = normalize(sensor_sample, self.b, self.a, self.zi, self._count, self._mean, self._var)
+        self._buffer[i].append(norm_sample)
+        #self._buffer[i].append(sensor_sample)
 
     start_time_s: float = get_time()
     logits, prediction = self._generate_prediction()
