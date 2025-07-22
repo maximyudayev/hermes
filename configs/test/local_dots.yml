@@ -58,17 +58,17 @@ logging_spec:
 producer_specs:
   - class: "DotsStreamer"
     device_mapping:
-      foot_right      : "40195BF3809B009E"
-      knee_right      : "40195C09807000DF"
-      pelvis          : "40195C0980700122"
-      knee_left       : "40195C09807001AE"
-      foot_left       : "40195C0980700109"
+      pelvis          : "40195BF3809B009E"
+      knee_right      : "40195C0980700122"
+      foot_right      : "40195C09807001AE"
+      knee_left       : "40195C0980700109"
+      foot_left       : "40195C09807000DF"
     mac_mapping:
-      knee_right      : "D422CD00AA23"
-      foot_right      : "D422CD00A1D7"
-      pelvis          : "D422CD00A8DF"
-      knee_left       : "D422CD00A922"
-      foot_left       : "D422CD00A8C6"
+      pelvis          : "D422CD00A1D7"
+      knee_right      : "D422CD00A8DF"
+      foot_right      : "D422CD00A922"
+      knee_left       : "D422CD00A8C6"
+      foot_left       : "D422CD00AA23"
     master_device     : "pelvis" # wireless dot relaying messages, must match a key in the `device_mapping`
     num_joints        : 5
     sampling_rate_hz  : 60 # [1, 4, 10, 12, 15, 20, 30, 60]
