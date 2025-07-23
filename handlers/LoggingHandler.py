@@ -48,6 +48,7 @@ from streams.Stream import Stream
 from utils.dict_utils import convert_dict_values_to_str
 from utils.types import VideoCodecDict
 
+SITE_ID = "S1"
 
 ##############################################################################################
 ##############################################################################################
@@ -408,14 +409,15 @@ class Logger(LoggerInterface):
   # Will have a single file for all streams from all devices.
   # Currently assumes that device names are unique across all streamers.
   def _init_files_hdf5(self) -> int:
-    # Open an HDF5 file writerю
-    filename_hdf5 = '%s.hdf5' % self._log_tag
-    filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
-    num_to_append = 0
-    while os.path.exists(filepath_hdf5):
-      num_to_append += 1
-      filename_hdf5 = '%s_%02d.hdf5' % (self._log_tag, num_to_append)
-      filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
+    # Open an HDF5 file writer
+    dt = get_time_str(self._log_time_s, '%Y%m%d-%H%M%S', False)
+    # structure: <date-time>_<siteID>_sub<subIDnum>_<groupID>_ses<sesIDnum>_<medication status>_sensors<(-retr#)>.<ext>
+    if self._log_tag == "eye":
+      tag = "glasses"
+    else:
+      tag = self._log_tag
+    filename_hdf5 = '%s_%s_%s_%s_ses%s_%s_%s.hdf5' % (dt, SITE_ID, self._experiment["subject"], self._experiment["group"], self._experiment["session"], self._experiment["medication"], tag)
+    filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)    
     self._hdf5_file = h5py.File(filepath_hdf5, 'w')
     # Create a dataset for each data key of each stream of each device.
     for (streamer_name, stream) in self._streams.items():
@@ -447,6 +449,7 @@ class Logger(LoggerInterface):
       raise ValueError('Must provide video codec specification when streaming video.')
 
     num_writers: int = 0
+    camera_id: int = 1
     for (streamer_name, streamer) in self._streams.items():
       for (device_name, device_info) in streamer.get_stream_info_all().items():
         for (stream_name, stream_info) in device_info.items():
@@ -454,14 +457,18 @@ class Logger(LoggerInterface):
           if not stream_info['is_video']:
             continue
           # Create a unique file.
-          filename_base = '%s_%s' % (self._log_tag, device_name)
-          filename_video = '%s.mkv' % (filename_base)
+          dt = get_time_str(self._log_time_s, '%Y%m%d-%H%M%S', False)
+          # structure: <date-time>_<siteID>_sub<subIDnum>_<groupID>_ses<sesIDnum>_<medication status>_<cameraID><(-retr#)>_unblur.<ext>
+          base_filename = '%s_%s_%s_%s_ses%s_%s_%s.hdf5' % (dt, SITE_ID, self._experiment["subject"], self._experiment["group"], self._experiment["session"], self._experiment["medication"])
+          if self._log_tag == "cameras":
+            filename_video = '%s_cam0%s_unblur.mkv' % (base_filename, camera_id)
+            camera_id += 1
+          elif self._log_tag == "eye":
+            filename_video = '%s_glasses.mkv' % (base_filename)
+          else:
+            filename_video = '%s_%s_%s.mkv' % (base_filename, self._log_tag, device_name)
           filepath_video = os.path.join(self._log_dir, filename_video)
-          num_to_append = 0
-          while os.path.exists(filepath_video):
-            num_to_append += 1
-            filename_video = '%s_%02d.mkv' % (filename_base, num_to_append)
-            filepath_video = os.path.join(self._log_dir, filename_video)
+
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]

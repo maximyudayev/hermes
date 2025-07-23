@@ -152,7 +152,10 @@ if __name__ == '__main__':
   (log_time_str, log_time_s) = get_time_str(time_s=args.log_time_s, return_time_s=True)
   log_dir: str = os.path.join(script_dir,
                               'data',
+                              # f'project_{args.experiment["project"]}',
+                              # f'subject_{args.experiment["subject"]}')
                               *map(lambda tup: '_'.join(tup), args.experiment.items()))
+
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
 
