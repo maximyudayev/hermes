@@ -37,7 +37,6 @@ import torch
 from torch import nn
 from collections import deque
 from pytorch_tcn import TCN
-#from scipy.signal import butter, lfilter, lfilter_zi # TODO: install scipy
 
 
 ######################################################
@@ -130,10 +129,8 @@ class PytorchWorker(Pipeline):
 
     for i, sensor_sample in enumerate(np.concatenate((acc, gyr), axis=1)):
       if all(map(lambda el: not np.isnan(el), sensor_sample)):
-        # pre-process valid sample
         norm_sample, self.zi, self._count, self._mean, self._var = normalize(sensor_sample, self.b, self.a, self.zi, self._count, self._mean, self._var)
         self._buffer[i].append(norm_sample)
-        #self._buffer[i].append(sensor_sample)
 
     start_time_s: float = get_time()
     logits, prediction = self._generate_prediction()
