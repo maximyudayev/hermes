@@ -9,6 +9,7 @@ __pycache__
 
 # Recorded data
 data/
+venv/
 
 # Distribution files
 dist/
