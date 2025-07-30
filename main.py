@@ -195,7 +195,7 @@ if __name__ == '__main__':
   #     user=LAPTOP_USER,
   #     connect_kwargs={"key_filename": LAPTOP_KEY}
   # )
-  # conn.run(conn.run(f'cd "{REMOTE_PROJECT_PATH}" && python {REMOTE_MAIN} {cmd_args}', hide=False))
+  # conn.run(f'cd "{REMOTE_PROJECT_PATH}" && python {REMOTE_MAIN} {cmd_args}', hide=False)
 
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment
@@ -260,4 +260,9 @@ if __name__ == '__main__':
   # app = PrintPopup(msg_queue, quit_flag)
   # app.mainloop()
 
-  # TODO: collect files from remote IPs at the end of the experiments.
+  # collect files from remote IPs at the end of the experiments.
+  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.hdf5", local=log_dir)
+  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.mkv", local=log_dir)
+  # cleanup remote files
+  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.hdf5')
+  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.mkv')
