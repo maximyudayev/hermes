@@ -48,6 +48,17 @@ REMOTE_PROJECT_PATH = "C:/Users/u0170757/OneDrive - KU Leuven/Documents/AID-FOG/
 REMOTE_MAIN = "main.py"
 
 if __name__ == '__main__':
+  # msg_queue = queue.Queue()
+  # quit_flag = {"stop": False}
+
+  # # Redirect all print & logging to queue
+  # sys.stdout = ThreadSafeStdout(msg_queue)
+  # sys.stderr = ThreadSafeStdout(msg_queue)
+  # queue_handler = QueueHandler(msg_queue)
+  # queue_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+  # logging.getLogger().addHandler(queue_handler)
+  # logging.getLogger().setLevel(logging.DEBUG)
+
   parser = argparse.ArgumentParser(prog='HERMES',
                                    description='Heterogeneous edge realtime measurement and execution system '
                                                'for continual multimodal data acquisition and processing.',
@@ -240,6 +251,13 @@ if __name__ == '__main__':
     local_broker.set_is_quit()
     t.join()
   else:
-    local_broker()
+    local_broker()  
+  
+  # broker_thread = threading.Thread(target=run_broker, args=(local_broker, args.duration_s, quit_flag))
+  # broker_thread.start()
+
+  # # Start the popup as the **main loop**
+  # app = PrintPopup(msg_queue, quit_flag)
+  # app.mainloop()
 
   # TODO: collect files from remote IPs at the end of the experiments.
