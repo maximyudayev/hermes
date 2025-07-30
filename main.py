@@ -30,12 +30,22 @@ from nodes.Broker import Broker
 from utils.mp_utils import launch_callable
 from utils.time_utils import *
 from utils.argparse_utils import *
+from utils.user_input_utils import *
 
 import os
 import yaml
 import argparse
+from fabric import Connection
+
 
 __version = 'v0.1.0'
+
+# global params for testing remote connection
+LAPTOP_IP = "192.168.137.34"
+LAPTOP_USER = "u0170757"
+LAPTOP_KEY = "C:/Users/Owner/.ssh/nuc_rsa"  
+REMOTE_PROJECT_PATH = "C:/Users/u0170757/OneDrive - KU Leuven/Documents/AID-FOG/data_acquisition"
+REMOTE_MAIN = "main.py"
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(prog='HERMES',
@@ -147,24 +157,34 @@ if __name__ == '__main__':
       except yaml.YAMLError as e:
         print(e)
 
+  # Create a GUI to ask for user input about the experiment information and file naming
+  user_input_gui = ExperimentGUI(args)
+  args = user_input_gui.get_experiment_inputs()
+
   # Initialize folders and other chore data, and share programmatically across Node specs.
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
   (log_time_str, log_time_s) = get_time_str(time_s=args.log_time_s, return_time_s=True)
   log_dir: str = os.path.join(script_dir,
                               'data',
-                              # f'project_{args.experiment["project"]}',
-                              # f'subject_{args.experiment["subject"]}')
-                              *map(lambda tup: '_'.join(tup), args.experiment.items()))
+                               f'project_{args.experiment["project"]}', # to be removed 
+                               f'subject_{args.experiment["subject"]}_{args.experiment["group"]}',
+                               f'session_{args.experiment["session"]}')
+                              #*map(lambda tup: '_'.join(tup), args.experiment.items()))
 
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
 
-  try:
-    os.makedirs(log_dir)
-  except OSError:
-    exit("'%s' already exists. Update experiment YML file with correct data for this subject."%log_dir)
+  # ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
+  # exp_args = ' '.join([f'{k}={v}' for k, v in args.experiment.items()])
+  # cmd_args = f"--experiment {exp_args} --config_file {args.config_file}"
 
-  # TODO: ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
+  # # Construct connection and run
+  # conn = Connection(
+  #     host=LAPTOP_IP,
+  #     user=LAPTOP_USER,
+  #     connect_kwargs={"key_filename": LAPTOP_KEY}
+  # )
+  # conn.run(conn.run(f'cd "{REMOTE_PROJECT_PATH}" && python {REMOTE_MAIN} {cmd_args}', hide=False))
 
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment

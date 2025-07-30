@@ -416,9 +416,18 @@ class Logger(LoggerInterface):
       tag = "glasses"
     else:
       tag = self._log_tag
-    filename_hdf5 = '%s_%s_%s_%s_ses%s_%s_%s.hdf5' % (dt, SITE_ID, self._experiment["subject"], self._experiment["group"], self._experiment["session"], self._experiment["medication"], tag)
-    filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)    
+
+    base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}_{tag}"
+    # Check if such a file already exists 
+    num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+
+    if num_to_append > 0:
+      base_name = f"{base_name}-retr{num_to_append:02d}"
+    # Final filename 
+    filename_hdf5 = f"{dt}_{base_name}.hdf5"
+    filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
     self._hdf5_file = h5py.File(filepath_hdf5, 'w')
+
     # Create a dataset for each data key of each stream of each device.
     for (streamer_name, stream) in self._streams.items():
       streamer_group = self._hdf5_file.create_group(streamer_name)
@@ -459,16 +468,25 @@ class Logger(LoggerInterface):
           # Create a unique file.
           dt = get_time_str(self._log_time_s, '%Y%m%d-%H%M%S', False)
           # structure: <date-time>_<siteID>_sub<subIDnum>_<groupID>_ses<sesIDnum>_<medication status>_<cameraID><(-retr#)>_unblur.<ext>
-          base_filename = '%s_%s_%s_%s_ses%s_%s_%s.hdf5' % (dt, SITE_ID, self._experiment["subject"], self._experiment["group"], self._experiment["session"], self._experiment["medication"])
+          base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}"
+
+          # check for existing files
+          num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+          if num_to_append > 0:
+            base_name = f"{base_name}-retr{num_to_append:02d}"
+
           if self._log_tag == "cameras":
-            filename_video = '%s_cam0%s_unblur.mkv' % (base_filename, camera_id)
+            base_name = f"{base_name}_cam0{camera_id}_unblur"
             camera_id += 1
           elif self._log_tag == "eye":
-            filename_video = '%s_glasses.mkv' % (base_filename)
+              base_name = f"{base_name}_glasses"
           else:
-            filename_video = '%s_%s_%s.mkv' % (base_filename, self._log_tag, device_name)
-          filepath_video = os.path.join(self._log_dir, filename_video)
+              base_name = f"{base_name}_{self._log_tag}_{device_name}"
 
+          # Create final file name
+          filename_video = f"{dt}_{base_name}.mkv"
+          filepath_video = os.path.join(self._log_dir, filename_video)    
+            
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]

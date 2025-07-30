@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
+# Copyright (c) 2025 Vayalet Stefanova and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,14 +15,14 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 #
-# See https://action-net.csail.mit.edu for more usage information.
-# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
+# Created 2025 for AidWear, AidFOG, and RevalExo projects of KU Leuven.
 #
-############
+# ############
 
 import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi 
@@ -46,7 +46,7 @@ def init_iir_filter(fs: float, cutoff_hz: float = 0.3, order: int = 4, num_chann
     nyquist = 0.5 * fs
     norm_cutoff = cutoff_hz / nyquist
     b, a = butter(order, norm_cutoff, btype='high', analog=False) # type: ignore
-    zi = [lfilter_zi(b, a) * 0 for _ in range(num_channels)]
+    zi = [lfilter_zi(b, a)  for _ in range(num_channels)]
     return b, a, zi
 
 def normalize(sensor_sample, b, a, zi, count, mean, var, eps=1e-3):
