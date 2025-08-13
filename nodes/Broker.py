@@ -207,9 +207,9 @@ class SyncNodeBarrierState(BrokerState):
       num_left_to_sync -= 1
       node_name = node_name.decode('utf-8')
       nodes[node_name] = address
-      print("%s connected to %s with %s message." % (node_name,
-                                                     host_ip,
-                                                     cmd.decode('utf-8')), flush=True)
+      print(f"{node_name} are connected and synced. Wait for RECORDING signal...", flush=True) #to %s with %s message." % (node_name,
+                                                    #  host_ip,
+                                                    #  cmd.decode('utf-8')), flush=True)
     self._context._set_node_addresses(nodes)
     self._context._set_state(SyncBrokerBarrierState(self._context))
 
@@ -307,10 +307,10 @@ class StartState(BrokerState):
                                        b'',
                                        host_ip.encode('utf-8'),
                                        CMD_GO.encode('utf-8')])
-      print("%s sending %s to %s" % (host_ip,
-                                     CMD_GO,
-                                     name),
-                                     flush=True)
+      # print("%s sending %s to %s" % (host_ip,
+      #                                CMD_GO,
+      #                                name),
+      #                                flush=True)
 
     self._context._set_state(RunningState(self._context))
 
@@ -406,10 +406,13 @@ class JoinNodeBarrierState(BrokerState):
       if sock == self._sync_host_socket:
         address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
         topic = node_name.decode('utf-8')
-        print("%s received %s from %s" % (self._host_ip,
-                                          cmd,
-                                          topic),
-                                          flush=True)
+        # print("%s received %s from %s" % (self._host_ip,
+        #                                   cmd,
+        #                                   topic),
+        #                                   flush=True)
+        if cmd == "GO":
+          print(f"{topic} are RECORDING ")
+        
         self._nodes_waiting_to_exit.add(topic)
         self._release_local_node(topic)
 
@@ -505,7 +508,8 @@ class Broker(BrokerInterface):
                port_sync_host: str = PORT_SYNC_HOST,
                port_sync_remote: str = PORT_SYNC_REMOTE,
                port_killsig: str = PORT_KILL,
-               is_master_broker: bool = False) -> None:
+               is_master_broker: bool = False,
+               external_gui_specs: dict = dict()) -> None:
 
     # Record various configuration options.
     self._host_ip = host_ip
@@ -517,6 +521,8 @@ class Broker(BrokerInterface):
     self._port_killsig = port_killsig
     self._node_specs = node_specs
     self._is_quit = False
+
+    self._external_gui_specs = external_gui_specs
 
     self._remote_pub_brokers: list[str] = []
     self._remote_sub_brokers: list[str] = []
@@ -612,13 +618,13 @@ class Broker(BrokerInterface):
     while self._state.is_continue() and not self._is_quit:
       self._state.run()
     if self._is_quit:
-      print("Keyboard exit signalled. Safely closing and saving, have some patience...", flush=True)
+      print("Safely closing and saving, have some patience...", flush=True)
     self._state.kill()
     # Continue with the FSM until it gracefully wraps up.
     while self._state.is_continue():
       self._state.run()
     self._stop()
-    print("Experiment ended, thank you for using our system <3", flush=True)
+    print("Experiment ended, you can close this window", flush=True)
 
 
   #############################
@@ -736,7 +742,8 @@ class Broker(BrokerInterface):
                                                     self._port_backend,
                                                     self._port_frontend,
                                                     self._port_sync_host,
-                                                    self._port_killsig)) for spec in self._node_specs]
+                                                    self._port_killsig,
+                                                    self._external_gui_specs)) for spec in self._node_specs]
     for p in self._processes: p.start()
 
 

@@ -119,10 +119,13 @@ class SyncState(NodeState):
   def run(self):
     self._sync.send_multipart([self._context._log_source_tag().encode('utf-8'), CMD_HELLO.encode('utf-8')])
     host, cmd = self._sync.recv_multipart()
-    print("%s received %s from %s." % (self._context._log_source_tag(),
-                                       cmd.decode('utf-8'),
-                                       host.decode('utf-8')),
-                                       flush=True)
+    # print("%s received %s from %s." % (self._context._log_source_tag(),
+    #                                    cmd.decode('utf-8'),
+    #                                    host.decode('utf-8')),
+    #                                    flush=True)
+    if cmd.decode('utf-8') == "GO":
+      print(f"{self._context._log_source_tag()} are RECORDING \n Enter 'q' in the terminal to stop the experiment")
+
     self._context._set_state(RunningState(self._context))
 
 
@@ -235,7 +238,7 @@ class Node(NodeInterface):
 
   # Stop listening to the kill signal.
   def _deactivate_kill_poller(self) -> None:
-    print("%s received KILL signal"%self._log_source_tag(), flush=True)
+    #print("%s received KILL signal"%self._log_source_tag(), flush=True)
     # self._killsig.recv_multipart()
     self._poller.unregister(self._killsig)
 

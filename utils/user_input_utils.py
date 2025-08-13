@@ -26,12 +26,6 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import logging
-import threading
-import time
-import sys
-from tkinter.scrolledtext import ScrolledText
-
 
 ######################################
 ######################################
@@ -83,9 +77,7 @@ class ExperimentGUI:
         tk.Button(button_frame, text="Without glasses", width=20,
                   command=lambda: self._submit("configs/test/local_dots.yml")).pack(side=tk.LEFT, padx=10)
         tk.Button(button_frame, text="With glasses", width=20,
-                  command=lambda: self._submit("configs/AiDFOD/backpack_no_glasses.yml")).pack(side=tk.LEFT, padx=10)
-
-
+                  command=lambda: self._submit("configs/test/local_pupil.yml")).pack(side=tk.LEFT, padx=10)
 
     def _submit(self, config_file):
         uid = self.subject_id.get().strip()
@@ -108,48 +100,4 @@ class ExperimentGUI:
 
     def get_experiment_inputs(self):
         return self.args
-
-class QueueHandler(logging.Handler):
-    def __init__(self, message_queue):
-        super().__init__()
-        self.queue = message_queue
-    def emit(self, record):
-        self.queue.put(self.format(record))
-
-class ThreadSafeStdout:
-    def __init__(self, message_queue):
-        self.queue = message_queue
-    def write(self, message):
-        if message.strip():
-            self.queue.put(message)
-    def flush(self):
-        pass
-
-class PrintPopup(tk.Tk):
-    def __init__(self, message_queue, quit_flag):
-        super().__init__()
-        self.title("Updates")
-        self.text_area = ScrolledText(self, wrap=tk.WORD, state='disabled', height=25, width=100)
-        self.text_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-        tk.Button(self, text="Quit Experiment", command=lambda: quit_flag.__setitem__('stop', True)).pack(pady=5)
-        self.queue = message_queue
-        self.quit_flag = quit_flag
-        self.after(100, self._poll_queue)
-    def _poll_queue(self):
-        while not self.queue.empty():
-            msg = self.queue.get_nowait()
-            self.text_area.configure(state='normal')
-            self.text_area.insert(tk.END, msg + "\n")
-            self.text_area.configure(state='disabled')
-            self.text_area.yview(tk.END)
-        self.after(100, self._poll_queue)
-
-def run_broker(local_broker, duration_s, quit_flag):
-    from utils.mp_utils import launch_callable
-    t = threading.Thread(target=launch_callable, args=(local_broker, duration_s))
-    t.start()
-    while not quit_flag["stop"] and t.is_alive():
-        time.sleep(0.5)
-    local_broker.set_is_quit()
-    t.join()
 

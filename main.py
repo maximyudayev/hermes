@@ -48,16 +48,6 @@ REMOTE_PROJECT_PATH = "C:/Users/u0170757/OneDrive - KU Leuven/Documents/AID-FOG/
 REMOTE_MAIN = "main.py"
 
 if __name__ == '__main__':
-  # msg_queue = queue.Queue()
-  # quit_flag = {"stop": False}
-
-  # # Redirect all print & logging to queue
-  # sys.stdout = ThreadSafeStdout(msg_queue)
-  # sys.stderr = ThreadSafeStdout(msg_queue)
-  # queue_handler = QueueHandler(msg_queue)
-  # queue_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-  # logging.getLogger().addHandler(queue_handler)
-  # logging.getLogger().setLevel(logging.DEBUG)
 
   parser = argparse.ArgumentParser(prog='HERMES',
                                    description='Heterogeneous edge realtime measurement and execution system '
@@ -148,6 +138,9 @@ if __name__ == '__main__':
 
   # Parse launch arguments.
   args = parser.parse_args()
+  # Create a GUI to ask for user input about the experiment information and file naming
+  user_input_gui = ExperimentGUI(args)
+  args = user_input_gui.get_experiment_inputs()
 
   # Override CLI arguments with a config file.
   if args.config_file is not None:
@@ -161,16 +154,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
   # Load video codec spec.
-  if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
-    with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
-      try:
-        args.logging_spec['video_codec'] = yaml.safe_load(f)
-      except yaml.YAMLError as e:
-        print(e)
-
-  # Create a GUI to ask for user input about the experiment information and file naming
-  user_input_gui = ExperimentGUI(args)
-  args = user_input_gui.get_experiment_inputs()
+  try: 
+    if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
+      with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
+        try:
+          args.logging_spec['video_codec'] = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+          print(e)
+  except Exception:
+    pass
 
   # Initialize folders and other chore data, and share programmatically across Node specs.
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
@@ -252,13 +244,6 @@ if __name__ == '__main__':
     t.join()
   else:
     local_broker()  
-  
-  # broker_thread = threading.Thread(target=run_broker, args=(local_broker, args.duration_s, quit_flag))
-  # broker_thread.start()
-
-  # # Start the popup as the **main loop**
-  # app = PrintPopup(msg_queue, quit_flag)
-  # app.mainloop()
 
   # collect files from remote IPs at the end of the experiments.
   # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.hdf5", local=log_dir)

@@ -233,7 +233,7 @@ class Logger(LoggerInterface):
     # Run continuously, ignoring Ctrl+C interrupt, until owner Node commands an exit.
     while self._state.is_continue():
       self._state.run()
-    print("%s Logger safely exited."%self._log_tag, flush=True)
+    #print("%s Logger safely exited."%self._log_tag, flush=True)
 
 
   # Stop logging.
