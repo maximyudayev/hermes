@@ -82,9 +82,9 @@ class TimestampToCounterConverter:
   def __init__(self,
                keys: Iterable,
                sampling_period: int, # NOTE: sampling period must be in the same units as timestamp limit and timestamps
-               num_bits_timestamp: int): # NOTE:
+               counter_limit: int): # NOTE:
     self._sampling_period = sampling_period
-    self._timestamp_limit: int = 2**num_bits_timestamp
+    self._timestamp_limit: int = counter_limit
     self._counter_from_timestamp_fn: Callable = self._foo
     self._first_timestamps = OrderedDict([(k, None) for k in keys])
     self._previous_timestamps = OrderedDict([(k, None) for k in keys])
@@ -206,12 +206,12 @@ class TimestampAlignedFifoBuffer(AlignedFifoBuffer):
                keys: Iterable,
                timesteps_before_stale: int, # NOTE: allows yeeting from buffer if some keys have been empty for a while, while others continue producing
                sampling_period: int, # NOTE: sampling period must be in the same units as timestamp limit and timestamps
-               num_bits_timestamp: int): # NOTE:
+               counter_limit: int): # NOTE:
     super().__init__(keys=keys,
                      timesteps_before_stale=timesteps_before_stale)
     self._converter = TimestampToCounterConverter(keys=keys,
                                                   sampling_period=sampling_period,
-                                                  num_bits_timestamp=num_bits_timestamp)
+                                                  counter_limit=counter_limit)
 
 
   # Override parent method.

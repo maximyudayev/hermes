@@ -91,7 +91,7 @@ class MovellaFacade:
     self._buffer = TimestampAlignedFifoBuffer(keys=device_mapping.values(),
                                               timesteps_before_stale=timesteps_before_stale,
                                               sampling_period=sampling_period,
-                                              num_bits_timestamp=32)
+                                              counter_limit=((2**32) - 1) // 100)
     self._packet_queue = queue.Queue()
     self._is_more = True
     self._master_device_id = device_mapping[master_device]
