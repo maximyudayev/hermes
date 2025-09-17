@@ -419,7 +419,7 @@ class Logger(LoggerInterface):
 
     base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}_{tag}"
     # Check if such a file already exists 
-    num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+    num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.hdf5') and base_name in f)
 
     if num_to_append > 0:
       base_name = f"{base_name}-retr{num_to_append:02d}"
@@ -471,9 +471,14 @@ class Logger(LoggerInterface):
           base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}"
 
           # check for existing files
-          num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+          num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.hdf5') and base_name in f)
           if num_to_append > 0:
-            base_name = f"{base_name}-retr{num_to_append:02d}"
+            if self._log_tag == "eye":
+              num_to_append = num_to_append/2 - 1
+            elif self._log_tag == "cameras":
+              num_to_append = num_to_append - 1
+            if num_to_append > 0:
+              base_name = f"{base_name}-retr{num_to_append:02d}"
 
           if self._log_tag == "cameras":
             base_name = f"{base_name}_cam0{camera_id}_unblur"
@@ -517,8 +522,8 @@ class Logger(LoggerInterface):
                                        **self._video_codec['output_options'],
                                        **metadata_dict)
           video_stream = video_stream.global_args('-hide_banner')
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
-          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True) # type: ignore
+          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
+          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -656,8 +661,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close() # type: ignore
-      # video_writer.stderr.close() # type: ignore
-      # video_writer.stdout.close() # type: ignore
+      video_writer.stderr.close() # type: ignore
+      video_writer.stdout.close() # type: ignore
       video_writer.wait()
     self._video_writers = []
 

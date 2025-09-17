@@ -33,6 +33,9 @@ import pypylon.pylon as pylon
 from utils.print_utils import *
 from utils.zmq_utils import *
 from collections import OrderedDict
+from utils.live_gui_utils import LiveGUIPoster
+from typing import Optional
+import threading
 
 
 #######################################################
@@ -58,6 +61,8 @@ class CameraStreamer(Producer):
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = float('nan'),
                timesteps_before_solidified: int = 0,
+               gui_ip: Optional[str] = None,
+               gui_port: Optional[str] = None,
                **_):
 
     # Initialize general state.
@@ -74,6 +79,15 @@ class CameraStreamer(Producer):
       "resolution": resolution,
       "timesteps_before_solidified": timesteps_before_solidified
     }
+
+    self.GUIposter = None
+    if gui_ip and gui_port:
+      # print(f"GUI port: {gui_port}")
+      self.GUIposter = LiveGUIPoster(
+        self._log_source_tag(),
+        gui_ip,
+        gui_port
+      ) 
 
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,
@@ -111,6 +125,7 @@ class CameraStreamer(Producer):
 
     # Connect to the cameras.
     self._cam_array.Open()
+    self._cam_meta = {}
 
     # Configure the cameras according to the user settings.
     for idx, cam in enumerate(self._cam_array): # type: ignore
@@ -146,6 +161,14 @@ class CameraStreamer(Producer):
     # Start asynchronously capturing images with a background loop.
     # https://docs.baslerweb.com/pylonapi/cpp/pylon_programmingguide#the-default-grab-strategy-one-by-one.
     self._cam_array.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
+
+    # Get metadata for one camera
+    self._cam_meta = {
+        "width": int(cam.Width.GetValue()),
+        "height": int(cam.Height.GetValue()),
+        "pixel_format": cam.PixelFormat.GetValue() }
+    if self.GUIposter:
+      self.GUIposter.send_frame_meta(self._cam_meta)
     return True
 
 
@@ -170,7 +193,6 @@ class CameraStreamer(Producer):
   def _keep_samples(self) -> None:
     self._image_handler.keep_data()
 
-
   def _process_frame(self,
                      camera_id: str,
                      frame_buffer: bytes,
@@ -189,6 +211,14 @@ class CameraStreamer(Producer):
       'toa_s': toa_s
     }
     self._publish(tag=tag, process_time_s=process_time_s, data={camera_id: data})
+
+    if self.GUIposter is not None: 
+        step = int(self._fps * 5)  # number of frames in 5 seconds
+        if step > 0 and (frame_index % step == 0): # only send 1 frame every 5 seconds to be displayed in GUI
+          t_gui = threading.Thread(target=self.GUIposter.send_frame_bytes(camera_id=camera_id,
+                                                                          frame_index=int(frame_index),frame_bytes=frame_buffer), 
+                                                                          daemon=True)
+          t_gui.start()
 
 
   def _stop_new_data(self) -> None:

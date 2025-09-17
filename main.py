@@ -31,21 +31,25 @@ from utils.mp_utils import launch_callable
 from utils.time_utils import *
 from utils.argparse_utils import *
 from utils.user_input_utils import *
+from utils.remote_runner_utils import *
+from utils.live_gui_utils import get_free_udp_port, launch_gui
 
 import os
 import yaml
 import argparse
-from fabric import Connection
+from pathlib import PureWindowsPath
 
 
 __version = 'v0.1.0'
 
-# global params for testing remote connection
-LAPTOP_IP = "192.168.137.34"
-LAPTOP_USER = "u0170757"
-LAPTOP_KEY = "C:/Users/Owner/.ssh/nuc_rsa"  
-REMOTE_PROJECT_PATH = "C:/Users/u0170757/OneDrive - KU Leuven/Documents/AID-FOG/data_acquisition"
+# global params for remote connection
+BACKPACK_USER = "Owner"
+REMOTE_PROJECT_PATH = PureWindowsPath(r"C:\Users\Owner\Documents\HERMES")
 REMOTE_MAIN = "main.py"
+TERMINAL_CONFIG = r"configs\AidFOG\terminal.yml"  
+# TERMINAL_CONFIG = r"configs\test\local_cameras.yml"  
+REMOTE_PYTHON = r"python" 
+REMOTE_LOG = str(REMOTE_PROJECT_PATH / r"resources\AidFOG\remote_log.log")
 
 if __name__ == '__main__':
 
@@ -84,6 +88,11 @@ if __name__ == '__main__':
                       default=None,
                       help='path to the configuration file for the current host device, '
                            'instead of the CLI arguments')
+  parser.add_argument('--external_gui_specs',
+                      nargs='*',
+                      action=ParseExternalGUIKwargs,
+                      default=list(),
+                      help='key-value pair tags detailing local GUI addresses')
 
   # parser.add_argument('--host_ip',
   #                     type=validate_ip,
@@ -140,18 +149,24 @@ if __name__ == '__main__':
   args = parser.parse_args()
   # Create a GUI to ask for user input about the experiment information and file naming
   user_input_gui = ExperimentGUI(args)
-  args = user_input_gui.get_experiment_inputs()
+  args = user_input_gui.get_experiment_inputs()  
+  user_config = args.config_file
 
   # Override CLI arguments with a config file.
   if args.config_file is not None:
     with open(args.config_file, "r") as f:
       try:
         config: dict = yaml.safe_load(f)
-        parser.set_defaults(**config)
+        for key, value in config.items():
+          setattr(args, key, value)
       except yaml.YAMLError as e:
         print(e)
         exit('Error parsing CLI inputs.')
-    args = parser.parse_args()
+
+  # Check for a free port for camera GUI
+  if args.external_gui_specs:
+    args.external_gui_specs['gui_port'] = get_free_udp_port()
+    gui_t = launch_gui(args)
 
   # Load video codec spec.
   try: 
@@ -176,18 +191,6 @@ if __name__ == '__main__':
 
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
-
-  # ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
-  # exp_args = ' '.join([f'{k}={v}' for k, v in args.experiment.items()])
-  # cmd_args = f"--experiment {exp_args} --config_file {args.config_file}"
-
-  # # Construct connection and run
-  # conn = Connection(
-  #     host=LAPTOP_IP,
-  #     user=LAPTOP_USER,
-  #     connect_kwargs={"key_filename": LAPTOP_KEY}
-  # )
-  # conn.run(f'cd "{REMOTE_PROJECT_PATH}" && python {REMOTE_MAIN} {cmd_args}', hide=False)
 
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment
@@ -214,10 +217,12 @@ if __name__ == '__main__':
   producer_specs: list[dict] = args.producer_specs
   consumer_specs: list[dict] = args.consumer_specs
   pipeline_specs: list[dict] = args.pipeline_specs
+  external_gui_specs: list[dict] = args.external_gui_specs
 
   # Create the broker and manage all the components of the experiment.
   local_broker: Broker = Broker(host_ip=args.host_ip,
                                 node_specs=producer_specs+consumer_specs+pipeline_specs,
+                                external_gui_specs=external_gui_specs,
                                 is_master_broker=args.is_master_broker)
 
   # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
@@ -235,19 +240,28 @@ if __name__ == '__main__':
   # Only the master broker can terminate the experiment via the terminal command.
   if args.is_master_broker:
     is_quit = False
+    # ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
+    exp_args = ' '.join([f'{k}={v}' for k, v in args.experiment.items()])
+    # config_nuc = "configs/AidFOG/backpack_no_glasses.yml"
+    cmd_args = f"--experiment {exp_args} --config_file {user_config}"
+
     # Run broker's main until user exits in GUI or 'q' in terminal.
     t = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
     t.start()
+    # ssh into NUC to start the other script
+    backpack_ip = args.remote_publisher_ip
+    nuc_t = threading.Thread(target=start_remote, args=(
+          REMOTE_MAIN, REMOTE_PROJECT_PATH, REMOTE_LOG, backpack_ip, BACKPACK_USER, cmd_args))
+    nuc_t.start()
+    tail_t =  threading.Thread(target=tail_remote_log, args=(
+          BACKPACK_USER, backpack_ip, REMOTE_LOG))
+    tail_t.start()
+  
     while not is_quit:
-      is_quit = input("Enter 'q' to exit: ") == 'q'
+      is_quit = input("Enter 'stop' to exit: ") == 'stop'
     local_broker.set_is_quit()
     t.join()
+    nuc_t.join()
+    tail_t.join()
   else:
     local_broker()  
-
-  # collect files from remote IPs at the end of the experiments.
-  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.hdf5", local=log_dir)
-  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.mkv", local=log_dir)
-  # cleanup remote files
-  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.hdf5')
-  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.mkv')

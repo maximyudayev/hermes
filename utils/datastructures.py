@@ -84,7 +84,7 @@ class TimestampToCounterConverter:
                sampling_period: int, # NOTE: sampling period must be in the same units as timestamp limit and timestamps
                num_bits_timestamp: int): # NOTE:
     self._sampling_period = sampling_period
-    self._timestamp_limit: int = 2**num_bits_timestamp
+    self._timestamp_limit: int = (2**num_bits_timestamp - 1) // 100
     self._counter_from_timestamp_fn: Callable = self._foo
     self._first_timestamps = OrderedDict([(k, None) for k in keys])
     self._previous_timestamps = OrderedDict([(k, None) for k in keys])
