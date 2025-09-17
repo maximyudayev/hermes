@@ -411,7 +411,7 @@ class JoinNodeBarrierState(BrokerState):
         #                                   topic),
         #                                   flush=True)
         if cmd == "GO":
-          print(f"{topic} are RECORDING ")
+          print(f"{topic} are RECORDING ", flush=True)
         
         self._nodes_waiting_to_exit.add(topic)
         self._release_local_node(topic)
@@ -742,8 +742,7 @@ class Broker(BrokerInterface):
                                                     self._port_backend,
                                                     self._port_frontend,
                                                     self._port_sync_host,
-                                                    self._port_killsig,
-                                                    self._external_gui_specs)) for spec in self._node_specs]
+                                                    self._port_killsig)) for spec in self._node_specs]
     for p in self._processes: p.start()
 
 

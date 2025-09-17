@@ -233,7 +233,7 @@ class Logger(LoggerInterface):
     # Run continuously, ignoring Ctrl+C interrupt, until owner Node commands an exit.
     while self._state.is_continue():
       self._state.run()
-    #print("%s Logger safely exited."%self._log_tag, flush=True)
+    print("%s Logger safely exited."%self._log_tag, flush=True)
 
 
   # Stop logging.
@@ -419,7 +419,7 @@ class Logger(LoggerInterface):
 
     base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}_{tag}"
     # Check if such a file already exists 
-    num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+    num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.hdf5') and base_name in f)
 
     if num_to_append > 0:
       base_name = f"{base_name}-retr{num_to_append:02d}"
@@ -471,9 +471,14 @@ class Logger(LoggerInterface):
           base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}"
 
           # check for existing files
-          num_to_append = sum(1 for f in os.listdir(self._log_dir) if base_name in f)
+          num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.hdf5') and base_name in f)
           if num_to_append > 0:
-            base_name = f"{base_name}-retr{num_to_append:02d}"
+            if self._log_tag == "eye":
+              num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.mkv') and base_name in f)
+            elif self._log_tag == "cameras":
+              num_to_append = num_to_append - 1
+            if num_to_append > 0:
+              base_name = f"{base_name}-retr{num_to_append:02d}"
 
           if self._log_tag == "cameras":
             base_name = f"{base_name}_cam0{camera_id}_unblur"

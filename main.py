@@ -40,12 +40,6 @@ from fabric import Connection
 
 __version = 'v0.1.0'
 
-# global params for testing remote connection
-LAPTOP_IP = "192.168.137.34"
-LAPTOP_USER = "u0170757"
-LAPTOP_KEY = "C:/Users/Owner/.ssh/nuc_rsa"  
-REMOTE_PROJECT_PATH = "C:/Users/u0170757/OneDrive - KU Leuven/Documents/AID-FOG/data_acquisition"
-REMOTE_MAIN = "main.py"
 
 if __name__ == '__main__':
 
@@ -138,31 +132,24 @@ if __name__ == '__main__':
 
   # Parse launch arguments.
   args = parser.parse_args()
-  # Create a GUI to ask for user input about the experiment information and file naming
-  user_input_gui = ExperimentGUI(args)
-  args = user_input_gui.get_experiment_inputs()
-
-  # Override CLI arguments with a config file.
   if args.config_file is not None:
-    with open(args.config_file, "r") as f:
-      try:
+    try:
+      with open(args.config_file, "r") as f:
         config: dict = yaml.safe_load(f)
-        parser.set_defaults(**config)
-      except yaml.YAMLError as e:
+        for key, value in config.items():
+          setattr(args, key, value)
+    except yaml.YAMLError as e:
         print(e)
-        exit('Error parsing CLI inputs.')
-    args = parser.parse_args()
+        exit("Failed to parse config file.")
+    
 
   # Load video codec spec.
-  try: 
-    if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
-      with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
-        try:
-          args.logging_spec['video_codec'] = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-          print(e)
-  except Exception:
-    pass
+  if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
+    with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
+      try:
+        args.logging_spec['video_codec'] = yaml.safe_load(f)
+      except yaml.YAMLError as e:
+        print(e)
 
   # Initialize folders and other chore data, and share programmatically across Node specs.
   script_dir: str = os.path.dirname(os.path.realpath(__file__))
@@ -172,22 +159,11 @@ if __name__ == '__main__':
                                f'project_{args.experiment["project"]}', # to be removed 
                                f'subject_{args.experiment["subject"]}_{args.experiment["group"]}',
                                f'session_{args.experiment["session"]}')
-                              #*map(lambda tup: '_'.join(tup), args.experiment.items()))
+                              # *map(lambda tup: '_'.join(tup), args.experiment.items()))
+
 
   # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
-
-  # ssh into remote IPs, distribute Node configs, experiment settings, and launch main.py on each device.
-  # exp_args = ' '.join([f'{k}={v}' for k, v in args.experiment.items()])
-  # cmd_args = f"--experiment {exp_args} --config_file {args.config_file}"
-
-  # # Construct connection and run
-  # conn = Connection(
-  #     host=LAPTOP_IP,
-  #     user=LAPTOP_USER,
-  #     connect_kwargs={"key_filename": LAPTOP_KEY}
-  # )
-  # conn.run(f'cd "{REMOTE_PROJECT_PATH}" && python {REMOTE_MAIN} {cmd_args}', hide=False)
 
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment
@@ -239,15 +215,9 @@ if __name__ == '__main__':
     t = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
     t.start()
     while not is_quit:
-      is_quit = input("Enter 'q' to exit: ") == 'q'
+      is_quit = input("Enter 'stop' to exit: ") == 'stop'
     local_broker.set_is_quit()
     t.join()
   else:
     local_broker()  
 
-  # collect files from remote IPs at the end of the experiments.
-  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.hdf5", local=log_dir)
-  # conn.get(f"{REMOTE_PROJECT_PATH}/data/*.mkv", local=log_dir)
-  # cleanup remote files
-  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.hdf5')
-  # conn.run(f'rm {REMOTE_PROJECT_PATH}/data/*.mkv')

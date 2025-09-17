@@ -124,7 +124,9 @@ class SyncState(NodeState):
     #                                    host.decode('utf-8')),
     #                                    flush=True)
     if cmd.decode('utf-8') == "GO":
-      print(f"{self._context._log_source_tag()} are RECORDING \n Enter 'q' in the terminal to stop the experiment")
+      print(f"{self._context._log_source_tag()} are RECORDING ", flush=True)
+      if self._context._log_source_tag() == "cameras":
+        print("Enter 'stop' in the terminal to stop the experiment", flush=True)
 
     self._context._set_state(RunningState(self._context))
 
@@ -132,7 +134,7 @@ class SyncState(NodeState):
 class RunningState(NodeState):
   def __init__(self, context):
     super().__init__(context)
-    self._context._activate_kill_poller()
+    self._context._activate_kill_poller() 
     self._context._on_sync_complete()
 
   def run(self):

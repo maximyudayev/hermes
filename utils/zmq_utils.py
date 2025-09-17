@@ -59,7 +59,7 @@ PORT_MVN          = '9763' # defined by MVN Analyze
 DNS_LOCALHOST   = 'localhost'
 IP_LOOPBACK     = '127.0.0.1'
 
-IP_TERMINAL     = '192.168.0.100'
+IP_TERMINAL     = '192.168.68.100'
 IP_PROSTHESIS   = '192.168.0.101'
-IP_BACKPACK     = '192.168.0.103'
+IP_BACKPACK     = '192.168.68.101'
 IP_VICON        = '192.168.0.104'

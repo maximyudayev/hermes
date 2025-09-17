@@ -155,8 +155,11 @@ class MovellaFacade:
       device_id: str = str(port_info.deviceId())
       if device_id in self._device_mapping.keys():
         self._connected_devices[device_id] = device
+        # print(f"device power saving before set: {device.getConnectedPowerSavingTimeout()}")
+        device.setPowerSavingOptions(advertisementTimeout=600, connectedDeviceTimeout=0) # turn off power saving mode
+        # print(f"device power saving set: {device.getConnectedPowerSavingTimeout()}")
         #print("connected to %s"%''.join(address.split(':')), flush=True)
-        print(f"connected to {self._device_mapping[device_id]}")
+        print(f"connected to {self._device_mapping[device_id]}", flush=True)
 
     # Make sure all connected devices have the same filter profile and output rate
     for device_id, device in self._connected_devices.items():
@@ -194,7 +197,7 @@ class MovellaFacade:
           if self._is_more:
             continue
           else:
-            #print("No more packets from Movella SDK, flush buffers into the output Queue.", flush=True)
+            print("No more packets from Movella SDK, flush buffers into the output Queue.", flush=True)
             self._buffer.flush()
             break
 

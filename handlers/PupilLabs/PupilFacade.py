@@ -35,6 +35,7 @@ import zmq
 
 from utils.sensor_utils import estimate_transmission_delay
 from utils.time_utils import get_time
+from utils.msgpack_utils import convert_bytes_keys_to_strings
 
 
 class PupilFacade:
@@ -128,7 +129,7 @@ class PupilFacade:
       # Process gaze/pupil data
       # Note it works for both, mono- and binocular gaze data
       if topic in ['gaze.2d.0.', 'gaze.3d.0.','gaze.2d.01.', 'gaze.3d.01.']: # former two - monocular, latter two - binocular 
-        payload: dict[str, Any] = msgpack.loads(data[1]) # type: ignore
+        payload: dict[str, Any] = msgpack.loads(data[1], raw=False) # type: ignore
         pupil_data = payload['base_data'] # pupil detection on which the gaze detection was based (just use the first one for now if there were multiple)
         # Record data common to both 2D and 3D formats
         gaze_items = [
@@ -173,7 +174,7 @@ class PupilFacade:
         output['eye-gaze'] = dict(gaze_items)
       # Process fixations data
       elif topic == 'fixations':
-        payload: dict[str, Any] = msgpack.loads(data[1]) # type: ignore
+        payload: dict[str, Any] = msgpack.loads(data[1], raw=False) # type: ignore
         output['eye-fixations'] = {
           'id':             payload['id'],             # int
           'timestamp':      payload['timestamp'],      # float
@@ -185,7 +186,7 @@ class PupilFacade:
         }
       # Process blinks data
       elif topic == 'blinks': 
-        payload: dict[str, Any] = msgpack.loads(data[1]) # type: ignore
+        payload: dict[str, Any] = msgpack.loads(data[1], raw=False) # type: ignore
         output['eye-blinks'] = {
           'timestamp':  payload['timestamp'],  # float
           'confidence': payload['confidence'], # float
@@ -193,7 +194,7 @@ class PupilFacade:
       # Process world video data
       elif topic == 'frame.world':
         # Prepare the metadata for the frame.
-        metadata: dict[str, Any] = msgpack.loads(data[1]) # type: ignore
+        metadata: dict[str, Any] = msgpack.loads(data[1], raw=False) # type: ignore
         if self._start_index_world is None: 
           self._start_index_world = metadata['index']
           is_keyframe = True
@@ -213,7 +214,7 @@ class PupilFacade:
       elif topic in ['frame.eye.0', 'frame.eye.1']:
         # Prepare the metadata for the frame.
         eye_id = int(topic.split('.')[2])
-        metadata: dict[str, Any] = msgpack.loads(data[1]) # type: ignore
+        metadata: dict[str, Any] = msgpack.loads(data[1], raw=False) # type: ignore
         if self._start_index_eye[eye_id] is None: 
           self._start_index_eye[eye_id] = metadata['index']
           is_keyframe = True

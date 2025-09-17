@@ -75,9 +75,9 @@ class ExperimentGUI:
         button_frame.pack(pady=10)
 
         tk.Button(button_frame, text="Without glasses", width=20,
-                  command=lambda: self._submit("configs/test/local_dots.yml")).pack(side=tk.LEFT, padx=10)
+                  command=lambda: self._submit("configs/AidFOG/backpack_no_glasses.yml")).pack(side=tk.LEFT, padx=10)
         tk.Button(button_frame, text="With glasses", width=20,
-                  command=lambda: self._submit("configs/test/local_pupil.yml")).pack(side=tk.LEFT, padx=10)
+                  command=lambda: self._submit("configs/AidFOG/backpack.yml")).pack(side=tk.LEFT, padx=10)
 
     def _submit(self, config_file):
         uid = self.subject_id.get().strip()
