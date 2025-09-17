@@ -522,8 +522,8 @@ class Logger(LoggerInterface):
                                        **self._video_codec['output_options'],
                                        **metadata_dict)
           video_stream = video_stream.global_args('-hide_banner')
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
-          video_writer: Popen = ffmpeg.run_async(video_stream, pipe_stdin=True) # type: ignore
+          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
+          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -661,8 +661,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close() # type: ignore
-      # video_writer.stderr.close() # type: ignore
-      # video_writer.stdout.close() # type: ignore
+      video_writer.stderr.close() # type: ignore
+      video_writer.stdout.close() # type: ignore
       video_writer.wait()
     self._video_writers = []
 

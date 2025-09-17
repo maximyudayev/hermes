@@ -11,7 +11,7 @@
       "cwd": "${workspaceFolder}",
       "program": "main.py",
       "args": [
-        "--experiment", "project=Tests", "type=Cameras", "trial=0",
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=1", "group=FR", "session=01", "medication=ON",
         "--config_file", "configs/test/local_cameras.yml"
       ],
       "env": {
@@ -236,7 +236,7 @@
       "cwd": "${workspaceFolder}",
       "program": "main.py",
       "args": [
-        "--experiment", "project=AidFOG", "site=Leuven", "subject=0", "visit=0", "task=0", "trial=0",
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=0", "group=0", "session=0", "medication=ON",
         "--config_file", "configs/AidFOG/terminal.yml"
       ],
       "env": {

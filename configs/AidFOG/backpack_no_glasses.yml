@@ -27,13 +27,16 @@
 
 
 host_ip : "192.168.68.101"
+host_ip : "192.168.68.101"
 is_master_broker: False
 
 remote_subscriber_ips: 
   - "192.168.68.100"
+  - "192.168.68.100"
 remote_publisher_ips: []
 
 is_remote_kill: True
+remote_kill_ip: "192.168.68.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 remote_kill_ip: "192.168.68.100" # IP of Broker that delegates the primary kill signal (i.e CLI or GUI)
 
 
