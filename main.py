@@ -247,7 +247,7 @@ if __name__ == '__main__':
     t = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
     t.start()
     # ssh into NUC to start the other script
-    backpack_ip = args.remote_publisher_ip
+    backpack_ip = args.remote_publisher_ips[0]
     nuc_t = threading.Thread(target=start_remote, args=(
           REMOTE_MAIN, REMOTE_PROJECT_PATH, REMOTE_LOG, backpack_ip, BACKPACK_USER, cmd_args))
     nuc_t.start()

@@ -8,7 +8,7 @@ powershell -command "$wshell = New-Object -ComObject wscript.shell; $wshell.AppA
 
 setlocal
 pushd "%~dp0"
-
+call "D:\HERMES\venv\Scripts\activate.bat" 
 set "PYTHONUNBUFFERED=1"
 set "PYTHONPATH=%~dp0"
 
@@ -21,7 +21,7 @@ if "%~1"=="" (
   set "ARGS=%*"
 )
 
-py -3 -u main.py %ARGS%
+python -u main.py %ARGS%
 
 set "EXITCODE=%ERRORLEVEL%"
 echo(

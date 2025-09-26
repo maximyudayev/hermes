@@ -34,7 +34,7 @@ from pathlib import Path
 import threading
 
 cv2.setNumThreads(1)
-LIVE_GUI_PATH = Path(r"C:\Users\HERMES\Documents\Live GUI\LiveGUI.py")
+LIVE_GUI_PATH = Path(r"C:\Users\HERMES\Documents\Live-GUI\LiveGUI.py")
 sys.path.insert(0, str(LIVE_GUI_PATH.parent))
 
 from LiveGUI import run_gui #type: ignore

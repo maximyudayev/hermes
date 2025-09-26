@@ -48,7 +48,7 @@ from streams.Stream import Stream
 from utils.dict_utils import convert_dict_values_to_str
 from utils.types import VideoCodecDict
 
-SITE_ID = "S1"
+SITE_ID = "S3"
 
 ##############################################################################################
 ##############################################################################################

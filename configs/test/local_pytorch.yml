@@ -82,7 +82,7 @@ consumer_specs: []
 
 pipeline_specs:
   - class: "PytorchWorker"
-    model_path: "resources/AidFOG/tcn_model.pth"
+    model_path: "resources/AidFOG/tcn_model_60fps.pth"
     sampling_rate_hz  : 60
     input_size:
       - 5

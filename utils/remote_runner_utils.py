@@ -35,6 +35,7 @@ def start_remote(remote_main, remote_project_path, remote_log, backpack_ip, back
     )
     cmdline = (
         f'cd /d "{remote_project_path}" && '
+        f'call venv310\\Scripts\\activate.bat && ' # to activate the virtual env
         f'python -u {remote_main} {cmd_args} > "{remote_log}" 2>&1'
     )
 
