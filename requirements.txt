@@ -1,5 +1,5 @@
 # Mandatory packages
-numpy==1.26.*
+numpy
 pandas
 ffmpeg-python
 h5py
@@ -10,8 +10,9 @@ openpyxl
 orjson
 pyzmq
 msgpack
-dash
-dash-bootstrap-components
+
+# dash
+# dash-bootstrap-components
 
 # Optional packages for supported sensors
 # pythonnet

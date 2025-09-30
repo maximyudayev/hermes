@@ -181,7 +181,7 @@ class Stream(ABC):
         if color_format is not None:
           video_format = VIDEO_FORMAT[color_format]
           self._streams_info[device_name][stream_name]['ffmpeg_input_format'] = video_format.ffmpeg_input_format
-          self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': video_format.ffmpeg_pix_fmt, 'cv2': video_format.cv2_cvt_color}
+          self._streams_info[device_name][stream_name]['color_format'] = {'ffmpeg': video_format.ffmpeg_pix_fmt}
         else: raise KeyError
       except KeyError:
         print("Color format %s is not supported when specifying video frame pixel color format on Stream."%color_format)
