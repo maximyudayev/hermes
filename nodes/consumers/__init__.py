@@ -1,11 +1,21 @@
 from nodes.consumers.Consumer import Consumer
 
-from nodes.consumers.DataLogger import DataLogger
-from nodes.consumers.DataVisualizer import DataVisualizer
-from nodes.consumers.DummyConsumer import DummyConsumer
 
-CONSUMERS: dict[str, type[Consumer]] = {
-  "DataLogger": DataLogger,
-  "DataVisualizer": DataVisualizer,
-  "DummyConsumer": DummyConsumer,
-}
+CONSUMERS: dict[str, type[Consumer]] = {}
+try:
+  from nodes.consumers.DataLogger import DataLogger
+  CONSUMERS["DataLogger"] = DataLogger
+except ImportError as e:
+  print(e, "\nSkipping %s"%"DataLogger.", flush=True)
+
+try:
+  from nodes.consumers.DataVisualizer import DataVisualizer
+  CONSUMERS["DataVisualizer"] = DataVisualizer
+except ImportError as e:
+  print(e, "\nSkipping %s"%"DataVisualizer.", flush=True)
+
+try:
+  from nodes.consumers.DummyConsumer import DummyConsumer
+  CONSUMERS["DummyConsumer"] = DummyConsumer
+except ImportError as e:
+  print(e, "\nSkipping %s"%"DummyConsumer.", flush=True)
