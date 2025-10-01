@@ -131,14 +131,16 @@ class CameraStreamer(Producer):
       # Assign an ID to each grabbed frame, corresponding to the host device.
       cam.SetCameraContext(idx)
       
-      # # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate.
-      # cam.PtpEnable.SetValue(True)
+      # Enable PTP to sync cameras between each other for Synchronous Free Running at the specified frame rate.
+      cam.PtpEnable.SetValue(True)
+      cam.PtpDataSetLatch.Execute()
 
-      # # Verify that the slave device are sufficiently synchronized.
-      # while cam.PtpServoStatus.GetValue() != "Locked":
-      #   # Execute clock latch.
-      #   cam.PtpDataSetLatch.Execute()
-      #   time.sleep(2)
+    # Verify that the slave device are sufficiently synchronized.
+    for idx, cam in enumerate(self._cam_array): # type: ignore
+      while cam.PtpServoStatus.GetValue() != "Locked":
+        # Execute clock latch.
+        cam.PtpDataSetLatch.Execute()
+        time.sleep(2)
 
     # Instantiate callback handler.
     self._image_handler = ImageEventHandler(cam_array=self._cam_array)
