@@ -4,10 +4,12 @@ __pycache__
 *.pyc
 *.asv
 
-# Data
-###################################
-data/
-.venv/
+# Virtual environments
+.venv*/
 
-# VS Code
-###################################
+# Recorded data
+data/
+
+# Distribution files
+dist/
+*.egg-info/

@@ -1,20 +1,11 @@
+pyzmq
+msgpack
+ffmpeg
+h5py
 numpy
 pandas
-ffmpeg-python
-h5py
 pyyaml
 pyusb
 pyserial
 openpyxl
 orjson
-pyzmq
-msgpack
-
-# Optional packages for supported sensors
-# pythonnet
-# torch
-# pytorch-tcn
-# scipy
-# openant
-# pypylon
-# tmsi
