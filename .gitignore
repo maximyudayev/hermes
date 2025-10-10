@@ -4,12 +4,14 @@ __pycache__
 *.pyc
 *.asv
 
+.vscode/*
+!.vscode/launch.json
+
 # Virtual environments
 .venv*/
 
 # Recorded data
 data/
-venv/
 
 # Distribution files
 dist/

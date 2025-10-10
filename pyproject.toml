@@ -7,13 +7,14 @@ name = "pysio-hermes"
 version = "0.1.0"
 requires-python = ">=3.7"
 authors = [
-  { name="Maxim Yudayev", email="maxim@yudayev.com" },
+  { name="Maxim Yudayev", email="maxim.yudayev@gmail.com" },
+  { name="e-Media Research Lab @ KU Leuven" },
 ]
-description = "A realtime physiological sensing and edge AI processing library"
+description = "A realtime physiological sensing and edge AI processing framework"
 keywords = ["embedded ai", "wearables", "sensors", "streaming", "realtime processing", "physiology"]
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 license = "MIT"
-license-files = ["LICENSE*"]
+license-files = ["LICEN[CS]E*", "AUTHORS.md"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
@@ -23,7 +24,8 @@ classifiers = [
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering",
-  "Topic :: Scientific/Engineering :: Medical Science Apps",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
   "Topic :: System :: Distributed Computing"
 ]
 dependencies = [
@@ -40,6 +42,19 @@ dependencies = [
   "openpyxl",
   "orjson",
 ]
+
+[project.optional-dependencies]
+build = [
+  "build",
+  "twine"
+]
+docs = [
+  "mkdocs-material",
+  "mkdocstrings-python"
+]
+
+[tool.setuptools.packages.find]
+exclude = ["docs*", ".vscode*", ".venv*", "images*"]
 
 [project.urls]
 Homepage = "https://maximyudayev.github.io/hermes"

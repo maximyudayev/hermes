@@ -1,0 +1,104 @@
+site_name: "HERMES"
+# site_url: https://maximyudayev.github.io/hermes
+site_author: Maxim Yudayev
+site_description: >-
+  Architecture overview, user guides and tutorials for the use of HERMES
+  realtime physiological sensing and edge AI processing framework
+copyright: Copyright &copy; 2025 Maxim Yudayev and KU Leuven e-Media Research Lab
+
+# Will inject a GitHub stats link in top navigation bar
+# repo_name: maximyudayev/hermes
+# repo_url: https://github.com/maximyudayev/hermes
+
+# Site structure
+nav:
+  - Home: index.md
+  - Installation:
+    - Get started: firststeps/index.md
+    - Setting up SSH keys: firststeps/ssh-keys.md
+    - Installing optional 3rd-party software: firststeps/optional-installs.md
+    - Next steps: firststeps/next-steps.md
+  - Architecture:
+    - Overview: architecture/index.md
+  - User guide:
+    - Overview: userguide/index.md
+  - Tutorials:
+    - Tutorials: tutorials/index.md
+    - Data acquisition: tutorials/acquisition.md
+    - Closed-loop AI worker: tutorials/ai-worker.md
+    - Data annotation: tutorials/annotation.md
+  - Contributing:
+    - Overview: contributing/index.md
+  - Help desk:
+    - Help desk: helpdesk/index.md
+    - Current limitations: helpdesk/limitations.md
+    - Known issues: helpdesk/issues.md
+    - Roadmap: helpdesk/roadmap.md
+
+theme:
+  name: material
+  custom_dir: docs/
+  language: en
+  # favicon: assets/file.png
+  # logo: assets/hermes.png
+  features:
+    - navigation.footer
+    - navigation.sections
+    - navigation.tabs
+    - search.suggest
+    - content.code.annotate
+  palette:
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      primary: white
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/maximyudayev/hermes
+    - icon: fontawesome/brands/linkedin-in
+      link: https://linkedin.com/in/maxim-yudayev
+    - icon: octicons/globe-24
+      link: https://iiw.kuleuven.be/onderzoek/emedia
+
+markdown_extensions:
+  - toc:
+      toc_depth: 3
+      permalink: true
+      permalink_title: Anchor link to this section for reference
+  - footnotes
+  - admonition
+  - attr_list
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format 
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.keys
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - mkdocstrings
+  - search

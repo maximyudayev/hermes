@@ -1,258 +1,133 @@
-Hermes
-======
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo.png" alt="HERMES: Heterogeneous Edge Realtime Measurement and Execution System" width="60%">
 
-Distributed wireless-wired multi-sensor local realtime data collection, processing, and analysis system for intelligent sensor-based applications.
+  <br>
+  Heterogeneous Edge Realtime Measurement and Execution System
+</h1>
 
-# Table of Contents
-1. [System Architecture](#system-architecture)
-   1. [Sensor Network](#sensor-network)
-   2. [UML](#uml)
-      1. [Broker](#stream-broker)
-      2. [Streamers](#streamers)
-      3. [Workers](#workers)
-2. [Installation](#installation)
-   1. [Environment](#environment)
-      1. [Pupil Core Smartglasses](#pupil-capture)
-      2. [DOTs IMUs](#movella-dot-sdk)
-      3. [Awinda IMUs](#mtw-awinda-sdk)
-      4. [Basler Cameras](#pypylon)
-      5. [Moticon Insoles](#moticon-insoles)
-      6. [Cometa Pico EMGs](#pico-emg)
-      7. [HDF File Viewer](#hdfview)
-   2. [Windows-Specific](#windows-specific-configuration)
-      1. [Firewall](#firewall)
-   3. [Networking](#networking)
-      1. [Mobile Router](#mobile-router)
-      2. [LANs and WLANs](#lans-and-wlans)
-      3. [Remote Desktop](#remote-desktop)
-      4. [Synchronization](#synchronization-ptp)
-3. [Running](#running)
+<h4 align="center">A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications
+</h4>
 
-# System Architecture
-## Sensor Network
-![Sensor network layout image.](/images/AidWear%20Setup%20Colored.svg)
+<div align="center">
 
-The [networking](#networking) section extensively describes the connectivity and IT details of the system.
+  ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+  ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+  ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=macos&logoColor=F0F0F0)
 
-## UML
-Here goes the system architecture... drawing
+</div>
 
-### Stream Broker
-The **StreamBroker** class is a an endpoint for proxying data between subscribers and publishers, and a manager for coordinating the lifetime of locally attached sensors wrapped into individual **SensorStreamer** subprocesses, and consumers wrapped into individual **Worker** subprocesses (e.g. AI prediction agents, data visualization, data logging, etc.).  It connects and launches streamers for all locally connected sensors, and creates and configures all desired local consumers of data produced both, locally and remotely by other brokers.  It does so using multiprocessing and [ZeroMQ](https://zeromq.org/) sockets, so that multiple cores can be leveraged to parallelize the work and permit the throughput of sensor data streaming.
+<p align="center">
+  <a href="#installation">Quickstart</a> •
+  <a href="https://maximyudayev.github.io/hermes">Docs</a> •
+  <a href="#data-annotation">GUI</a> •
+  <a href="#showcase">Showcase</a> •
+  <a href="#citation">Cite</a> •
+  <a href="#contact">Contact</a>
+</p>
 
-### Streamers
-The code is based around the abstract **SensorStreamer** class, which provides methods for streaming data.  Each streamer can have one or more *devices*, and each device can have one or more data *streams*.  Data streams can have arbitrary sampling rates, data types, and dimensions.  Each subclass specifies the expected streams and their data types.
+HERMES for the Greek mythology analogy of the god of communication and speed, protector of information, the gods' herald. He embodies the nature of smooth and reliable communication. His role accurately resonates with the vision of this framework: facilitate reliable and fast exchange of continuously generated multimodal physiological and external data across distributed wireless and wired multi-sensor hosts for synchronized realtime data collection, in-the-loop AI stream processing, and analysis, in intelligent med- and health-tech (wearable) applications.
 
-For example, the CameraStreamer class may have several camera devices connected.  Each one has a stream for video data and timestamp. An AwindaStreamer has only one device, the suit, but multiple streams of data for acceleration, orientation, packet sequence number, etc.  EMG data uses 100 Hz, IMUs use 20-100 Hz, cameras use 20 FPS, prosthesis data is asynchronous and event-based.
+<br>
+<div align="center"><img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/overview.png" alt="Overview of the system architecture on one of the distributed hosts" width="80%"></div>
+<br>
 
-Each stream has a few channels that are created automatically: the data itself, a timestamp as seconds since epoch, and the timestamp formatted as a string.  Subclasses can also add extra channels as desired.  Timestamps indicate the system clock of the moment of arrival of the sample to the host system (i.e. using `time.time()`).  Some devices such as the Pupil Core smartglasses, Basler cameras, and DOTs or Awinda, have their own timestamps: these are treated and saved as another data stream to enable data alignment in post-processing or down the consumer line in realtime applications, where the responsibility to implement an alignment strategy falls on the data subscriber.
+HERMES offers out-of-the-box streaming integrations to a number of commercial sensor devices and systems, high resolution cameras, templates for extension with custom user devices, and a ready-made wrapper for easy PyTorch AI model insertion. It reliably and synchronously captures heterogeneous data across distributed interconnected devices on a local network in a continuous manner, and enables realtime AI processing at the edge toward personalized intelligent closed-loop interventions of the user. All continuously acquired data is periodically flushed to disk for as long as the system has disk space, as MKV/MP4 and HDF5 files, for video and sensor data, respectively.
 
-#### DotsStreamer
-The DotsStreamer streams lower limb data from the Dots IMUs.
+# Quickstart
+## Core
+Create a Python 3 virtual environment `python -m venv .venv` (python >= 3.7).
 
-#### EyeStreamer
-The EyeStreamer streams gaze and video data from the Pupil Labs eye tracker.  Pupil Capture should be running, calibrated, and streaming before starting the Python scripts.  The following outlines the setup procedure:
-- Start Pupil Capture
-- Calibrate according to https://docs.pupil-labs.com/core/#_4-calibration
-- In Pupil Capture, select `Network API` on the right.  The code currently expects:
-  - Port `50020`
-  - Frames in `BGR` format
-- Copy selected resolution and fps settings into the `streamer_specs` dictionary
+Activate it with `.venv/bin/activate` for Linux or `.venv\Scripts\activate` for Windows.
 
-#### AwindaStreamer
-The AwindaStreamer streams data from the Awinda body tracking suit.
-
-#### CameraStreamer
-
-#### InsoleStreamer
-
-#### CometaStreamer
-
-#### MoxyStreamer
-
-#### ExperimentControlStreamer
-
-#### NotesStreamer
-
-### Workers
-#### Saving Data
-The **DataLogger** class provides functionality to save data that is streamed from SensorStreamer objects.  It can write data to HDF5 and/or CSV files.  Video data will be excluded from these files, and instead written to video files.  Data can be saved incrementally throughout the recording process, and/or at the end of an experiment.  Data can optionally be cleared from memory after it is incrementally saved, thus reducing RAM usage.
-
-Data from all streamers given to a DataLogger object will be organized into a single hierarchical HDF5 file that also contains metadata.  Note that when using CSVs, a separate file will always be created for each data stream.
-
-N-dimensional data will be written to HDF5 files directly, and will be unwrapped into individual columns for CSV files.
-
-#### Visualizing Data
-The **DataVisualizer** class...
-
-#### AI Worker
-The class...
-
-# Installation
-A brief summary of the required software and the currently tested versions is below.  The following subsections contain more information about each one.
-
-- Conda
-- Plotly Dash
-- Pupil Capture 3.5.1
-- Movella DOT SDK 2023.6
-- Xsens Awinda MTw SDK 2022.2
-- PyPylon
-- OpenCV
-- Moticon OpenGo smartphone app
-- TMSi SDK
-- Vicon SDK
-- OpenANT
-- Basler Pylon Viewer [optional but useful]
-- HDFView 3.1.3 [optional but useful]
-
-## Environment
-First recreate the Conda environment by `conda env create --file environment.yml` on each networked PC that will connect to sensors and broker data in the setup in any capacity (i.e. fixed and wearable PC).
-
-With `aidwear` conda environment active, install missing PyPi packages `pip install opencv-python`.
-
-### PyPylon
-To interface Basler cameras, install [the official](https://github.com/basler/pypylon) Python pylon wrapper into the project conda environment. 
-
-With `aidwear` conda environment active: `pip install pypylon`
-
-In Pylon Viewer, configure camera resolution to guarantee desired frame rate and export persistent profile configuration to a `*.pfs` file to easily and consistently preload desired configurations for Basler cameras.
-
-### Pupil Capture
-The Pupil Core software to interface with the eye tracker can be downloaded from https://docs.pupil-labs.com/core.  Version 3.5.1 has been tested so far.
-
-### Movella DOT SDK
-Download and install [DOT SDK](https://www.xsens.com/software-downloads).  Version 2023.6 has been tested so far.
-
-Activate project conda environment: `conda activate aidwear` 
-
-Install the wheel file for DOTs into the environment:
-`pip install --no-deps "<path to installed Movella directory>\DOT PC SDK <SDK version>\SDK Files\Python\x64\movelladot_pc_sdk-<SDK version>-cp310-none-win_amd64.whl"`
-
-### MTw Awinda SDK
-Download and install [MTw Awinda SDK](https://www.xsens.com/software-downloads).  Version 2022.2 has been tested so far.
-
-With `aidwear` conda environment active, install the wheel file for DOTs into the environment:
-`pip install --no-deps "<path to installed Awinda directory>\MT Software Suite <SDK version>\MT SDK\Python\x64\xsensdeviceapi-<SDK version>-cp310-none-win_amd64.whl"`
-
-### Moticon Insoles
-The insoles transfer realtime data throught Moticon's proprietary OpenGo software/app. Install the OpenGo smartphone app and turn on streaming to receive all the data from it.
-
-### HDFView
-While not required, this lightweight tool is great for exploring HDF5 data.  The official download page is at https://www.hdfgroup.org/downloads/hdfview, and it can also be downloaded without an account from https://www.softpedia.com/get/Others/Miscellaneous/HDFView.shtml.
-
-## Windows-specific Configuration
-### Firewall
-Set all used network interfaces on each Windows PC to private networks using `Set-NetConnectionProfile -InterfaceAlias <ALIAS> –NetworkCategory private`, replacing `<ALIAS>` with the user-friendly name used in the Network Adapter properties `Control Panel > Network and Internet > Network Connections`.
-
-In `Windows Defender Firewall` main dashboard, choose `Windows Defender Firewall Properties`. Under `Private Profile > State > Protected Network Connections`, click `Customize` and deselect all network interfaces used in our data collection setup on that device. This will whitelist them to guarantee that devices are reachable and data can be exchanged, without disabling the Firewall.
-
-Enable network discovery on both PCs on private networks through `File Explorer > Network > *Pop-up: Allow device discovery on private networks?`.
-
-On the fixed PC and wearable PC, change security policies to enable remote desktop and enable remote desktop in its settings.
-
-## Networking
-### Mobile Router
-The [Netgear MR450](https://www.netgear.com/be/home/mobile-wifi/hotspots/mr6450/) mobile 5G/LTE router (hotspot) is a neat high-throughput router that allows us to remote access our entire LAN + WLAN sensor network setup over the LTE network, anywhere in the world.
-
-Any alternative device can be used. We recommend a WiFi6 router with high throughput to allow heavy data streams, like video cameras, to be seemlessly exchanged between devices on the local sensor network (e.g. stream of eye video data from the wearable PC to the lab PC).
-
-#### Gateway IP Address
-The router has a picky web-based setup console. To change the IP address of the router, under `Settings > Advanced > Mobile Router Setup`:
-1. tick the DHCP server function
-2. change router IP address to 192.168.69.1 and mask to 255.255.255.0
-3. match the DHCP range to the new subnet (e.g. 192.168.69.30 in the starting field and 192.168.69.50 in the eding field) 
-4. untick the DHCP server function if you want all devices on the network to have static IPs (we reserve 20 IPs for DHCP clients)
-
-The firmware will refuse to change the IP address of the router otherwise, with the error `Please use an IP address from the DHCP range`, even if you are not using DHCP.
-
-Enable Ethernet setting on the router to bridge WLAN and LAN interfaces, so that traffic to and from the lab PC can be offloaded onto the wired interface (if possible to wire the router to the lab PC).
-
-<!-- #### Port Forwarding
-For remote access over the Internet of our lab network we will run a VPN server on the Raspberry Pi 5, to be able to connect to an device on the lab network like `your device > public Internet > mobile router > VPN server > lab device`. Setup port forwarding on the router to forward traffic from its public WAN IP to the Raspberry Pi's internal network endpoint: under `Settings > Advanced > Port Forwarding`, tick  -->
-
-### LANs and WLANs
-For PoE camera network interfaces [turn off other protocols](https://docs.baslerweb.com/network-configuration-(gige-cameras)#changing-the-network-adapter-properties-windows) in the network settings and configure network adapters used for the cameras for better performance. On each used network interface in Windows, enable PTP Hardware Timestamping.
-
-Configure wireless router to a 192.168.69.0/24 subnet and bridge LAN and WLAN connections on it to connect wired and wireless peers. Set static IPs on the fixed PC (192.168.69.100/24), wearable PC (192.168.69.101/24), and the Linux PTP + VPN server (192.168.69.99/24).
-
-In Pylon Viewer configure IP addresses of cameras 192.168.70.101-104/24. They will form own subnet on the bridged wired connection between fixed PC, themselves and the Raspberry Pi PTP server.
-
-On the raspberry Pi (Linux PTP server), set the ethernet interface (i.e. eth0) to 192.168.70.99/24. On some Pi's, the IP address doesn't change for some reason. If after address reassignment device is not pinggable, remove connection in the network settings and add it again through the GUI.
-
-Ping devices on both subnets to verify all are reachable back and forth.
-
-| AidWear(-2.4)     | Details |
-| :---------------- | :---------------------------: |
-| Type              | WiFi + LAN |
-| Network           | 192.168.69.0/24 |
-| Gateway           | 192.168.69.1 |
-| Usable addresses  | 192.168.69.2 - 192.168.69.254 |
-| DHCP range[^DHCP] | 192.168.69.30 - 192.168.69.49 |
-| Services          | 192.168.69.90 - 192.168.69.99 |
-| Sensing devices   | 192.168.69.100 - 192.168.69.254 |
-
-[^DHCP]: reservation for WiFi clients using the [mobile hotspot](#mobile-router) for Internet access (e.g. mobile device of staff or participant).
-
-| Cameras           | Details |
-| :---------------- | :---------------------------: |
-| Type              | PoE + LAN |
-| Network           | 192.168.70.0/24 |
-| Gateway           | N/A |
-| Usable addresses  | 192.168.70.1 - 192.168.70.254 |
-| Services          | 192.168.70.90 - 192.168.70.99 |
-| Sensing devices   | 192.168.70.100 - 192.168.70.254 |
-
-### Remote Desktop
-Install [RustDesk](https://rustdesk.com/) on the fixed PC for easy GUI remote desktop access. Once connected from a remote machine, we can SSH from the fixed PC into any desired device on the LAN.
-
-<!-- ### WireGuard VPN Server
-We use the [PiVPN project](https://www.pivpn.io/) to create a VPN server that runs atop [WireGuard](https://www.wireguard.com/), the modern, open-source, secure and light-weight VPN that works across all platforms (operating systems) and processor architectures. 
-
-Add routes to the table
-<!-- TODO: installation and configuration steps TODO: ISP NAT workaround -->
-
-### Synchronization
-#### PTP Server
-Run the Precision Time Protocol (PTP) service on the Raspberry Pi to serve the entire setup. We use the [LinuxPTP (ptp4l)](https://linuxptp.sourceforge.net/) implementation for this. 
-
-To sync cameras and the fixed PC to the PTP server: 
-  1. Bridge network interfaces on the fixed PC (PoE camera connections, and Ethernet connection to the Raspberry Pi). Set IPv4 address of the fixed PC on the bridge to 192.168.70.100/24.
-
-To sync the wearable PC to the rest: 
-  1. Bridge network interfaces on the fixed PC (Ethernet connection to the Raspberry Pi and Ethernet connection to the router). 
-  The fixed PC will pass sync signals from the RPi PTP server through the bridge to the router and wirelessly to the wearable PC. **OR**
-  2. Bridge network interfaces on the Raspberry Pi (Ethernet and WLAN adapters). **OR**
-  3. Connect the PTP server to both, eth0 and wlan0 interfaces, without bridging the networks to avoid irrelevant rebroadcasts of data.
-  The Raspberry Pi will offer the best sync quality to the wired connection of the fixed PC, and lesser quality sync over WLAN passed through the router to the wearable PC.
-
-Setup PTP Windows client on the fixed PC and the wearable PC to sync to the Linux PTP grandmaster clock.
-
-Turn off energy saving mode on the WLANs adapters to avoid buffering packets prior to waking up the interface, to produce more consistent (less jittery) network round trips.
-
-# Running
-Run relevant launcher script in the `launchers/` directory, adjust parameters for the experiment and the sensors as desired.
-
+Single-command install HERMES into your project along other dependendices. 
 ```bash
-conda info --envs
-conda env create -f environment.yml
-conda list --revisions
-conda install --rev REVNUM
-conda env update --file environment.yml --prune
-conda env export --from-history > environment.yml
-conda remove --name myenv --all
+pip install pysio-hermes
 ```
 
-Transcoding resulting 2K videos with the Tesla P4 GPU for a 10x compression.
+## Extra
+All the integrated, validated and supported sensor devices are separately installable as `pysio-hermes-<subpackage_name>`, like:
 ```bash
-ffmpeg -y -hwaccel cuda -hwaccel_output_format cuda -i cameras_40478064.mp4 -hwaccel cuda -hwaccel_output_format cuda -i cameras_40549960.mp4 -hwaccel cuda -hwaccel_output_format cuda -i cameras_40549975.mp4 -hwaccel cuda -hwaccel_output_format cuda -i cameras_40549976.mp4 -map 0:0 -vf scale_cuda=1920:1080 -c:v h264_nvenc -b:v 6M -preset p7 temp1.mp4 -map 1:0 -vf scale_cuda=1920:1080 -c:v h264_nvenc -b:v 6M -preset p7 temp2.mp4 -map 2:0 -vf scale_cuda=1920:1080 -c:v h264_nvenc -b:v 6M -preset p7 temp3.mp4 -map 3:0 -vf scale_cuda=1920:1080 -c:v h264_nvenc -b:v 6M -preset p7 temp4.mp4
+pip install pysio-hermes-torch
 ```
+Will install the AI processing subpackage to wrap user-specified PyTorch models.
 
-Extract PTS from the recorded video.
-```bash
-ffprobe -loglevel error -select_streams v:0 -show_entries frame=pts -of csv=print_section=0 eye_eye-video-world.mkv > pts.txt
-```
+<details>
+  <summary>List of supported devices <i>(continuously updated)</i></summary>
+Some subpackages require OEM software installation, check each below for detailed prerequisites.
 
-Install package from Git
-```bash
-python -m pip install -e SomeProject @ git+https://git.repo/some_pkg.git
-```
+- `torch` [Wrapper for PyTorch AI models](https://github.com/maximyudayev/hermes-torch)
+- `pupillabs` [Pupil Labs Core smartglasses](https://github.com/maximyudayev/hermes-pupillabs)
+- `basler` [Basler cameras](https://github.com/maximyudayev/hermes-basler)
+- `dots` [Movella DOTs IMUs](https://github.com/maximyudayev/hermes-dots)
+- `mvn` [Xsens MVN Analyze MoCap suit](https://github.com/maximyudayev/hermes-mvn)
+- `awinda` [Xsens Awinda IMUs](https://github.com/maximyudayev/hermes-awinda)
+- `cometa` [Cometa WavePlus sEMG](https://github.com/maximyudayev/hermes-cometa)
+- `moticon` [Moticon OpenGo pressure insoles](https://github.com/maximyudayev/hermes-moticon)
+- `tmsi` [TMSi SAGA physiological signals](https://github.com/maximyudayev/hermes-tmsi)
+- `vicon` [Vicon Nexus capture system](https://github.com/maximyudayev/hermes-vicon)
+- `moxy` [Moxy muscle oxygenation monitor](https://github.com/maximyudayev/hermes-moxy)
+
+The following subpackages are in development.
+- `gui` [Live monitoring dashboard](https://github.com/maximyudayev/hermes-gui)
+- `mic` [PC-attached generic microphone](https://github.com/maximyudayev/hermes-mic)
+
+</details>
+<br>
+
+# Documentation
+Check out the [full documentation site](https://maximyudayev.github.io/hermes) for more usage examples, architecture overview, detailed extension guide, and FAQs.
+
+# Data Annotation
+<br>
+<div align="center"><img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/gui.png" alt="Pysioviz: A dashboard for visualization and annotation of collected multimodal data for AI workflows" width="80%"></div>
+<br>
+
+We developed [PysioViz](https://github.com/maximyudayev/pysioviz) a complementary dashboard based on [Dash Plotly](https://dash.plotly.com/) for analysis and annotation of the collected multimodal data. We use it ourselves to generate ground truth labels for the AI training workflows. Check it out and leave feedback!
+
+# Showcase
+These are some of our own projects enabled by HERMES to excite you to adopt it in your smart closed-looop healthtech usecases.
+
+<details>
+  <summary>AI-enabled intent prediction for high-level locomotion mode selection in a smart leg prosthesis</summary>
+</details>
+<br>
+
+<details>
+  <summary>Realtime automated cueing for freezing-of-gait Parkinson's patients in free-living conditions</summary>
+</details>
+<br>
+
+<details>
+  <summary>Personalized level of assistance in prolong use rehabilitation and support exoskeletons</summary>
+</details>
+<br>
+
+# License
+This project is licensed under the MIT license - see the [LICENSE](/LICENSE) file for details.
+
+# Citation
+When using in your project, research, or product, please cite the following and notify us so we can update the index of success stories enabled by HERMES.
+
+<!-- <a href="https://arxiv.org/abs/..." style="display:inline-block;">
+  <img src="http://img.shields.io/badge/paper-arxiv.x-B31B1B.svg" height="20" >
+</a>
+```bibtex
+@inproceedings{yudayev2025hermes,
+  title={HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications},
+  author={Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Vanrumste, Bart, and Filtjens, Benjamin},
+  booktitle={},
+  year={2025}
+}
+``` -->
+
+# Acknowledgement
+This project was primarily written by Maxim Yudayev while at the Department of Electrical Engineering, KU Leuven.
+
+This study was funded, in part, by the AidWear project funded by the Federal Public Service for Policy and Support, 
+the AID-FOG project by the Michael J. Fox Foundation for Parkinson’s Research under Grant No.: MJFF-024628, 
+and the Flemish Government under the Flanders AI Research Program (FAIR).
+
+HERMES is a "Ship of Theseus"[[1](https://en.wikipedia.org/wiki/Ship_of_Theseus)] of [ActionSense](https://github.com/delpreto/ActionNet) that started as a fork and became a complete architectural rewrite of the system from the ground up to bridge the fundamental gaps in the state-of-the-art, and to match our research group's needs in realtime deployments and reliable data acquisition.
+Although there is no part of ActionSense in HERMES, we believe that its authors deserve recognition as inspiration for our system.
+
+Special thanks for contributions, usage, bug reports, good times, and feature requests to Juha Carlon (KU Leuven), Stefano Nuzzo (VUB), Diwas Lamsal (KU Leuven), Vayalet Stefanova (KU Leuven), Léonore Foguenne (ULiège).
