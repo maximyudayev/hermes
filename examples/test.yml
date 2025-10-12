@@ -49,10 +49,11 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-  video_codec_config_filepath : "codec.yml" 
+  video_codec_config_filepath : "video_codec.yml" 
   video_codec_num_cpu : 1
 
-  audio_format        : "wav" # currently only supports WAV
+  audio_codec_config_filepath : "audio_codec.yml" 
+  audio_codec_num_cpu : 1
 
 
 producer_specs:

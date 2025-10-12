@@ -103,7 +103,9 @@ These are some of our own projects enabled by HERMES to excite you to adopt it i
 <br>
 
 # License
-This project is licensed under the MIT license - see the [LICENSE](/LICENSE) file for details.
+This sourcecode is licensed under the MIT license - see the [LICENSE](/LICENSE) file for details.
+
+The project's logo is distributed under the CC BY-NC-ND 4.0 license  - see the [LOGO-LICENSE](/LOGO_LICENSE.md).
 
 # Citation
 When using in your project, research, or product, please cite the following and notify us so we can update the index of success stories enabled by HERMES.

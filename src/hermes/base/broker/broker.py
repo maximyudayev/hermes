@@ -29,8 +29,6 @@ from multiprocessing import Process, set_start_method
 from typing import Callable
 import zmq
 
-from hermes.base.nodes import Node
-from hermes.utils.mp_utils import launch_callable
 from hermes.utils.node_utils import launch_node
 from hermes.utils.types import ZMQResult
 from hermes.utils.time_utils import *
@@ -39,28 +37,30 @@ from hermes.utils.zmq_utils import *
 from hermes.base.broker.broker_interface import BrokerInterface
 from hermes.base.broker.broker_states import AbstractBrokerState, InitState
 
-################################################################################
-################################################################################
-# PUB-SUB Broker to manage a collection of Node objects.
-# Hosts control logic of interactive proxy/server.
-# Will launch/destroy/connect to streamers on creation and ad-hoc.
-# Will use a separate process for each streamer and consumer.
-# Will use the main process to:
-#   * route PUB-SUB messages;
-#   * manage lifecycle of locally-connected Nodes;
-#   * TODO: subscribe to stdin/stdout messages of all publishers and subscribers
-# Each Node connects only to its local broker,
-#   which then exposes its data to outside LAN subscribers.
-################################################################################
-################################################################################
 
 class Broker(BrokerInterface):
+  """Manager of the lifecycle of all connected local Nodes and data broker.
+
+  Facilitates high-performance message exchange using ZeroMQ zero-copy 
+  communication across distributed sensing and computing hosts.
+  Passes data over sockets to external Brokers or over shared memory
+  for local Nodes. 
+
+  Hosts control logic of interactive proxy/server. 
+  Will launch/destroy/connect to Nodes on creation and ad-hoc.
+  Will use a separate process for each streamer and consumer.
+  Each Node connects only to its local Broker,
+    which then exposes its data to outside LAN subscribers.
+
+  Uses fixed ports for communication under `zmq_utils.py`.
+  Use of other ports is discouraged.
+  """
+
   @classmethod
   def _log_source_tag(cls) -> str:
     return 'manager'
 
 
-  # Initializes all broker logic and launches nodes
   def __init__(self,
                host_ip: str,
                node_specs: list[dict],
@@ -70,6 +70,26 @@ class Broker(BrokerInterface):
                port_sync_remote: str = PORT_SYNC_REMOTE,
                port_killsig: str = PORT_KILL,
                is_master_broker: bool = False) -> None:
+    """Constructor of the Broker main entrypoint.
+
+    Macro-defined ports are preferred for consistency in a
+    distributed, multi-host setup. 
+
+    Uses hierarchical coordination of distributed host synchronization/setup.
+    Each Broker first starts up and sync local Nodes.
+    Then syncs with all expected remote hosts, until all are ready.
+    After all are ready, master Broker communicates trigger signal to start streaming.
+
+    Args:
+        host_ip (str): Public LAN IP address of this host.
+        node_specs (list[dict]): List of to-be-created Node specification dictionaries.
+        port_backend (str, optional): XSUB port of the Broker. Defaults to PORT_BACKEND.
+        port_frontend (str, optional): XPUB port of the Broker. Defaults to PORT_FRONTEND.
+        port_sync_host (str, optional): Port for SYNC socket to coordinate startup of local Nodes. Defaults to PORT_SYNC_HOST.
+        port_sync_remote (str, optional): Port for SYNC socket to coordinate startup across remote hosts. Defaults to PORT_SYNC_REMOTE.
+        port_killsig (str, optional): Port of the KILL signal this Broker announces from. Defaults to PORT_KILL.
+        is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to False.
+    """
 
     # Record various configuration options.
     self._host_ip = host_ip
@@ -88,18 +108,6 @@ class Broker(BrokerInterface):
 
     # FSM for the broker
     self._state = InitState(self)
-
-    ###########################
-    ###### CONFIGURATION ######
-    ###########################
-    # NOTE: We don't want streamers to share memory, each is a separate process communicating and sharing data over sockets
-    #   ActionSense used multiprocessing.Manager and proxies to access streamers' data from the main process.
-    # NOTE: Lab PC needs to receive packets on 2 interfaces - internally (own loopback) and over the network from the wearable PC.
-    #   It then brokers data to its workers (data logging, visualization) in an abstract way so they don't have to know sensor topology.
-    # NOTE: Wearable PC needs to send packets on 2 interfaces - internally (own loopback) and over the network to the lab PC.
-    #   To wearable PC, lab PC looks just like another subscriber.
-    # NOTE: Loopback and LAN can use the same port of the device because different interfaces are treated as independent connections.
-    # NOTE: Loopback is faster than the network interface of the same device because it doesn't have to go through routing tables.
 
     # Pass exactly one ZeroMQ context instance throughout the program
     self._ctx: zmq.Context = zmq.Context()
@@ -136,24 +144,38 @@ class Broker(BrokerInterface):
     self._poller: zmq.Poller = zmq.Poller()
 
 
-  # Exposes a known address and port to remote networked subscribers if configured.
   def expose_to_remote_broker(self, addr: list[str]) -> None:
+    """Exposes a known address and port to remote networked subscribers if configured.
+
+    Args:
+        addr (list[str]): List of IP addresses of remote hosts (other Brokers).
+    """
     frontend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XPUB)
     frontend_remote.bind("tcp://%s:%s" % (self._host_ip, self._port_frontend))
     self._remote_sub_brokers.extend(addr)
     self._frontends.append(frontend_remote)
 
 
-  # Connects to a known address and port of external LAN data broker.
   def connect_to_remote_broker(self, addr: str, port_pub: str = PORT_FRONTEND) -> None:
+    """Connects to a known address and port of external LAN data broker.
+
+    Args:
+        addr (str): Remote host IP to connect to as a listener.
+        port_pub (str, optional): Port number on which remote host publishes local Nodes' data. Defaults to PORT_FRONTEND.
+    """
     backend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XSUB)
     backend_remote.connect("tcp://%s:%s" % (addr, port_pub))
     self._remote_pub_brokers.append(addr)
     self._backends.append(backend_remote)
 
 
-  # Subscribes to external kill signal (e.g. lab PC in AidFOG project).
   def subscribe_to_killsig(self, addr: str, port_killsig: str = PORT_KILL) -> None:
+    """Subscribes to external kill signal of another host as master.
+
+    Args:
+        addr (str): IP address of the master Broker in a distributed setting.
+        port_killsig (str, optional): Port of the remote Broker to listen to for the termination signal. Defaults to PORT_KILL.
+    """
     killsig_sub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
     killsig_sub.connect("tcp://%s:%s" % (addr, port_killsig))
     killsig_sub.subscribe(TOPIC_KILL)
@@ -162,16 +184,23 @@ class Broker(BrokerInterface):
 
 
   def set_is_quit(self) -> None:
+    """External asynchronous trigger to indicate termination to the Broker. 
+    """
     self._is_quit = True
 
 
   #####################
   ###### RUNNING ######
   #####################
-  # The main run method
-  #   Runs continuously until the user ends the experiment or after the specified duration.
-  #   The duration start to count only after all Nodes established communication and synced.
   def __call__(self, duration_s: float | None = None) -> None:
+    """The main FSM loop of the Broker.
+
+    Runs continuously until the user ends the experiment or after the specified duration.
+    The duration start to count only after all Nodes established communication and synced.
+
+    Args:
+        duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to None.
+    """
     self._duration_s = duration_s
     while self._state.is_continue() and not self._is_quit:
       self._state.run()
@@ -209,12 +238,10 @@ class Broker(BrokerInterface):
     return self._remote_brokers
 
 
-  # Start time of the current state - useful for measuring run time of the experiment, excluding the lengthy setup process
   def _get_start_time(self) -> float:
     return self._state_start_time_s
 
 
-  # User-requested run time of the experiment 
   def _get_duration(self) -> float | None:
     return self._duration_s
 
@@ -259,7 +286,6 @@ class Broker(BrokerInterface):
     return self._host_ip
 
 
-  # Reference to the RCV socket for syncing
   def _get_sync_host_socket(self) -> zmq.SyncSocket:
     return self._sync_host
   
@@ -272,7 +298,6 @@ class Broker(BrokerInterface):
     return self._poller
 
 
-  # Register PUB-SUB sockets on both interfaces for polling.
   def _activate_pubsub_poller(self) -> None:
     for s in self._backends:
       self._poller.register(s, zmq.POLLIN)
@@ -289,21 +314,16 @@ class Broker(BrokerInterface):
       self._poller.unregister(s)
 
 
-  # Spawn local producers and consumers in separate processes
   def _start_local_nodes(self) -> None:
-    # Make sure that the child processes are spawned and not forked.
     set_start_method('spawn')
-    # Start each publisher-subscriber in its own process (e.g. local sensors, data logger, visualizer, AI worker).
     self._processes: list[Process] = [Process(target=launch_node, args=(node_spec,)) for node_spec in self._node_specs]
     for p in self._processes: p.start()
 
 
-  # Block until new packets are available.
   def _poll(self, timeout_ms: int) -> ZMQResult:
     return self._poller.poll(timeout=timeout_ms)
 
 
-  # Move packets between publishers and subscribers.
   def _broker_packets(self, 
                       poll_res: ZMQResult,
                       on_data_received: Callable[[list[bytes]], None] = lambda _: None,
@@ -323,7 +343,6 @@ class Broker(BrokerInterface):
           send_socket.send_multipart(msg)
 
 
-  # Check if packets contain a kill signal from downstream a broker
   def _check_for_kill(self, poll_res: ZMQResult) -> bool:
     for sock, _ in poll_res:
       # Receives KILL from the GUI.
@@ -335,7 +354,6 @@ class Broker(BrokerInterface):
     return False
 
 
-  # Send kill signals to upstream brokers and local publishers
   def _publish_kill(self) -> None:
     for kill_socket in self._killsigs[1:]:
       # Ignore any more KILL signals, enter the wrap-up routine.
@@ -347,7 +365,8 @@ class Broker(BrokerInterface):
 
 
   def _stop(self) -> None:
-    # Wait for all the local subprocesses to gracefully exit before terminating the main process.
+    """Gracefully exit after all local subprocesses terminate, and cleanup.
+    """
     for p in self._processes: p.join()
 
     # Release all used local sockets.

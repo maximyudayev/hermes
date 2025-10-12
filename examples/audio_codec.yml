@@ -1,0 +1,5 @@
+# Optimized codec settings for AMD Ryzen 7 PRO 8840U on HP EliteBook 835 G11
+codec_name  : 'mp3_mf'
+sample_format  : 's16'
+input_options: {}
+output_options: {}

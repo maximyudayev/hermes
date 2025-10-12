@@ -34,7 +34,9 @@ from hermes.base.stream import Stream
 from hermes.base.storage.storage_interface import StorageInterface
 
 
-class AbstractLoggerState(StateInterface):
+class AbstractStorageState(StateInterface):
+  """Abstract class for the Storage component.
+  """
   def __init__(self, context: StorageInterface):
     self._context = context
     self._is_continue_fsm = True
@@ -50,7 +52,11 @@ class AbstractLoggerState(StateInterface):
     pass
 
 
-class StartState(AbstractLoggerState):
+class StartState(AbstractStorageState):
+  """Startup state that initializes Storage.
+
+  Will immediately transition into `StreamState` after initialization.
+  """
   def __init__(self, context, streams: OrderedDict[str, Stream]):
     super().__init__(context)
     self._context._initialize(streams)
@@ -59,7 +65,16 @@ class StartState(AbstractLoggerState):
     self._context._set_state(StreamState(self._context))
 
 
-class StreamState(AbstractLoggerState):
+class StreamState(AbstractStorageState):
+  """Streaming state of the Storage component.
+
+  Will periodically flush data to disk, to clear memory,
+  if any streams were specified to stream.
+
+  Will flush remaining data to disk on exit.
+
+  Using some streams in stream and others in dump has undefined behavior.
+  """
   def __init__(self, context):
     super().__init__(context)
     # Prepare stream-logging.
@@ -73,7 +88,16 @@ class StreamState(AbstractLoggerState):
     # self._context._set_state(DumpState(self._context))
 
 
-class DumpState(AbstractLoggerState):
+class DumpState(AbstractStorageState):
+  """Passive recording state of the Storage component.
+
+  Will flush data to disk once upon system termination.
+
+  May run out of memory if the recording is long or
+  user doesn't provision sufficient data.
+
+  Using some streams in stream and others in dump has undefined behavior.
+  """
   def __init__(self, context):
     super().__init__(context)
     # Dump write files at the end of the trial for data that hadn't been streamed.

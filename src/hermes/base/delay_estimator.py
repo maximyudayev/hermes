@@ -33,6 +33,8 @@ from hermes.utils.time_utils import get_time
 
 
 class DelayEstimator:
+  """Functional callable class for periodic device-specific propagation delay estimation.
+  """
   def __init__(self,
                sample_period_s: float):
     self._sample_period_s = sample_period_s
@@ -42,6 +44,14 @@ class DelayEstimator:
   def __call__(self,
                ping_fn: Callable,
                publish_fn: Callable):
+    """Callable that runs periodic propagation delay estimation.
+
+    Uses user-passed estimation and callback functions until termination.
+
+    Args:
+        ping_fn (Callable): Propagation delay estimation function pointer.
+        publish_fn (Callable): Callback function pointer.
+    """
     while self._is_continue:
       delay_s: float = estimate_transmission_delay(ping_fn=ping_fn)
       time_s = get_time()
@@ -50,4 +60,6 @@ class DelayEstimator:
 
 
   def cleanup(self):
+    """Method for external trigger to terminate the delay estimator.
+    """
     self._is_continue = False

@@ -39,6 +39,8 @@ DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
 VideoFormatTuple = namedtuple('VideoFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt'))
 VideoCodecDict = TypedDict('VideoCodecDict', {'codec_name': str, 'pix_format': str, 'input_options': Mapping, 'output_options': Mapping})
+AudioFormatTuple = namedtuple('AudioFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt'))
+AudioCodecDict = TypedDict('AudioCodecDict', {'codec_name': str, 'pix_format': str, 'input_options': Mapping, 'output_options': Mapping})
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
@@ -49,4 +51,11 @@ VIDEO_FORMAT = {
   'yuv':        VideoFormatTuple('rawvideo',    'yuv420p'),
   'jpeg':       VideoFormatTuple('image2pipe',  'yuv420p'),
   'bayer_rg8':  VideoFormatTuple('rawvideo',    'bayer_rggb8'),
+}
+
+AUDIO_FORMAT = {
+  'bgr':        AudioFormatTuple('rawvideo',    'bgr24'),
+  'yuv':        AudioFormatTuple('rawvideo',    'yuv420p'),
+  'jpeg':       AudioFormatTuple('image2pipe',  'yuv420p'),
+  'bayer_rg8':  AudioFormatTuple('rawvideo',    'bayer_rggb8'),
 }

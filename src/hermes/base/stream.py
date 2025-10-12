@@ -36,27 +36,25 @@ from hermes.utils.time_utils import get_time
 from hermes.utils.types import VIDEO_FORMAT, DataFifoDict, DeviceLockDict, ExtraDataInfoDict, NewDataDict, StreamInfoDict
 
 
-#########################################################################
-#########################################################################
-# An abstract class to store data of a Producer.
-#   May contain multiple streams from the sensor, 
-#     such as acceleration and gyroscope from the DOTs.
-# Structure of data and streams_info:
-#   Dict with device names as keys, each of which maps to:
-#     Dict with name of streams, each of which maps to:
-#       for data: 'data', 'time_s', and others if desired
-#       for streams_info: 'data_type', 'sample_size', 'sampling_rate_hz',
-#         'timesteps_before_solidified', 'extra_data_info'
-# Can periodically clear old data (if needed).
-#########################################################################
-#########################################################################
 class Stream(ABC):
-  # Will store the class name of each sensor in HDF5 metadata,
-  #   to facilitate recreating classes when replaying the logs later.
-  # The following is the metadata key to store that information.
+  """An abstract class to store data of a Node.
+
+  Tree-like structure of FIFO buffers. May contain multiple sub-streams
+  for a single device, e.g. acceleration and gyroscope of an IMU.
+  
+  Data for sub-streams under the same device tree arrives as a single packet.
+  Packets containing decoupled data are better treated as independent device trees.
+  
+  Uses a lock for each device tree to delegate access to the start of the FIFO:
+  ensures high performance from parallel acquisition, processing, and logging blocks.
+  This allows the end of the FIFO to be saved and discarded by the Storage.
+  
+  Will store the class name of each sensor in HDF5 metadata.
+  
+  Can periodically clear old data (if needed).
+  """
+
   metadata_class_name_key = 'Stream class name'
-  # Will look for a special metadata key that labels data channels,
-  #   to use for logging purposes and general user information.
   metadata_data_headings_key = 'Data headings'
 
   _data: DataFifoDict
@@ -66,48 +64,46 @@ class Stream(ABC):
   def __init__(self) -> None:
     self._data = dict()
     self._streams_info = dict()
-    # NOTE: Lock used only to delegate access to the start of the FIFO
-    #   in case a Consumer is interested in only some freshest data elements.
-    #   This allows the end of the FIFO to be saved and discarded by the Logger.
     self._locks = dict()
 
 
   ############################
   ###### INTERFACE FLOW ######
   ############################
-  # Get actual frame rate, subject to expected transmission delay and throughput limitation,
-  #   to confidently judge the performance of the system.
-  # Computed based on how fast data becomes available to the data structure, hence suitable
-  #   to measure frame rate on the subscriber, local or remote.
   @abstractmethod
   def get_fps(self) -> dict[str, float | None]:
+    """Get effective frame rate of this unique stream's captured data.
+
+    Subject to expected transmission delay and throughput limitation. 
+    Computed based on how fast data becomes available to the data structure.
+    Used to measure the performance of the system - local or remote nodes.
+
+    Returns:
+        dict[str, float | None]: Mapping of measured FPS to stream names.
+    """
     pass
 
 
-  # # Get how each stream should be visualized.
-  # # Should be overridden by subclasses if desired.
-  # # Returns a Dash `Row`.
   # @abstractmethod
   # def build_visulizer(self) -> dbc.Row | None:
+  #   """Build a dashboard visualization widget for the stream.
+
+  #   Raises:
+  #       ValueError: _description_
+  #       KeyError: _description_
+
+  #   Returns:
+  #       _type_: _description_
+
+  #   Yields:
+  #       _type_: _description_
+  #   """
   #   return None
 
 
   #############################
   ###### GETTERS/SETTERS ######
   #############################
-  # Add a new device stream.
-  # Will by default add a stream for each device to mark host time of the arrival of a sample into the foreground thread.
-  # @param timesteps_before_solidified allows indication that data/timestamps for
-  #   previous timesteps may be altered when a new sample is received.
-  #   For example, some sensors may send two samples at the same time, and the
-  #     streamer class may infer a timestamp for the previous reading when
-  #     a new pair of readings arrive.  A timestamp is thus not 'final' until the next timestep.
-  # @param extra_data_info is used to specify additional data keys that will be streamed
-  #   along with the default 'data'.
-  #   It should be a dict, where each extra data key maps to a dict with at least 'data_type' and 'sample_size'.
-  # @param data_notes can be a string or a dict of relevant info.
-  #   If it's a dict, the key 'Data headings' is recommended and will be used by DataLogger for headers.
-  #     In that case, 'Data headings' should map to a list of strings of length sample_size.
   def add_stream(self,
                  device_name: str,
                  stream_name: str,
@@ -121,6 +117,30 @@ class Stream(ABC):
                  is_audio: bool = False,
                  timesteps_before_solidified: int = 0,
                  extra_data_info: ExtraDataInfoDict = {}) -> None:
+    """Add a new sub-stream to an existing device tree or creates new.
+
+    Will by default add a stream for each device to mark each captured sample
+    with the host's time-of-arrival.
+
+    Args:
+        device_name (str): Device tree name. Will autocreate if doesn't exist.
+        stream_name (str): Unique sub-stream name under this device tree.
+        data_type (str): Fixed data type expected in the sub-stream.
+        sample_size (Iterable[int]): An interable of dimensions of given data type in each captured sample.
+        sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to 0.0.
+        is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to False.
+        data_notes (Mapping[str, str], optional): Mapping of streams to notes for Storage to use in file metadata. Defaults to {}.
+        is_video (bool, optional): Whether it is a video stream. Defaults to False.
+        color_format (str | None, optional): One of the supported VIDEO_FORMAT identifiers. Defaults to None.
+        is_audio (bool, optional): Whether it is an audio stream. Defaults to False.
+        timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to 0.
+        extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data, 
+            with at least 'data_type' and 'sample_size'. Defaults to {}.
+
+    Raises:
+        ValueError: If stream name is not unique or is reserved.
+    """
+
     if stream_name == 'process_time_s':
       raise ValueError('\'process_time_s\' is reserved for Stream internal use.')
     self._add_stream(device_name=device_name,
@@ -159,6 +179,11 @@ class Stream(ABC):
                   is_audio: bool = False,
                   timesteps_before_solidified: int = 0,
                   extra_data_info: ExtraDataInfoDict = {}) -> None:
+    """[Internal] Underlying logic for adding a stream.
+
+    Raises:
+        KeyError: If supplied color format is not supported or misspelled.
+    """
     self._locks.setdefault(device_name, Lock())
     self._streams_info.setdefault(device_name, dict())
     if not isinstance(sample_size, Iterable):
@@ -196,10 +221,17 @@ class Stream(ABC):
     self.clear_data(device_name, stream_name)
 
 
-  # Appending data to the Deque is thread-safe,
-  #   but need to lock so reverse iterator doesn't throw immutability error
-  #   (i.e. when GUI gets the newest N samples, while Node appends new data and Logger pops the oldest).
   def append_data(self, process_time_s: float, data: NewDataDict) -> None:
+    """Thread-safe append of new sample to the stream.
+
+    Locks the device tree of the sub-stream, to avoid immutability error
+    in reverse iterator of the GUI thread when trying to peek N newest 
+    samples of the stream while new are written.
+
+    Args:
+        process_time_s (float): Time-of-processing of the sample.
+        data (NewDataDict): Newly processed sample.
+    """
     for (device_name, streams_data) in data.items():
       if streams_data is not None:
         self._locks[device_name].acquire()
@@ -209,14 +241,12 @@ class Stream(ABC):
         self._locks[device_name].release()
 
 
-  # Add a single timestep of data to the data log.
-  # @param time_s and @param data should each be a single value.
-  # @param extra_data should be a dict mapping each extra data key to a single value.
-  #   The extra data keys should match what was specified in add_stream() or set_streams_info().
   def _append(self,
               device_name: str,
               stream_name: str,
               data: Any) -> None:
+    """[Internal] Non thread-safe append of new sample.
+    """
     self._data[device_name][stream_name].append(data)
 
     # If stream set to measure actual fps
@@ -245,21 +275,26 @@ class Stream(ABC):
         self._streams_info[device_name][stream_name]['dt_running_sum']
 
 
-  # Pop FIFO data starting with the first timestep that hasn't been logged yet,
-  #   and ending at the most recent data (or back by a few timesteps
-  #   if the streamer may still edit the most recent timesteps).
-  # NOTE: Deque popping is thread-safe while appending.
-  # Cleans up the oldest data in the FIFO, so can be called only once. 
-  #   for x in pop_data(..., num_to_pop):
-  # Returns an iterator over the same data elements placed using 'append'.
-  # Passing an iterator to either method, will consume all available data in that stream,
-  #   so if HDF5 and CSV requested from the same stream, only HDF5 will be written.
-  #   This will effectively clear logged data from memory.
   def pop_data(self, 
                device_name: str, 
                stream_name: str,
                num_oldest_to_pop: int | None = None,
                is_flush: bool = False) -> Iterator[Any]:
+    """Wrap all samples ready to be popped in an iterator oldest->newest.
+
+    Used by Storage to flush data to disk.
+    Popped data is cleared from memory.
+    Thread-safe without locks while appending new data.
+
+    Args:
+        device_name (str): Valid device tree name.
+        stream_name (str): Valid sub-stream name.
+        num_oldest_to_pop (int | None, optional): Number of samples to pop. Defaults to None.
+        is_flush (bool, optional): Whether to pop all data in the stream, regardless of timesteps_before_solidified. Defaults to False.
+
+    Yields:
+        Iterator[Any]: Iterator over poppable oldest->newest samples.
+    """
     # O(1) complexity to check length of a Deque.
     num_available: int = len(self._data[device_name][stream_name])
     # Can pop all available data, except what must be kept peekable.
@@ -278,14 +313,24 @@ class Stream(ABC):
       num_popped += 1
 
 
-  # Look at the N newest data elements.
-  #   Locks the Stream from appends, but permits popping from the other end.
-  #   (i.e. GUI temporarily locks new appends to visualize N latest samples, while Logger flushes the other end).
-  # Returns an iterator.
   def peek_data_new(self,
                     device_name: str,
                     stream_name: str,
                     num_newest_to_peek: int | None = None) -> Iterator[Any]:
+    """Wrap N newest samples in an iterator to peek.
+
+    Will lock the device tree of the sub-stream to prevent appends muttating the iterator.
+    Will allow popping of the oldest data (e.g. for Storage to flush).
+    Peeking and popping ranges are protected by `timesteps_before_solidified`.
+
+    Args:
+        device_name (str): Valid device tree name.
+        stream_name (str): Valid sub-stream name.
+        num_newest_to_peek (int | None, optional): Number of samples to peek, if less than `timesteps_before_solidified`. Defaults to None.
+
+    Yields:
+        Iterator[Any]: Iterator over peekable newest samples.
+    """
     self._locks[device_name].acquire()
     num_peekable: int = min(self._streams_info[device_name][stream_name]['timesteps_before_solidified'], 
                             len(self._data[device_name][stream_name]))
@@ -303,12 +348,20 @@ class Stream(ABC):
     self._locks[device_name].release()
 
 
-  # Clear data for a stream (and add the stream if it doesn't exist).
-  # Optionally, can clear the oldest N data elements.
   def clear_data(self,
                  device_name: str,
                  stream_name: str,
                  num_oldest_to_clear: int | None = None) -> None:
+    """Clear data in a stream.
+
+    Initializes the sub-stream if it doesn't exist.
+    Optionally can clear N oldest samples.
+
+    Args:
+        device_name (str): Valid device tree name.
+        stream_name (str): Valid sub-stream name.
+        num_oldest_to_clear (int | None, optional): Number of oldest samples to clear. Defaults to None.
+    """
     # Create the device/stream entry if it doesn't exist, else clear it.
     self._data.setdefault(device_name, OrderedDict())
     if stream_name not in self._data[device_name]:
@@ -333,60 +386,97 @@ class Stream(ABC):
       self._locks[device_name].release()
 
 
-  # Clear all streams of all devices in the Stram datastructure.
   def clear_data_all(self) -> None:
+    """Clear all sub-streams from all device trees.
+    """
     for (device_name, device_info) in self._streams_info.items():
       for (stream_name, stream_info) in device_info.items():
         self.clear_data(device_name, stream_name)
 
 
   def get_num_devices(self) -> int:
+    """Get the number of asynchronous device trees.
+
+    Returns:
+        int: Number of device trees.
+    """
     return len(self._streams_info)
 
 
-  # Get the names of streaming devices
   def get_device_names(self) -> list[str]:
+    """Get the names of the asynchronous device trees.
+
+    Returns:
+        list[str]: Names of device trees.
+    """
     return list(self._streams_info.keys())
 
 
-  # Get the names of streams.
-  # If device_name is None, will assume streams are the same for every device.
   def get_stream_names(self, device_name: str | None = None) -> list[str]:
+    """Get the names of sub-streams in a device tree.
+
+    If device_name is None, will assume streams are the same for every device.
+
+    Args:
+        device_name (str | None, optional): Name of the device tree to query. Defaults to None.
+
+    Returns:
+        list[str]: Names of sub-streams in a device tree. 
+    """
     if device_name is None:
       device_name = self.get_device_names()[0]
     return list(self._streams_info[device_name].keys())
 
 
-  # Get information about a stream.
-  # Returned dict will have keys:
-  #   data_type, 
-  #   is_video,
-  #   is_audio,
-  #   sample_size, 
-  #   sampling_rate_hz,
-  #   timesteps_before_solidified, 
-  #   extra_data_info,
-  #   data_notes,
-  #   is_measure_rate_hz, (if True)
-  #     actual_rate_hz,
-  #     dt_circular_buffer,
-  #     dt_circular_index,
-  #     dt_running_sum,
-  #     old_toa
   def get_stream_info(self, device_name: str, stream_name: str) -> Dict[str, Any]:
+    """Get metadata of a sub-stream.
+
+    Args:
+        device_name (str): Valid device tree name.
+        stream_name (str): Valid sub-stream name.
+
+    Returns:
+        Dict[str, Any]: Metadata dictionary with keys:
+            data_type
+            is_video
+            is_audio
+            sample_size
+            sampling_rate_hz
+            timesteps_before_solidified
+            extra_data_info
+            data_notes
+            if is_measure_rate_hz:
+              actual_rate_hz
+              dt_circular_buffer
+              dt_circular_index
+              dt_running_sum
+              old_toa
+
+    """
     return self._streams_info[device_name][stream_name]
 
 
-  # Get all information about all streams.
   def get_stream_info_all(self) -> StreamInfoDict:
+    """Get metadata of all sub-streams.
+
+    Returns:
+        StreamInfoDict: Nested dictionary of metadata, with device trees and sub-streams as keys.
+    """
     return copy.deepcopy(self._streams_info)
 
 
-  # Retrieve actual frame rate of a stream if it was set to measure.
-  # Records and refreshes statistics on each data structure append
-  #   call, making actual frame rate estimate if data sampled remotely and
-  #   sent over LAN to collection device.
   def _get_fps(self, device_name: str, stream_name: str) -> float | None:
+    """[Internal] Retrieve the effective sampling rate of a signal, if recorded.
+
+    Records and refreshes rolling statistics on each data structure append over 1-second windows.
+
+    Args:
+        device_name (str): Valid device tree name.
+        stream_name (str): Valid sub-stream name.
+
+    Returns:
+        float | None: Measured acquisition sampling rate of the sub-stream.
+    """
     if self._streams_info[device_name][stream_name]['is_measure_rate_hz']:
       return self._streams_info[device_name][stream_name]['actual_rate_hz']
     else:

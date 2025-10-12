@@ -29,14 +29,25 @@ from abc import ABC, abstractmethod
 
 
 class StateInterface(ABC):
+  """Basic FSM interface for Broker, Node, Storage.
+  """
   @abstractmethod
   def run(self) -> None:
+    """Run the logic of the currently selected state.
+    """
     pass
 
   @abstractmethod
   def is_continue(self) -> bool:
+    """Check if to stay in the current state.
+
+    Returns:
+        bool: Whether to stay in the same state.
+    """
     pass
 
   @abstractmethod
   def kill(self) -> None:
+    """Trigger to enter the KILL state from any other.
+    """
     pass

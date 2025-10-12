@@ -14,7 +14,7 @@ description = "A realtime physiological sensing and edge AI processing framework
 keywords = ["embedded ai", "wearables", "sensors", "streaming", "realtime processing", "physiology"]
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "MIT"
-license-files = ["LICEN[CS]E*", "AUTHORS.md"]
+license-files = ["LICENSE", "LOGO_LICENSE.md"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
@@ -54,7 +54,7 @@ docs = [
 ]
 
 [tool.setuptools.packages.find]
-exclude = ["docs*", ".vscode*", ".venv*", "images*"]
+exclude = ["docs*", ".vscode*", ".github*", ".venv*", "images*"]
 
 [project.urls]
 Homepage = "https://maximyudayev.github.io/hermes"

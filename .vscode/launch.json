@@ -9,10 +9,10 @@
       "type": "debugpy",
       "request": "launch",
       "cwd": "${workspaceFolder}",
-      "program": "tests/main.py",
+      "program": "examples/main.py",
       "args": [
         "--experiment", "project=Test", "type=Dummy", "trial=0",
-        "--config_file", "tests/test.yml"
+        "--config_file", "examples/test.yml"
       ],
       "env": {
         "PYTHONPATH": "${workspaceFolder}"

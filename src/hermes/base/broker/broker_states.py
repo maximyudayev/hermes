@@ -37,6 +37,10 @@ from hermes.base.state_interface import StateInterface
 
 
 class AbstractBrokerState(StateInterface):
+  """Abstract class for the Broker component.
+
+  Can be externally triggered into the KILL state from any child State class.
+  """
   def __init__(self, context: BrokerInterface):
     self._context = context
 
@@ -47,16 +51,22 @@ class AbstractBrokerState(StateInterface):
     self._context._set_state(KillState(self._context))
 
 
-# Activates broker poller sockets and goes in sync to wait for local Nodes to start up.
 class InitState(AbstractBrokerState):
+  """Initialization state of the Broker to launch local Nodes.
+
+  Activates broker poller sockets and goes in sync to wait for local Nodes to start up.
+  """
   def run(self) -> None:
     self._context._activate_pubsub_poller()
     self._context._start_local_nodes()
     self._context._set_state(SyncNodeBarrierState(self._context))
 
 
-# Waits until all local Nodes signalled that they are initialized and ready to go.
 class SyncNodeBarrierState(AbstractBrokerState):
+  """Synchronization state of the Broker that waits until all local Nodes setup.
+
+  Waits until all local Nodes signalled that they are initialized and ready to go.
+  """
   def run(self) -> None:
     host_ip: str = self._context._get_host_ip()
     sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
@@ -74,8 +84,11 @@ class SyncNodeBarrierState(AbstractBrokerState):
     self._context._set_state(SyncBrokerBarrierState(self._context))
 
 
-# Communicate to other Brokers that every device is ready.
 class SyncBrokerBarrierState(AbstractBrokerState):
+  """Synchronization state of the Broker that waits until all remote Brokers setup.
+
+  Communicate to other Brokers that every local device is ready.
+  """
   def __init__(self, context):
     super().__init__(context)
     self._host_ip: str = self._context._get_host_ip()
@@ -134,8 +147,11 @@ class SyncBrokerBarrierState(AbstractBrokerState):
       self._context._set_state(StartState(self._context))
 
 
-# Trigger local Nodes to start logging when the agreed start time arrives.
 class StartState(AbstractBrokerState):
+  """Start state of the Broker that waits or initiates distributed launch.
+
+  Trigger local Nodes to start logging when the agreed start time arrives.
+  """
   def run(self) -> None:
     # If current Broker is not Master, wait for the SYNC signal with time when to start.
     host_ip: str = self._context._get_host_ip()
@@ -175,8 +191,11 @@ class StartState(AbstractBrokerState):
     self._context._set_state(RunningState(self._context))
 
 
-# Will run until the the experiment is stopped or after a fixed period, if provided.
 class RunningState(AbstractBrokerState):
+  """Stead-state capturing or streaming state of the Broker.
+
+  Will run until the the experiment is stopped or after a fixed period, if provided.
+  """
   def __init__(self, context):
     super().__init__(context)
     if (duration_s := self._context._get_duration()) is not None:
@@ -195,17 +214,21 @@ class RunningState(AbstractBrokerState):
     return self._is_continue_fn()
   
 
-  # Update a list on the Broker that keeps track of which Nodes are being brokered for. 
   def _on_subscription_added(self, msg: list[bytes]) -> None:
+    """Update a list on the Broker that keeps track of which Nodes are being brokered for. 
+    """
     topic: str = msg[0].decode('utf-8').split('\x01')[1]
     self._context._add_brokered_node(topic=topic)
 
 
-# Received the KILL signal, relay it to all Nodes and Brokers and wrap up gracefully.
-#   from the local Keyboard Interrupt;
-#   from the Master Broker;
-#   from the GUI;
 class KillState(AbstractBrokerState):
+  """Received 1 of 3 possible KILL signals to terminate.
+
+  Relay it to all Nodes and Brokers and wrap up gracefully.
+    from the local Keyboard Interrupt;
+    from the Master Broker;
+    from the GUI;
+  """
   def run(self) -> None:
     self._context._publish_kill()
     self._context._set_state(JoinNodeBarrierState(self._context))
@@ -216,8 +239,13 @@ class KillState(AbstractBrokerState):
     pass
 
 
-# Waits until all local Nodes send final packets then quits itself.
 class JoinNodeBarrierState(AbstractBrokerState):
+  """Waits until all local Nodes send final packets then quits itself.
+
+  Wait for all processes (local and remote) to send the last messages before closing.
+  Continue brokering packets until signalled by all publishers that there will be no more packets.
+  Append a frame to the ZeroMQ message that indicates the last message from the sensor.
+  """
   def __init__(self, context):
     super().__init__(context)
     self._host_ip = self._context._get_host_ip()
@@ -229,9 +257,6 @@ class JoinNodeBarrierState(AbstractBrokerState):
     self._poller.register(self._sync_host_socket, zmq.POLLIN)
 
 
-  # Wait for all processes (local and remote) to send the last messages before closing.
-  #   Continue brokering packets until signalled by all publishers that there will be no more packets.
-  #   Append a frame to the ZeroMQ message that indicates the last message from the sensor.
   def run(self) -> None:
     poll_res: ZMQResult = self._context._poll(5000)
     # Brokers packets and releases local Producer Nodes in a callback once it published the end packet.
@@ -245,9 +270,11 @@ class JoinNodeBarrierState(AbstractBrokerState):
       self._context._set_state(JoinBrokerBarrierState(self._context))
 
 
-  # Callback to track brokering of last packets of local Producers and Pipelines.
-  #   Will get trigerred at most once per Node because Nodes send it only once.
   def _on_is_end_packet(self, msg: list[bytes]) -> None:
+    """Callback to track brokering of last packets of local Producers and Pipelines.
+
+    Will get trigerred at most once per Node because publishing Nodes send it only once.
+    """
     #   Once the Broker registers arrival of 'END' packet from a local Producer/Pipeline, 
     #     it will signal 'BYE' to it to allow it to exit.
     if CMD_END.encode('utf-8') in msg:
@@ -261,7 +288,10 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
 
   def _check_host_sync_socket(self, poll_res: ZMQResult) -> None:
-    # Can be triggered by all local Nodes: Producer, Consumer, or Pipeline, sending 'EXIT?' request.
+    """Check if a local Node sent a request on the SYNC socket to indicate its closure.
+
+    Can be triggered by all local Nodes: Producer, Consumer, or Pipeline, sending 'EXIT?' request.
+    """
     for sock, _ in poll_res:
       if sock == self._sync_host_socket:
         address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
@@ -275,6 +305,8 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
 
   def _release_local_node(self, topic: str) -> None:
+    """Release the local Node from the list of active Nodes of the Broker.
+    """
     if topic in self._nodes_waiting_to_exit and topic not in self._nodes_expected_end_pub_packet:
       self._sync_host_socket.send_multipart([self._nodes[topic],
                                              b'',
@@ -285,6 +317,13 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
 
   def _is_finished(self) -> bool:
+    """Convenience method indicating if any local Nodes remain active. 
+
+    Will wait until all local Nodes finish.
+    
+    Returns:
+        bool: Whether all local Nodes gracefully terminated.
+    """
     return not self._nodes
 
 
@@ -293,6 +332,14 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
 
 class JoinBrokerBarrierState(AbstractBrokerState):
+  """Waits until all remote Brokers, if any, have their local Nodes gracefully terminated.
+
+  Wait for all dependent remote Brokers to send the acknowledgement messages that they
+  no longer dependend on this Broker's data.
+
+  Continue brokering packets until signalled by all remote hosts that there will be no more packets.
+  Use the remote SYNC socket to coordinate when every Broker can exit.
+  """
   def __init__(self, context):
     super().__init__(context)
     self._host_ip = self._context._get_host_ip()
