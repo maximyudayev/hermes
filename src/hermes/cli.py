@@ -29,22 +29,15 @@ import threading
 import os
 import yaml
 import argparse
-import sys
 
-
-sys.path.append("./src")
-
-from hermes.base.nodes import Node
-from hermes.base.broker import Broker
+from hermes.base.broker.broker import Broker
+from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
 from hermes.utils.mp_utils import launch_callable
-from hermes.utils.node_utils import search_node_class
-from hermes.utils.time_utils import *
-from hermes.utils.zmq_utils import *
-from hermes.utils.argparse_utils import *
+from hermes.utils.time_utils import get_time
+from hermes.utils.zmq_utils import PORT_BACKEND, PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
 
 
-__version = 'v0.1.0'
-
+# TODO: replace with HERMES-branded font
 HERMES = r"""
 ______  ________________________  ___________________
 ___  / / /__  ____/__  __ \__   |/  /__  ____/_  ___/
@@ -53,23 +46,32 @@ _  __  / _  /___  _  _, _/_  /  / / _  /___  ____/ /
 /_/ /_/  /_____/  /_/ |_| /_/  /_/  /_____/  /____/  
                                                      
 """
+VERSION = 'v0.1.1'
+DESCRIPTION = HERMES + \
+              'Heterogeneous edge realtime measurement and execution system '\
+              'for continual multimodal data acquisition and AI processing.'
+EPILOG = 'Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab.\n' \
+         'Created 2024-2025 at KU Leuven for the AidWear, AID-FOG, and RevalExo ' \
+         'projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com].'
 
-if __name__ == '__main__':
+def define_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(prog='HERMES',
-                                   description='Heterogeneous edge realtime measurement and execution system '
-                                               'for continual multimodal data acquisition and processing.',
-                                   epilog='Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab.\n'
-                                          'Created 2024-2025 at KU Leuven for the AidWear, AID-FOG, and RevalExo '
-                                          'projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com].',
-                                  formatter_class=argparse.RawTextHelpFormatter)
+                                   description=DESCRIPTION,
+                                   epilog=EPILOG,
+                                   formatter_class=argparse.RawTextHelpFormatter)
   parser.add_argument('--verbose', '-v',
                       action='count',
                       default=0,
                       help='increase level of logging verbosity [0,3]')
   parser.add_argument('--version',
                       action='version',
-                      version='%(prog)s ' + __version)
+                      version='%(prog)s ' + VERSION)
 
+  parser.add_argument('--out_dir', '-o',
+                      type=validate_path,
+                      dest='out_dir',
+                      required=True,
+                      help='path to the output directory of the current host device')
   parser.add_argument('--experiment',
                       nargs='*',
                       action=ParseExperimentKwargs,
@@ -141,11 +143,18 @@ if __name__ == '__main__':
   #                     default=list(),
   #                     help='key-value pair tags detailing local pipeline Nodes of the host')
 
+  return parser
 
-  # Parse launch arguments.
+
+def parse_args(parser: argparse.ArgumentParser) -> argparse.Namespace:
   args = parser.parse_args()
+  parser, args = override_cli_args_with_config_file(parser, args)
+  args = load_codec_spec(args)
+  print(HERMES)
+  return args
 
-  # Override CLI arguments with a config file.
+
+def override_cli_args_with_config_file(parser: argparse.ArgumentParser, args: argparse.Namespace) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
   if args.config_file is not None:
     with open(args.config_file, "r") as f:
       try:
@@ -155,22 +164,30 @@ if __name__ == '__main__':
         print(e)
         exit('Error parsing CLI inputs.')
     args = parser.parse_args()
+  return parser, args
 
-  # Load video codec spec.
+
+def load_codec_spec(args: argparse.Namespace) -> argparse.Namespace:
   if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
     with open(args.logging_spec['video_codec_config_filepath'], "r") as f:
       try:
         args.logging_spec['video_codec'] = yaml.safe_load(f)
       except yaml.YAMLError as e:
         print(e)
+  if 'stream_audio' in args.logging_spec and args.logging_spec['stream_audio']:
+    with open(args.logging_spec['audio_codec_config_filepath'], "r") as f:
+      try:
+        args.logging_spec['audio_codec'] = yaml.safe_load(f)
+      except yaml.YAMLError as e:
+        print(e)
+  return args
 
-  # Initialize folders and other chore data, and share programmatically across Node specs.
-  script_dir: str = os.path.dirname(os.path.realpath(__file__))
-  (log_time_str, log_time_s) = get_time_str(time_s=args.log_time_s, return_time_s=True)
-  log_dir: str = os.path.join(script_dir,
+
+def init_output_files(args: argparse.Namespace) -> tuple[float, str, str]:
+  log_time_s = args.log_time_s if args.log_time_s is not None else get_time()
+  log_dir: str = os.path.join(args.out_dir,
                               'data',
                               *map(lambda tup: '_'.join(tup), args.experiment.items()))
-  # Initialize a file for writing the log history of all printouts/messages.
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
 
   try:
@@ -178,6 +195,13 @@ if __name__ == '__main__':
   except OSError:
     exit("'%s' already exists. Update experiment YML file with correct data for this subject."%log_dir)
 
+  return log_time_s, log_dir, log_history_filepath
+
+
+def configure_specs(args: argparse.Namespace,
+                    log_time_s: float,
+                    log_dir: str,
+                    log_history_filepath: str) -> tuple[argparse.Namespace, list[dict]]:
   args.logging_spec['log_dir'] = log_dir
   args.logging_spec['experiment'] = args.experiment
   args.logging_spec['log_time_s'] = log_time_s
@@ -192,6 +216,15 @@ if __name__ == '__main__':
     spec['settings']['port_sync'] = PORT_SYNC_HOST
     spec['settings']['port_killsig'] = PORT_KILL
 
+  return args, node_specs
+
+
+def app():
+  parser = define_parser()
+  args = parse_args(parser)
+  log_time_s, log_dir, log_history_filepath = init_output_files(args)
+  args, node_specs = configure_specs(args, log_time_s, log_dir, log_history_filepath)
+
   # Create the broker and manage all the components of the experiment.
   local_broker: Broker = Broker(host_ip=args.host_ip,
                                 node_specs=node_specs,
@@ -204,7 +237,7 @@ if __name__ == '__main__':
   # Expose local wearable data to remote subscribers (e.g. lab PC in AidFOG project).
   if args.remote_subscriber_ips:
     local_broker.expose_to_remote_broker(args.remote_subscriber_ips)
-  
+
   # Subscribe to the KILL signal of a remote machine.
   if args.is_remote_kill:
     local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
@@ -221,3 +254,7 @@ if __name__ == '__main__':
     t.join()
   else:
     local_broker()
+
+
+if __name__ == '__main__':
+  app()

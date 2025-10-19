@@ -30,9 +30,9 @@ from typing import Callable
 import zmq
 
 from hermes.utils.node_utils import launch_node
+from hermes.utils.time_utils import get_time
 from hermes.utils.types import ZMQResult
-from hermes.utils.time_utils import *
-from hermes.utils.zmq_utils import *
+from hermes.utils.zmq_utils import IP_LOOPBACK, PORT_BACKEND, PORT_FRONTEND, PORT_KILL, PORT_KILL_BTN, PORT_SYNC_HOST, PORT_SYNC_REMOTE, TOPIC_KILL
 
 from hermes.base.broker.broker_interface import BrokerInterface
 from hermes.base.broker.broker_states import AbstractBrokerState, InitState
@@ -136,7 +136,7 @@ class Broker(BrokerInterface):
 
     # Socket to listen to kill command from the GUI.
     self._gui_btn_kill: zmq.SyncSocket = self._ctx.socket(zmq.REP)
-    self._gui_btn_kill.bind("tcp://*:%s" % (PORT_KILL_BTN))
+    self._gui_btn_kill.bind("tcp://*:%s" % PORT_KILL_BTN)
 
     # Poll object to listen to sockets without blocking
     self._poller: zmq.Poller = zmq.Poller()

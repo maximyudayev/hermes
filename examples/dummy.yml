@@ -57,7 +57,6 @@ logging_spec:
 
 
 producer_specs:
-  # Stream from one or more cameras.
   - package: "dummy"
     class: "DummyProducer"
     settings:

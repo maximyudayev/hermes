@@ -25,18 +25,18 @@
 #
 # ############
 
+from hermes.utils.zmq_utils import PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
+
 from hermes.base.nodes.consumer import Consumer
-from hermes.utils.zmq_utils import *
 
 
-########################################################################
-########################################################################
-# A class to log streaming data to one or more files.
-# Producer instances are passed to the class, and the data
-#   that they stream are written to disk periodically and/or at the end.
-########################################################################
-########################################################################
 class DataLogger(Consumer):
+  """A Node to centrally log streaming data of all specified modalities to one or more files.
+
+  May be redundant because each Node has a local Storage component that manages safe disk flushing of the acquired data.
+  Producer and Pipeline specifications mapping is passed to the class, 
+  and the data they stream are written to disk periodically and/or at the end.
+  """
   @classmethod
   def _log_source_tag(cls) -> str:
     return 'logger'
@@ -51,8 +51,17 @@ class DataLogger(Consumer):
                port_killsig: str = PORT_KILL,
                log_history_filepath: str | None = None,
                **_):
+    """Constructor of the centralized Storage Node.
 
-    # Inherits FSM and Consumer ZeroMQ functionality.
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_specs (list[dict]): List of mappings of user-configured incoming modalities.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+        log_history_filepath (str | None, optional): File path to the system log file. Defaults to None.
+    """
     super().__init__(host_ip=host_ip,
                      stream_in_specs=stream_specs,
                      logging_spec=logging_spec,

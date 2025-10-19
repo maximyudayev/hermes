@@ -8,5 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.1 <small>October 19, 2025</small>
+- Patched namespace build.
+- Added CLI with config-based setup.
+
 ### 0.1.0 <small>October 11, 2025</small>
 - Initial publically available version of the framework.

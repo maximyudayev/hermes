@@ -28,15 +28,17 @@
 from hermes.base.stream import Stream
 
 
-###########################################
-###########################################
-# A structure to store Dummy stream's data.
-###########################################
-###########################################
 class DummyStream(Stream):
+  """A Stream structure to store Dummy modality data.
+  """
   def __init__(self, 
                sampling_rate_hz: int = 1,
                **_) -> None:
+    """Constructor of the DummyStream datastructure.
+
+    Args:
+        sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to 1.
+    """
     super().__init__()
 
     self._device_name = 'sensor-emulator'

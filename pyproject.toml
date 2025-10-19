@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pysio-hermes"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.7"
 authors = [
   { name="Maxim Yudayev", email="maxim.yudayev@gmail.com" },
@@ -43,18 +43,8 @@ dependencies = [
   "orjson",
 ]
 
-[project.optional-dependencies]
-build = [
-  "build",
-  "twine"
-]
-docs = [
-  "mkdocs-material",
-  "mkdocstrings-python"
-]
-
-[tool.setuptools.packages.find]
-exclude = ["docs*", ".vscode*", ".github*", ".venv*", "images*"]
+[project.scripts]
+hermes-cli = "hermes.cli:app"
 
 [project.urls]
 Homepage = "https://maximyudayev.github.io/hermes"

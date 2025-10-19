@@ -27,13 +27,16 @@
 
 import time
 
-from hermes.base.nodes import Producer
+from hermes.utils.time_utils import get_time
+from hermes.utils.zmq_utils import PORT_BACKEND, PORT_KILL, PORT_SYNC_HOST
+
 from hermes.dummy.stream import DummyStream
-from hermes.utils.print_utils import *
-from hermes.utils.zmq_utils import *
+from hermes.base.nodes.producer import Producer
 
 
 class DummyProducer(Producer):
+  """A Node showcasing the Producer behavior, generating new data relayed to the Broker for consumers.
+  """
   @classmethod
   def _log_source_tag(cls) -> str:
     return 'dummy-producer'
@@ -48,6 +51,17 @@ class DummyProducer(Producer):
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = float('nan'),
                **_):
+    """Constructor of the DummyProducer Node.
+
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to float('nan').
+        port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+        transmit_delay_sample_period_s (float, optional): Duration of the period over which to estimate propagation delay of measurements from the corresponding device. Defaults to float('nan').
+    """
     
     stream_out_spec = {
       "sampling_rate_hz": sampling_rate_hz

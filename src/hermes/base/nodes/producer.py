@@ -26,18 +26,18 @@
 # ############
 
 from abc import abstractmethod
+from collections import OrderedDict
 import threading
 import zmq
 import math
 
 from hermes.utils.msgpack_utils import serialize
-from hermes.utils.dict_utils import *
-from hermes.utils.zmq_utils import *
+from hermes.utils.zmq_utils import CMD_END, CMD_EXIT, DNS_LOCALHOST, PORT_BACKEND, PORT_KILL, PORT_SYNC_HOST
 
 from hermes.base.stream import Stream
-from hermes.base.storage import Storage
+from hermes.base.storage.storage import Storage
 from hermes.base.delay_estimator import DelayEstimator
-from hermes.base.nodes import Node
+from hermes.base.nodes.node import Node
 from hermes.base.nodes.producer_interface import ProducerInterface
 
 

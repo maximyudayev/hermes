@@ -27,7 +27,7 @@
 
 import importlib
 
-from hermes.base.nodes import Node
+from hermes.base.nodes.node import Node
 from hermes.base.nodes.node_interface import NodeInterface
 
 

@@ -30,20 +30,22 @@ from abc import abstractmethod
 from collections import OrderedDict
 import zmq
 
+from hermes.utils.msgpack_utils import deserialize
+from hermes.utils.node_utils import search_node_class
+from hermes.utils.zmq_utils import CMD_END, CMD_EXIT, DNS_LOCALHOST, PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
+
 from hermes.base.stream import Stream
-from hermes.base.storage import Storage
-from hermes.base.nodes import Node
+from hermes.base.storage.storage import Storage
+from hermes.base.nodes.node import Node
 from hermes.base.nodes.consumer_interface import ConsumerInterface
 from hermes.base.nodes.producer_interface import ProducerInterface
 from hermes.base.nodes.pipeline_interface import PipelineInterface
 
-from hermes.utils.msgpack_utils import deserialize
-from hermes.utils.zmq_utils import *
-from hermes.utils.node_utils import search_node_class
-
 
 class Consumer(ConsumerInterface, Node):
   """An abstract class to interface with a particular data consumer.
+
+  Subscribes to the modalities specified in and parametrized by `stream_in_specs`.
   """
   def __init__(self,
                host_ip: str,

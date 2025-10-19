@@ -28,7 +28,7 @@
 from abc import abstractmethod
 import zmq
 
-from hermes.utils.zmq_utils import *
+from hermes.utils.zmq_utils import DNS_LOCALHOST, PORT_KILL, PORT_KILL_BTN, PORT_SYNC_HOST, TOPIC_KILL
 
 from hermes.base.nodes.node_interface import NodeInterface
 from hermes.base.nodes.node_states import AbstractNodeState, StartState

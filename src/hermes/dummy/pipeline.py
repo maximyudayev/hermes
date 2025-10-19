@@ -25,13 +25,16 @@
 #
 # ############
 
-from hermes.base.nodes import Pipeline
-from hermes.dummy.stream import DummyStream
 from hermes.utils.time_utils import get_time
-from hermes.utils.zmq_utils import *
+from hermes.utils.zmq_utils import PORT_BACKEND, PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
+
+from hermes.dummy.stream import DummyStream
+from hermes.base.nodes.pipeline import Pipeline
 
 
 class DummyPipeline(Pipeline):
+  """A Node showcasing the Pipeline behavior, consuming external data and generating new data relayed back to the Broker.
+  """
   @classmethod
   def _log_source_tag(cls) -> str:
     return 'dummy-pipeline'
@@ -47,9 +50,18 @@ class DummyPipeline(Pipeline):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                **_):
+    """Constructor of the DummyPipeline Node.
 
-    # Abstract class will call concrete implementation's creation methods
-    #   to build the data structure of the sensor
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+        stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
+        port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+    """
     super().__init__(host_ip=host_ip,
                      stream_out_spec=stream_out_spec,
                      stream_in_specs=stream_in_specs,

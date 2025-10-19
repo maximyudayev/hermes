@@ -25,11 +25,14 @@
 #
 # ############
 
+from hermes.utils.zmq_utils import PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
+
 from hermes.base.nodes.consumer import Consumer
-from hermes.utils.zmq_utils import *
 
 
 class DummyConsumer(Consumer):
+  """A Node showcasing the Consumer behavior, consumeing external data relayed to it by the Broker.
+  """
   @classmethod
   def _log_source_tag(cls) -> str:
     return 'dummy-consumer'
@@ -44,8 +47,17 @@ class DummyConsumer(Consumer):
                port_killsig: str = PORT_KILL,
                log_history_filepath: str | None = None,
                **_):
+    """Constructor of the DummyConsumer Node.
 
-    # Inherits FSM and Consumer ZeroMQ functionality.
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+        log_history_filepath (str | None, optional): File path to the system log file. Defaults to None.
+    """
     super().__init__(host_ip=host_ip,
                      stream_in_specs=stream_in_specs,
                      logging_spec=logging_spec,
