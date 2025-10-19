@@ -37,6 +37,11 @@ class DelayEstimator:
   """
   def __init__(self,
                sample_period_s: float):
+    """Constructor of the DelayEstimator component for propagation delay estimation.
+
+    Args:
+        sample_period_s (float): Duration of periods over which to estimate propagation delay.
+    """
     self._sample_period_s = sample_period_s
     self._is_continue = True
 

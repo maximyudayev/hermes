@@ -54,6 +54,14 @@ class Broker(BrokerInterface):
 
   Uses fixed ports for communication under `zmq_utils.py`.
   Use of other ports is discouraged.
+
+  Macro-defined ports are preferred for consistency in a
+  distributed, multi-host setup. 
+
+  Uses hierarchical coordination of distributed host synchronization/setup.
+  Each Broker first starts up and sync local Nodes.
+  Then syncs with all expected remote hosts, until all are ready.
+  After all are ready, master Broker communicates trigger signal to start streaming.
   """
 
   @classmethod
@@ -70,15 +78,7 @@ class Broker(BrokerInterface):
                port_sync_remote: str = PORT_SYNC_REMOTE,
                port_killsig: str = PORT_KILL,
                is_master_broker: bool = False) -> None:
-    """Constructor of the Broker main entrypoint.
-
-    Macro-defined ports are preferred for consistency in a
-    distributed, multi-host setup. 
-
-    Uses hierarchical coordination of distributed host synchronization/setup.
-    Each Broker first starts up and sync local Nodes.
-    Then syncs with all expected remote hosts, until all are ready.
-    After all are ready, master Broker communicates trigger signal to start streaming.
+    """Constructor of the Broker component responsible for the lifecycle of all local Nodes and for message exchange across them and distributed hosts.
 
     Args:
         host_ip (str): Public LAN IP address of this host.
@@ -90,8 +90,6 @@ class Broker(BrokerInterface):
         port_killsig (str, optional): Port of the KILL signal this Broker announces from. Defaults to PORT_KILL.
         is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to False.
     """
-
-    # Record various configuration options.
     self._host_ip = host_ip
     self._is_master_broker = is_master_broker
     self._port_backend = port_backend

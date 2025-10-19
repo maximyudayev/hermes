@@ -27,7 +27,6 @@
 
 from abc import ABC, abstractmethod
 from typing import Callable
-
 import zmq
 
 from hermes.utils.types import ZMQResult

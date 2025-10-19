@@ -31,6 +31,7 @@ from abc import ABC, abstractmethod
 class StateInterface(ABC):
   """Basic FSM interface for Broker, Node, Storage.
   """
+
   @abstractmethod
   def run(self) -> None:
     """Run the logic of the currently selected state.

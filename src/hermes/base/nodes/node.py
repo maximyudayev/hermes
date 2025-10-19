@@ -39,6 +39,13 @@ class Node(NodeInterface):
                host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL) -> None:
+    """Constructor of the Node parent class.
+
+    Args:
+        host_ip (str, optional): IP address of the local master Broker. Defaults to DNS_LOCALHOST.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+    """
     self._host_ip = host_ip
     self._port_sync = port_sync
     self._port_killsig = port_killsig
@@ -60,21 +67,19 @@ class Node(NodeInterface):
     self.__is_done = done
 
 
-  # Nodes are callable with FSM as entry-point.
   def __call__(self):
+    """Node objects are callable to start the FSM as entry-point.
+    """
     while self._state.is_continue():
       self._state.run()
     self._cleanup()
     print("%s exited, goodbye <3"%self._log_source_tag(), flush=True)
 
 
-  # FSM transition.
   def _set_state(self, state: AbstractNodeState) -> None:
     self._state = state
 
 
-  # Pre-run setup of the backend specific to the Node implementaiton.
-  # Generic setup should be run first.
   @abstractmethod
   def _initialize(self):
     # Socket to receive kill signal
@@ -95,7 +100,6 @@ class Node(NodeInterface):
     return self._sync
 
 
-  # Start listening to the kill signal
   def _activate_kill_poller(self) -> None:
     self._poller.register(self._killsig, zmq.POLLIN)
 
@@ -105,7 +109,6 @@ class Node(NodeInterface):
     pass
 
 
-  # Stop listening to the kill signal.
   def _deactivate_kill_poller(self) -> None:
     print("%s received KILL signal"%self._log_source_tag(), flush=True)
     # self._killsig.recv_multipart()
@@ -116,33 +119,25 @@ class Node(NodeInterface):
     self._babykillsig.send_string(TOPIC_KILL)
 
 
-  # Listens for events when new data is received from or when new data can be written to sockets,
-  #   based on the active Poller settings of the Node implementation.
   def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
     return tuple(zip(*(self._poller.poll()))) # type: ignore
 
 
-  # Actions to perform on the poll event.
-  # Generic entry-point for all types of Nodes, based on their active Poller settings.
-  # NOTE: if Node in JoinState, kill socket is no longer in the Poller and only higher-level logic is triggered.
   @abstractmethod
   def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:
     if self._killsig in poll_res[0]:
       self._state.kill()
 
 
-  # Send signal to inheriting Node type to cooldown.
-  #   Producer: stops sampling data, continue sending already captured until none is left, with last message labeled 'END'.
-  #   Consumer: continues listening to data until each of subscribed Producers sent the last message.
-  #   Pipeline: continues listening to data to produce results until each data sources sent the last message, and then labels the last message with 'END'.
   @abstractmethod
   def _trigger_stop(self) -> None:
     pass
 
 
-  # Release of generic Node resources, must be done after releasing higher-level resources.
   @abstractmethod
   def _cleanup(self):
+    """Release of generic Node resources, must be done after releasing higher-level resources.
+    """
     self._killsig.close()
     self._babykillsig.close()
     self._sync.close()

@@ -42,13 +42,9 @@ from hermes.utils.zmq_utils import *
 from hermes.utils.node_utils import search_node_class
 
 
-##########################################################
-##########################################################
-# An abstract class to interface with a particular worker.
-#   i.e. a superclass for a data logger or passive GUI.
-##########################################################
-##########################################################
 class Consumer(ConsumerInterface, Node):
+  """An abstract class to interface with a particular data consumer.
+  """
   def __init__(self,
                host_ip: str,
                stream_in_specs: list[dict],
@@ -57,6 +53,17 @@ class Consumer(ConsumerInterface, Node):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                log_history_filepath: str | None = None) -> None:
+    """Constructor of the Consumer parent class.
+
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+        log_history_filepath (str | None, optional): File path to the system log file. Defaults to None.
+    """
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync, 
                      port_killsig=port_killsig)
@@ -85,14 +92,13 @@ class Consumer(ConsumerInterface, Node):
     self._logger_thread.start()
 
 
-  # Initialize backend parameters specific to Consumer.
   def _initialize(self):
     super()._initialize()
-    # Socket to subscribe to SensorStreamers
+    # Socket to subscribe to Producers
     self._sub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
     self._sub.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sub))
     
-    # Subscribe to topics for each mentioned local and remote streamer
+    # Subscribe to topics for each mentioned local and remote Nodes
     for tag in self._streams.keys():
       self._sub.subscribe(tag)
 
@@ -113,19 +119,28 @@ class Consumer(ConsumerInterface, Node):
     pass
 
 
-  # In normal operation mode, all messages are 2-part.
   def _poll_data_packets(self) -> None:
+    """Receive data packets in a steady state.
+    
+    Gets called every time one of the requestes modalities produced new data.
+    In normal operation mode, all messages are 2-part.
+    """
     topic, payload = self._sub.recv_multipart()
     msg = deserialize(payload)
     topic_tree: list[str] = topic.decode('utf-8').split('.')
     self._streams[topic_tree[0]].append_data(**msg)
 
 
-  # When system triggered a safe exit, Consumer gets a mix of normal 2-part messages
-  #   and 3-part 'END' message from each Producer that safely exited.
-  #   It's more efficient to dynamically switch the callback instead of checking every message.
   def _poll_ending_data_packets(self) -> None:
-    # Process until all data sources sent 'END' packet.
+    """Receive data packets from producers and monitor for end-of-stream signal.
+    
+    When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
+    and 3-part 'END' message from each Producer that safely exited.
+    It's more efficient to dynamically switch the callback instead of checking every message.
+    
+    Processes packets on each modality until all data sources sent the 'END' packet.
+    If triggered to stop and no more available data, sends empty 'END' packet and joins.
+    """
     topic, payload = self._sub.recv_multipart()
     # 'END' empty packet from a Producer.
     if CMD_END.encode('utf-8') in payload:
@@ -144,12 +159,8 @@ class Consumer(ConsumerInterface, Node):
     self._poll_data_fn = self._poll_ending_data_packets
 
 
-  # Stop all the data logging.
-  # Will stop stream-logging if it is active.
-  # Will dump all data if desired.
   @abstractmethod
   def _cleanup(self):
-    # Finish up the file saving before exitting.
     self._logger.cleanup()
     self._logger_thread.join()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.

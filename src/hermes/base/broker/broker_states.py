@@ -37,11 +37,16 @@ from hermes.base.state_interface import StateInterface
 
 
 class AbstractBrokerState(StateInterface):
-  """Abstract class for the Broker component.
+  """Abstract class for the Broker FSM.
 
   Can be externally triggered into the KILL state from any child State class.
   """
   def __init__(self, context: BrokerInterface):
+    """Constructor of the AbstractBrokerState class.
+
+    Args:
+        context (BrokerInterface): Reference to the Broker object.
+    """
     self._context = context
 
   def is_continue(self) -> bool:
@@ -89,7 +94,7 @@ class SyncBrokerBarrierState(AbstractBrokerState):
 
   Communicate to other Brokers that every local device is ready.
   """
-  def __init__(self, context):
+  def __init__(self, context: BrokerInterface):
     super().__init__(context)
     self._host_ip: str = self._context._get_host_ip()
     self._sync_remote_socket: zmq.SyncSocket = self._context._get_sync_remote_socket()
@@ -196,7 +201,7 @@ class RunningState(AbstractBrokerState):
 
   Will run until the the experiment is stopped or after a fixed period, if provided.
   """
-  def __init__(self, context):
+  def __init__(self, context: BrokerInterface):
     super().__init__(context)
     if (duration_s := self._context._get_duration()) is not None:
       self._is_continue_fn = lambda: get_time() < (self._context._get_start_time() + duration_s)
@@ -246,7 +251,7 @@ class JoinNodeBarrierState(AbstractBrokerState):
   Continue brokering packets until signalled by all publishers that there will be no more packets.
   Append a frame to the ZeroMQ message that indicates the last message from the sensor.
   """
-  def __init__(self, context):
+  def __init__(self, context: BrokerInterface):
     super().__init__(context)
     self._host_ip = self._context._get_host_ip()
     self._nodes = self._context._get_node_addresses()
@@ -340,7 +345,7 @@ class JoinBrokerBarrierState(AbstractBrokerState):
   Continue brokering packets until signalled by all remote hosts that there will be no more packets.
   Use the remote SYNC socket to coordinate when every Broker can exit.
   """
-  def __init__(self, context):
+  def __init__(self, context: BrokerInterface):
     super().__init__(context)
     self._host_ip = self._context._get_host_ip()
     self._brokers = self._context._get_remote_broker_addresses()

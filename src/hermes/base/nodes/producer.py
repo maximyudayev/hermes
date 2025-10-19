@@ -41,13 +41,9 @@ from hermes.base.nodes import Node
 from hermes.base.nodes.producer_interface import ProducerInterface
 
 
-############################################################
-############################################################
-# An abstract class to interface with a particular sensor.
-#   i.e. a superclass for DOTs, Pupil Core, or Camera class.
-############################################################
-############################################################
 class Producer(ProducerInterface, Node):
+  """An abstract class wrapping an interface with a particular device into a Producer Node.
+  """
   def __init__(self,
                host_ip: str,
                stream_out_spec: dict,
@@ -57,6 +53,18 @@ class Producer(ProducerInterface, Node):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                transmit_delay_sample_period_s: float = float('nan')) -> None:
+    """Constructor of the Producer parent class.
+
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to float('nan').
+        port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+        transmit_delay_sample_period_s (float, optional): Duration of the period over which to estimate propagation delay of measurements from the corresponding device. Defaults to float('nan').
+    """
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync,
                      port_killsig=port_killsig)
@@ -93,14 +101,18 @@ class Producer(ProducerInterface, Node):
       self._delay_thread.start()
 
 
-  # Common method to save and publish the captured sample
-  # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ.
-  #   That way network thread can alrady start processing the packet.
   def _publish(self, tag: str, **kwargs) -> None:
+    """Common method to save and publish the captured sample.
+
+    Best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ.
+    That way network thread can already start processing the packet.
+
+    Args:
+        tag (str): Uniquely identifying key for the modality to label data for message exchange.
+    """
     self._publish_fn(tag, **kwargs)
 
 
-  # Initialize backend parameters specific to Producer.
   def _initialize(self):
     super()._initialize()
     # Socket to publish sensor data and log
@@ -109,13 +121,12 @@ class Producer(ProducerInterface, Node):
     self._connect()
 
 
-  # Launch data streaming from the device.
   def _activate_data_poller(self) -> None:
     self._poller.register(self._pub, zmq.POLLOUT)
 
   
-  # Process custom event first, then Node generic (killsig).
   def _on_poll(self, poll_res):
+    # Process custom event first, then Node generic (killsig).
     if self._pub in poll_res[0]:
       self._process_data()
     super()._on_poll(poll_res)
@@ -127,11 +138,13 @@ class Producer(ProducerInterface, Node):
 
 
   def _store_and_broadcast(self, tag: str, **kwargs) -> None:
-    # Get serialized object to send over ZeroMQ.
+    """Place captured data into the corresponding Stream datastructure and transmit serialized ZeroMQ packets to subscribers.
+
+    Args:
+        tag (str): Uniquely identifying key for the modality to label data for message exchange.
+    """
     msg = serialize(**kwargs)
-    # Send the data packet on the PUB socket.
     self._pub.send_multipart([tag.encode('utf-8'), msg])
-    # Store the captured data into the data structure.
     self._stream.append_data(**kwargs)
 
 
@@ -140,13 +153,13 @@ class Producer(ProducerInterface, Node):
     self._stop_new_data()
 
 
-  # Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
   def _send_end_packet(self) -> None:
+    """Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
+    """
     self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), CMD_END.encode('utf-8')])
     self._is_done = True
 
 
-  # Cleanup sensor specific resources, then Producer generics, then Node generics.
   @abstractmethod
   def _cleanup(self) -> None:
     # Indicate to Logger to wrap up and exit.

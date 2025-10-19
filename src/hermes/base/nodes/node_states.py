@@ -34,7 +34,16 @@ from hermes.base.state_interface import StateInterface
 
 
 class AbstractNodeState(StateInterface):
+  """Abstract class for the Node FSM.
+
+  Can be externally triggered into the KILL state from any child State class.
+  """
   def __init__(self, context: NodeInterface):
+    """Constructor of the AbstractNodeState parent class.
+
+    Args:
+        context (NodeInterface): Reference to the Node object.
+    """
     self._context = context
 
   def is_continue(self) -> bool:
@@ -45,14 +54,19 @@ class AbstractNodeState(StateInterface):
 
 
 class StartState(AbstractNodeState):
+  """Starting state of the Node that initializes corresponding internal logic of the specified Node.
+
+  Activates data poller in case Node goes into KillState.
+  """
   def run(self):
     self._context._initialize()
-    # Activate data poller in case Node goes into KillState.
     self._context._activate_data_poller()
     self._context._set_state(SyncState(self._context))
 
 
 class SyncState(AbstractNodeState):
+  """Synchronization state of the Node to coordinate readiness to start working to the local master Broker.
+  """
   def __init__(self, context: NodeInterface):
     super().__init__(context)
     self._sync = context._get_sync_socket()
@@ -68,7 +82,9 @@ class SyncState(AbstractNodeState):
 
 
 class RunningState(AbstractNodeState):
-  def __init__(self, context):
+  """Running state of the Node with the steady-state main loop listening for data and triggering user-provided callbacks on it. 
+  """
+  def __init__(self, context: NodeInterface):
     super().__init__(context)
     self._context._activate_kill_poller()
     self._context._on_sync_complete()
@@ -79,18 +95,21 @@ class RunningState(AbstractNodeState):
 
 
 class KillState(AbstractNodeState):
+  """Termination state of the Node that gracefully processes the external KILL signal from the local master Broker.
+  """
   def run(self):
     self._context._deactivate_kill_poller()
     self._context._send_kill_to_broker()
     self._context._trigger_stop()
     self._context._set_state(JoinState(self._context))
 
-  # Override to ignore more kill calls because we are already ending process.
   def kill(self):
     pass
 
 
 class JoinState(AbstractNodeState):
+  """Gracefully exit state of the Node to coordinate closure to the local master Broker.
+  """
   def run(self):
     poll_res: tuple[list[zmq.SyncSocket], list[int]] = self._context._poll()
     self._context._on_poll(poll_res)
@@ -98,6 +117,5 @@ class JoinState(AbstractNodeState):
   def is_continue(self):
     return not self._context._is_done
   
-  # Override to ignore more kill calls because we are already ending process.
   def kill(self):
     pass

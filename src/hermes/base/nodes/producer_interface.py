@@ -32,38 +32,60 @@ from hermes.base.stream import Stream
 
 
 class ProducerInterface(NodeInterface):
-  # Instantiate Stream datastructure object specific to this Streamer.
-  #   Should also be a class method to create Stream objects on consumers. 
+  """Interface for the Producer Node component.
+  """
+
   @classmethod
   @abstractmethod
   def create_stream(cls, stream_spec: dict) -> Stream:
+    """Instantiate Stream datastructure object specific to this Pipeline.
+
+    Should also be a class method to create Stream objects on consumers.
+
+    Args:
+        stream_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+
+    Returns:
+        Stream: Datastructure object of the corresponding Node, configured according to the user-provided specification.
+    """
     pass
 
-  # Blocking ping of the sensor.
-  # Concrete implementation of Producer must override the method if required to measure transmission delay
-  #   for realtime/post-processing alignment of modalities that don't support system clock sync.
   @abstractmethod
   def _ping_device(self) -> None:
+    """Device-specific procedure for round-trip time estimation.
+
+    Concrete implementation of Producer must override the method if required to measure transmission delay
+      for realtime/post-processing alignment of modalities that don't support system clock sync.
+    """
     pass
 
-  # Connect to the sensor device(s).
   @abstractmethod
   def _connect(self) -> bool:
+    """Connect to device via its corresponding backend.
+
+    Returns:
+        bool: Whether connection to the device succeeded.
+    """
     pass
 
   @abstractmethod
   def _keep_samples(self) -> None:
+    """Node-specific externally triggered function to start keeping in memory streamed data.
+    """
     pass
 
-  # Iteration loop logic for the sensor.
-  # Acquire data from your sensor as desired, and for each timestep.
-  # SDK thread pushes data into shared memory space, this thread pulls data and does all the processing,
-  #   ensuring that lost packets are responsibility of the slow consumer.
   @abstractmethod
   def _process_data(self) -> None:
+    """Main iteration loop logic for the Node during its running phase.
+
+    Acquire data from your sensor as desired, and for each timestep.
+    SDK thread pushes data into shared memory space, this thread pulls data and does all the processing,
+    ensuring that lost packets are responsibility of the slow consumer.
+    """
     pass
 
-  # Stop sampling data, continue sending already captured until none is left.
   @abstractmethod
   def _stop_new_data(self) -> None:
+    """Stop sampling data, continue sending already captured until none is left.
+    """
     pass

@@ -38,6 +38,11 @@ class AbstractStorageState(StateInterface):
   """Abstract class for the Storage component.
   """
   def __init__(self, context: StorageInterface):
+    """Constructor of the AbstractStorageState.
+
+    Args:
+        context (StorageInterface): Reference to the Storage object.
+    """
     self._context = context
     self._is_continue_fsm = True
 
@@ -57,7 +62,13 @@ class StartState(AbstractStorageState):
 
   Will immediately transition into `StreamState` after initialization.
   """
-  def __init__(self, context, streams: OrderedDict[str, Stream]):
+  def __init__(self, context: StorageInterface, streams: OrderedDict[str, Stream]):
+    """Constructor of the StartState.
+
+    Args:
+        context (StorageInterface): Reference to the Storage object.
+        streams (OrderedDict[str, Stream]): Reference to the mapping between uniquly identifying Node keys and the corresponding Stream datastructures. 
+    """
     super().__init__(context)
     self._context._initialize(streams)
 
@@ -75,7 +86,12 @@ class StreamState(AbstractStorageState):
 
   Using some streams in stream and others in dump has undefined behavior.
   """
-  def __init__(self, context):
+  def __init__(self, context: StorageInterface):
+    """Constructor of the StreamState.
+
+    Args:
+        context (StorageInterface): Reference to the Storage object.
+    """
     super().__init__(context)
     # Prepare stream-logging.
     if self._context._is_to_stream():
@@ -98,7 +114,12 @@ class DumpState(AbstractStorageState):
 
   Using some streams in stream and others in dump has undefined behavior.
   """
-  def __init__(self, context):
+  def __init__(self, context: StorageInterface):
+    """Constructor of the DumpState.
+
+    Args:
+        context (StorageInterface): Reference to the Storage object.
+    """
     super().__init__(context)
     # Dump write files at the end of the trial for data that hadn't been streamed.
     #   Assumes all intermediate recorded data can fit in memory.

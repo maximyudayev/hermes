@@ -32,21 +32,39 @@ from hermes.base.stream import Stream
 
 
 class PipelineInterface(NodeInterface):
-  # Instantiate Stream datastructure object specific to this Pipeline.
-  #   Should also be a class method to create Stream objects on consumers. 
+  """Interface for the Pipeline Node component.
+  """
+
   @classmethod
   @abstractmethod
   def create_stream(cls, stream_spec: dict) -> Stream:
+    """Instantiate Stream datastructure object specific to this Pipeline.
+
+    Should also be a class method to create Stream objects on consumers.
+
+    Args:
+        stream_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+
+    Returns:
+        Stream: Datastructure object of the corresponding Node, configured according to the user-provided specification.
+    """
     pass
 
-  # Iteration loop logic for the worker.
-  # Contained logic has to deal with async multiple modalities.
-  # Must end with calling `_send_end_packet` 
   @abstractmethod
   def _process_data(self, topic: str, msg: dict) -> None:
+    """Main iteration loop logic for the Node during its running phase.
+
+    Contained logic has to deal with async multiple modalities.
+    Must end with calling `_send_end_packet`.
+
+    Args:
+        topic (str): Uniquely identified modality of the contained data.
+        msg (dict): Received data of the corresponding modality.
+    """
     pass
 
-  # Stop sampling data, continue sending already captured until none is left.
   @abstractmethod
   def _stop_new_data(self) -> None:
+    """Stop sampling data, continue sending already captured until none is left.
+    """
     pass

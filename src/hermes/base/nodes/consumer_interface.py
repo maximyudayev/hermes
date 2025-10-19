@@ -29,4 +29,6 @@ from hermes.base.nodes.node_interface import NodeInterface
 
 
 class ConsumerInterface(NodeInterface):
+  """Interface for the Consumer Node component.
+  """
   pass

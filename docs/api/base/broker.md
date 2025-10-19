@@ -1,4 +1,5 @@
 # hermes.base.broker
+
 The module is responsible for managing the lifecycle of all locally-hosted Nodes. 
 It is also the program's entrypoint to the continuous sensing and processing.
 

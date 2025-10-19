@@ -86,8 +86,27 @@ class Storage(StorageInterface):
                audio_codec_num_cpu: int = 1,
                stream_period_s: float = 30.0,
                **_):
+    """Constructor of the Storage component responsible for all IO.
 
-    # Record the configuration options.
+    Args:
+        log_tag (str): Filename prefix.
+        log_dir (str): Path to the directory on disk to flush data to.
+        log_time_s (float): Start time of saving data.
+        experiment (dict[str, str]): Nested setup definition of Nodes across distributed hosts.
+        stream_csv (bool, optional): Whether to stream data into CSV files. Defaults to False.
+        stream_hdf5 (bool, optional): Whether to stream data into HDF5 files. Defaults to False.
+        stream_video (bool, optional): Whether to stream video data into MP4/MKV files. Defaults to False.
+        stream_audio (bool, optional): Whether to stream audio data into MP3/WAV files. Defaults to False.
+        dump_csv (bool, optional): Weather to dump in-memory recorded data in CSV files. Defaults to False.
+        dump_hdf5 (bool, optional): Weather to dump in-memory recorded data in HDF5 files. Defaults to False.
+        dump_video (bool, optional): Weather to dump in-memory recorded video data in MP4/MKV files. Defaults to False.
+        dump_audio (bool, optional): Weather to dump in-memory recorded audio data in MP3/WAV files. Defaults to False.
+        video_codec (VideoCodecDict | None, optional): Definition of the video codec to use for FFmpeg. Defaults to None.
+        video_codec_num_cpu (int, optional): Number of CPU cores to limit an FFmpeg process to for video writing. Defaults to 1.
+        audio_codec (AudioCodecDict | None, optional): Definition of the audio codec to use for FFmpeg. Defaults to None.
+        audio_codec_num_cpu (int, optional): Number of CPU cores to limit an FFmpeg process to for audio writing. Defaults to 1.
+        stream_period_s (float, optional): Duration of periods over which to flush streamed accumulated data from memory to disk. Defaults to 30.0.
+    """
     self._stream_hdf5 = stream_hdf5
     self._stream_csv = stream_csv
     self._stream_video = stream_video
@@ -387,7 +406,7 @@ class Storage(StorageInterface):
           input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
           input_stream_format: str = stream_info['ffmpeg_input_format']
           metadata_dict = {'metadata:g:%d'%i: '%s=%s'%(k,v) for i, (k,v) in enumerate([('title', '/'.join(self._experiment.values())),
-                                                                                       ('date', get_time_str(self._log_time_s, '%Y-%m-%d', False)),
+                                                                                       ('date', get_time_str(self._log_time_s, '%Y-%m-%d')),
                                                                                        ('comment', 'HERMES multi-modal data acquisition system recording'),
                                                                                        *map(lambda tup: ('X%s'%tup[0], tup[1]), list(self._experiment.items())),
                                                                                        ('Xencoder', self._video_codec['codec_name']),
@@ -457,7 +476,7 @@ class Storage(StorageInterface):
           input_stream_sample_fmt = stream_info['sample_format']
           
           metadata_dict = {'metadata:g:%d'%i: '%s=%s'%(k,v) for i, (k,v) in enumerate([('title', '/'.join(self._experiment.values())),
-                                                                                       ('date', get_time_str(self._log_time_s, '%Y-%m-%d', False)),
+                                                                                       ('date', get_time_str(self._log_time_s, '%Y-%m-%d')),
                                                                                        ('comment', 'HERMES multi-modal data acquisition system recording'),
                                                                                        *map(lambda tup: ('X%s'%tup[0], tup[1]), list(self._experiment.items())),
                                                                                        ('Xencoder', self._audio_codec['codec_name']),
@@ -515,8 +534,8 @@ class Storage(StorageInterface):
     """Add experiment metadata on the HDF5 file.
     """
     file_metadata = convert_dict_values_to_str({**self._experiment,
-                                                'Date': get_time_str(self._log_time_s, '%Y-%m-%d', False),
-                                                'Time': get_time_str(self._log_time_s, '%H-%M-%S', False),
+                                                'Date': get_time_str(self._log_time_s, '%Y-%m-%d'),
+                                                'Time': get_time_str(self._log_time_s, '%H-%M-%S'),
                                                 'Comment': 'HERMES multi-modal data acquisition system recording'}, preserve_nested_dicts=False)
     if self._hdf5_file is not None:
       file_group = self._hdf5_file['/']

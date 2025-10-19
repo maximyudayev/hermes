@@ -28,6 +28,8 @@
 import time as _time
 from time import perf_counter
 from threading import Lock
+from datetime import datetime, timezone
+from dateutil import tz
 
 
 class SingletonMeta(type):
@@ -54,47 +56,13 @@ def get_time() -> float:
   return SystemTime().time()
 
 
-############
-#
-# Copyright (c) 2022 MIT CSAIL and Joseph DelPreto
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# See https://action-net.csail.mit.edu for more usage information.
-# Created 2021-2022 for the MIT ActionNet project by Joseph DelPreto [https://josephdelpreto.com].
-#
-############
-
-from datetime import datetime, timezone
-from dateutil import tz
-
-
 # Get a date string from seconds since epoch.
 # If time_s is None, will use the current time.
 def get_time_str(time_s: float = get_time(), 
-                 format: str = '%Y-%m-%d_%H-%M-%S', 
-                 return_time_s: bool = False) -> str | tuple[str, float]:
+                 format: str = '%Y-%m-%d_%H-%M-%S') -> str:
   time_datetime = datetime.fromtimestamp(time_s)
   time_str = time_datetime.strftime(format)
-  if return_time_s:
-    return (time_str, time_s)
-  else:
-    return time_str
+  return time_str
 
 
 # Given a UTC time string in the format %H:%M:%S.%f,

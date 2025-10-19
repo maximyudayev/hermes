@@ -36,40 +36,76 @@ from hermes.utils.time_utils import get_time
 
 @dataclass
 class DataRequest:
+  """Object wrapping user's element of interest into a fetch request.
+  """
   key: str
   timestamp: float
 
 
-class FFmpegCache:
-  def __init__(self, decode_fn: Callable[[Any], Dict[Any, bytes]], decode_fetch_offset: int):
-    self._cache: Dict[Any, bytes] = {}
-    self._decode_fn = decode_fn
-    self._decode_frame_offset = decode_fetch_offset
+class Cache:
+  """Caching module prefetches segments of data that has long IO, for more responsive experience.
+  """
+  def __init__(self, fetch_fn: Callable[[Any], Dict[Any, Any]], fetch_offset: int):
+    """Constructor of the Cache component for long IO prefetching to mask latency behind wide bandwidth.
+
+    Args:
+        fetch_fn (Callable[[Any], Dict[Any, Any]]): User-provided function with long IO to use for asynchronous prefetching (database operation, API call, FFmpeg decoding, etc.).
+        fetch_offset (int): How many elements before the requested to cache in case of jumping backwards during playback.
+    """
+    self._cache: Dict[Any, Any] = {}
+    self._fetch_fn = fetch_fn
+    self._fetch_offset = fetch_offset
     self._request_queue: queue.Queue[DataRequest] = queue.Queue()
-    # Events to notify when specific data becomes available
     self._data_events: Dict[Any, threading.Event] = defaultdict(threading.Event)
 
 
   def start(self):
-    """Start the background cache management thread."""
-    self._cache_task = threading.Thread(target=self._cache_manager)
+    """Start the background cache management thread.
+    """
+    self._cache_task = threading.Thread(target=self._run_cache_manager)
     self._cache_task.start()
 
 
-  def stop(self):
-    """Stop the background cache management task."""
+  def join(self):
+    """Wait on the background cache management thread.
+    """
     if hasattr(self, 'cache_task'):
       self._cache_task.join()
 
 
-  def _cache_manager(self):
+  def get_data(self, key: Any) -> Any:
+    """Request data from the cache.
+
+    Checks if data is already in the cache.
+    Adds a request to the queue for background processing.
+    Returns immediately if requested data is cached, otherwise waits for the background task to fetch it.
+    Stalls until the data is available in the cache for the given key.
+
+    Args:
+        key (Any): Unique key correctly identifying the element of interest in the user-provided fetch function.
+
+    Returns:
+        Any: The requested element of interest.
     """
-    Background continuous task: cache management.
-    Processes requests from the GUI and predicts future needs.
+    if key in self._cache:
+      return self._cache[key]
+
+    request = DataRequest(key, get_time())
+    self._request_queue.put(request)
+
+    event = self._data_events[key]
+    event.wait()
+    del self._data_events[key]
+    return self._cache[key]
+
+
+  def _run_cache_manager(self):
+    """Main loop of the background continuous cache management thread.
+
+    Processes requests from the user and prefetches most likely used next segment of elements.
     """
     while True:
       try:
-        # Wait for user's requests
         request = self._request_queue.get(timeout=None)
         self._process_request(request)
       except queue.Empty:
@@ -79,43 +115,27 @@ class FFmpegCache:
 
 
   def _process_request(self, request: DataRequest):
-    """Process data request"""
-    # Only fetch if not already in cache or being fetched
+    """Process user request for the next element of interest. 
+
+    Runs user-provided long-IO fetch procedure if the data is not immediately available in cache or isn't already being fetched.
+    Updates the cache and notifies all watchers waiting for this element.
+
+    Args:
+        request (DataRequest): User-requested element of interest.
+    """
     if request.key not in self._cache:
-      # Update cache and notify waiters
-      self._cache = self._fetch_data_from_source(request.key)
-      # Notify all waiters for this key
+      self._cache = self._fetch(request.key)
       if request.key in self._data_events:
         self._data_events[request.key].set()
 
 
-  def _fetch_data_from_source(self, key: Any) -> Dict[Any, bytes]:
+  def _fetch(self, key: Any) -> Dict[Any, Any]:
+    """Fetches data from an external source using user-defined IO function.
+
+    Returns:
+        Dict[Any, Any]: Mapping from a unique key to the element of interest.
     """
-    Simulate fetching data from external source.
-    Replace this with your actual data source (database, API, etc.)
-    """
-    # Call user-provided IO operation
-    if (window_start_frame := key - self._decode_frame_offset) > 0:
-      return self._decode_fn(window_start_frame)
+    if (window_start_frame := key - self._fetch_offset) > 0:
+      return self._fetch_fn(window_start_frame)
     else:
-      return self._decode_fn(0)
-
-
-  def get_data(self, key: Any) -> bytes:
-    """
-    Request data from cache.
-    Returns immediately if cached, otherwise waits for the background task to fetch.
-    """
-    # Check if data is already in cache
-    if key in self._cache:
-      return self._cache[key]
-
-    # Add request to queue for background processing
-    request = DataRequest(key, get_time())
-    self._request_queue.put(request)
-
-    # Wait for the data to become available in cache for the given key
-    event = self._data_events[key]
-    event.wait()
-    del self._data_events[key]
-    return self._cache[key]
+      return self._fetch_fn(0)

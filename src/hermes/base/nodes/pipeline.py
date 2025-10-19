@@ -41,13 +41,9 @@ from hermes.base.nodes.pipeline_interface import PipelineInterface
 from hermes.base.nodes.producer_interface import ProducerInterface
 
 
-##############################################################
-##############################################################
-# An abstract class to interface with a data-producing worker.
-#   i.e. a superclass for AI worker, controllable GUI, etc.
-##############################################################
-##############################################################
 class Pipeline(PipelineInterface, Node):
+  """An abstract class to interface with a data-producing worker.
+  """
   def __init__(self,
                host_ip: str,
                stream_out_spec: dict,
@@ -57,6 +53,18 @@ class Pipeline(PipelineInterface, Node):
                port_sub: str = PORT_FRONTEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL) -> None:
+    """Constructor of the Pipeline parent class.
+
+    Args:
+        host_ip (str): IP address of the local master Broker.
+        stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+        stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+        logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
+        port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
+        port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
+        port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
+        port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+    """
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync,
                      port_killsig=port_killsig)
@@ -96,7 +104,6 @@ class Pipeline(PipelineInterface, Node):
     self._logger_thread.start()
 
 
-  # Initialize backend parameters specific to Pipeline.
   def _initialize(self):
     super()._initialize()
 
@@ -113,15 +120,13 @@ class Pipeline(PipelineInterface, Node):
       self._sub.subscribe(tag)
 
 
-  # Launch data receiving and result producing.
   def _activate_data_poller(self) -> None:
     self._poller.register(self._sub, zmq.POLLIN)
 
 
-  # Process custom event first, then Node generic (killsig).
   def _on_poll(self, poll_res):
+    # Receiving a modality packet, process until all data sources sent 'END' packet.
     if self._sub in poll_res[0]:
-      # Receiving a modality packet, process until all data sources sent 'END' packet.
       self._poll_data_fn()
     super()._on_poll(poll_res)
 
@@ -130,9 +135,12 @@ class Pipeline(PipelineInterface, Node):
     self._publish_fn = self._store_and_broadcast
 
 
-  # Gets called every time one of the requestes modalities produced new data.
-  # In normal operation mode, all messages are 2-part.
   def _poll_data_packets(self) -> None:
+    """Receive data packets in a steady state.
+    
+    Gets called every time one of the requestes modalities produced new data.
+    In normal operation mode, all messages are 2-part.
+    """
     topic, payload = self._sub.recv_multipart()
     msg = deserialize(payload)
     topic_tree: list[str] = topic.decode('utf-8').split('.')
@@ -140,11 +148,16 @@ class Pipeline(PipelineInterface, Node):
     self._process_data(topic=topic_tree[0], msg=msg)
 
 
-  # When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
-  #   and 3-part 'END' message from each Producer that safely exited.
-  #   It's more efficient to dynamically switch the callback instead of checking every message.
   def _poll_ending_data_packets(self) -> None:
-    # Process until all data sources sent 'END' packet.
+    """Receive data packets from producers and monitor for end-of-stream signal.
+    
+    When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
+    and 3-part 'END' message from each Producer that safely exited.
+    It's more efficient to dynamically switch the callback instead of checking every message.
+    
+    Processes packets on each modality until all data sources sent the 'END' packet.
+    If triggered to stop and no more available data, sends empty 'END' packet and joins.
+    """
     topic, payload = self._sub.recv_multipart()
     # 'END' empty packet from a Producer.
     if CMD_END.encode('utf-8') in payload:
@@ -152,8 +165,6 @@ class Pipeline(PipelineInterface, Node):
       self._is_producer_ended[topic_tree[0]] = True
       if all(list(self._is_producer_ended.values())):
         self._is_more_data_in = False
-        # If triggered to stop and no more available data, send empty 'END' packet and join.
-        # not self._is_more_data_in and not self._is_continue_produce
         self._send_end_packet()
     # Regular data packets.
     else:
@@ -164,17 +175,22 @@ class Pipeline(PipelineInterface, Node):
 
 
   def _publish(self, tag: str, **kwargs) -> None:
+    """Pass generated data to the ZeroMQ message exchange layer.
+
+    Args:
+        tag (str): Uniquely identifying key for the data generated by the Node.
+    """
     self._publish_fn(tag, **kwargs)
 
 
-  # Common method to save and publish the captured sample
-  # NOTE: best to deal with data structure (threading primitives) AFTER handing off packet to ZeroMQ
   def _store_and_broadcast(self, tag: str, **kwargs) -> None:
-    # Get serialized object to send over ZeroMQ.
+    """Place captured data into the corresponding Stream datastructure and transmit serialized ZeroMQ packets to subscribers.
+
+    Args:
+        tag (str): Uniquely identifying key for the modality to label data for message exchange.
+    """
     msg = serialize(**kwargs)
-    # Send the data packet on the PUB socket.
     self._pub.send_multipart([tag.encode('utf-8'), msg])
-    # Store the captured data into the data structure.
     self._out_stream.append_data(**kwargs)
 
 
@@ -184,15 +200,15 @@ class Pipeline(PipelineInterface, Node):
     self._stop_new_data()
 
 
-  # Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
   def _send_end_packet(self) -> None:
+    """Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads.
+    """
     self._pub.send_multipart([("%s.data" % self._log_source_tag()).encode('utf-8'), b'', CMD_END.encode('utf-8')])
     self._is_done = not self._is_more_data_in and not self._is_continue_produce
 
 
   @abstractmethod
   def _cleanup(self) -> None:
-    # Indicate to Logger to wrap up and exit.
     self._logger.cleanup()
     # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
     self._sync.send_multipart([self._log_source_tag().encode('utf-8'), CMD_EXIT.encode('utf-8')]) 

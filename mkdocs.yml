@@ -33,6 +33,12 @@ nav:
       - Stream: api/base/stream.md
       - Storage: api/base/storage.md
       - Delay estimator: api/base/delay_estimator.md
+    - Nodes:
+      - api/nodes/index.md
+      - Node: api/nodes/node.md
+      - Producer: api/nodes/producer.md
+      - Consumer: api/nodes/consumer.md
+      - Pipeline: api/nodes/pipeline.md
     - Datastructures: 
       - api/datastructures/index.md
       - Cache: api/datastructures/cache.md
