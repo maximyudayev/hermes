@@ -180,6 +180,8 @@ class Logger(LoggerInterface):
                stream_hdf5: bool = False,
                stream_video: bool = False,
                stream_audio: bool = False,
+               incremental_saving: bool = False,
+               incremental_period: int = 6,
                dump_csv: bool = False,
                dump_hdf5: bool = False,
                dump_video: bool = False,
@@ -195,6 +197,8 @@ class Logger(LoggerInterface):
     self._stream_csv = stream_csv
     self._stream_video = stream_video
     self._stream_audio = stream_audio
+    self._incremental_saving = incremental_saving
+    self._incremental_period = incremental_period
     self._stream_period_s = stream_period_s
     self._dump_hdf5 = dump_hdf5
     self._dump_csv = dump_csv
@@ -226,7 +230,9 @@ class Logger(LoggerInterface):
     self._is_streaming: bool   # whether periodic writing is active
     self._is_flush: bool       # whether remaining data at the end should now be flushed
     self._is_finished: bool    # whether the logging loop is finished and all data was flushed
-
+    self._flush_counter: int
+    self._file_counter: int
+    self._retr_counter: int
 
   def __call__(self, streams: OrderedDict[str, Stream]) -> None:
     self._state = StartState(self, streams)
@@ -264,6 +270,9 @@ class Logger(LoggerInterface):
       #  its size will be increased by the following amount.
       self._next_data_indices_hdf5.setdefault(tag, OrderedDict())
 
+    self._flush_counter = 0
+    self._file_counter = 0
+    self._retr_counter = 0
 
   def _set_state(self, state: BrokerState) -> None:
     self._state = state
@@ -420,11 +429,30 @@ class Logger(LoggerInterface):
     base_name = f"{SITE_ID}_sub{self._experiment['subject']}_{self._experiment['group']}_ses{self._experiment['session']}_{self._experiment['medication']}_{tag}"
     # Check if such a file already exists 
     num_to_append = sum(1 for f in os.listdir(self._log_dir) if f.endswith('.hdf5') and base_name in f)
-
-    if num_to_append > 0:
-      base_name = f"{base_name}-retr{num_to_append:02d}"
+    max_retr = max(
+    (
+        int(f[f.find('retr') + 4 : f.find('retr') + 6])
+        for f in os.listdir(self._log_dir)
+        if f.endswith('.hdf5') and base_name in f and 'retr' in f
+    ),
+    default=-1
+    )
+    if num_to_append > 0 and self._file_counter == 0:
+      if self._retr_counter == 0:
+        if max_retr == -1:
+          base_name = f"{base_name}-retr{1:02d}"
+          self._retr_counter = 1
+        else:
+          max_retr += 1
+          base_name = f"{base_name}-retr{max_retr:02d}"
+          self._retr_counter = max_retr
+    elif num_to_append > 0 and self._file_counter != 0:
+      base_name = f"{base_name}-retr{self._retr_counter:02d}"
     # Final filename 
-    filename_hdf5 = f"{dt}_{base_name}.hdf5"
+    if self._incremental_saving:
+      filename_hdf5 = f"{dt}_{base_name}_{self._file_counter}.hdf5"
+    else:
+      filename_hdf5 = f"{dt}_{base_name}.hdf5"
     filepath_hdf5 = os.path.join(self._log_dir, filename_hdf5)
     self._hdf5_file = h5py.File(filepath_hdf5, 'w')
 
@@ -936,6 +964,7 @@ class Logger(LoggerInterface):
       # If the log should be flushed, record that it is happening during this iteration for ALL streamers.
       if self._is_flush:
         is_flush_all_in_current_iteration = True
+
       # Delegate file writing to each AsyncIO method that manages corresponding stream type writing.
       tasks = []
       if self._stream_hdf5:
@@ -957,6 +986,19 @@ class Logger(LoggerInterface):
       # flushing_log set True when _is_flush was set before any streamer saved its data chunk, to make ure nothing is left behind. 
       if (not self._is_streaming) and self._is_flush and is_flush_all_in_current_iteration:
         self._is_finished = True
+
+      if self._incremental_saving:
+        # Increment counter every time data is flushed. Can be used only for dots while all data is being saved in ai
+        self._flush_counter += 1
+        # print(f'Counter: {self._flush_counter}', flush=True)
+        if self._flush_counter % self._incremental_period == 0: # create a new hdf5 file every 15 mins 
+          self._file_counter +=1
+          # Log metadata.
+          self._log_metadata_hdf5()
+          # Save and close the hdf5 files only.
+          self._close_files_hdf5()
+          self._init_files_hdf5()
+       
     # Log metadata.
     self._log_metadata()
     # Save and close the files.
