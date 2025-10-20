@@ -37,12 +37,14 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 30
+  stream_period_s     : 10
   
   stream_hdf5         : True
   stream_csv          : False
   stream_video        : False
   stream_audio        : False
+  incremental_saving  : True
+  incremental_period  : 6
 
   dump_csv            : False
   dump_hdf5           : False
@@ -60,13 +62,13 @@ producer_specs:
     device_mapping:
       pelvis          : "40195BF3809B009E"
       knee_right      : "40195C0980700122"
-      foot_right      : "40195C09807001AE"
+      foot_right      : "8010232380023406"
       knee_left       : "40195C0980700109"
       foot_left       : "40195C09807000DF"
     mac_mapping:
       pelvis          : "D422CD00A1D7"
       knee_right      : "D422CD00A8DF"
-      foot_right      : "D422CD00A922"
+      foot_right      : "D422CD07A393"
       knee_left       : "D422CD00A8C6"
       foot_left       : "D422CD00AA23"
     master_device     : "pelvis"
@@ -95,13 +97,13 @@ pipeline_specs:
         device_mapping:
           pelvis          : "40195BF3809B009E"
           knee_right      : "40195C0980700122"
-          foot_right      : "40195C09807001AE"
+          foot_right      : "8010232380023406"
           knee_left       : "40195C0980700109"
           foot_left       : "40195C09807000DF"
         mac_mapping:
           pelvis          : "D422CD00A1D7"
           knee_right      : "D422CD00A8DF"
-          foot_right      : "D422CD00A922"
+          foot_right      : "D422CD07A393"
           knee_left       : "D422CD00A8C6"
           foot_left       : "D422CD00AA23"
         master_device     : "pelvis"
@@ -112,12 +114,14 @@ pipeline_specs:
         is_sync_devices   : True
 
     logging_spec:
-      stream_period_s     : 30
+      stream_period_s     : 10
   
       stream_hdf5         : True
       stream_csv          : False
       stream_video        : False
       stream_audio        : False
+      incremental_saving  : False
+      incremental_period  : 6
 
       dump_csv            : False
       dump_hdf5           : False
