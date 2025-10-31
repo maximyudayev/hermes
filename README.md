@@ -1,5 +1,10 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo.png" alt="HERMES: Heterogeneous Edge Realtime Measurement and Execution System" width="60%">
+  <picture>
+    <!-- Source for dark mode -->
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo_dark.png" media="(width = 60%)">
+    <!-- Fallback image for light mode and other clients -->
+    <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo.png" alt="HERMES: Heterogeneous Edge Realtime Measurement and Execution System" width="60%">
+  </picture>
 
   <br>
   Heterogeneous Edge Realtime Measurement and Execution System
