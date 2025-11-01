@@ -35,6 +35,8 @@ from hermes.base.nodes.node_states import AbstractNodeState, StartState
 
 
 class Node(NodeInterface):
+  """An abstract class with common functionality for concrete Nodes.
+  """
   def __init__(self,
                host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC_HOST,
