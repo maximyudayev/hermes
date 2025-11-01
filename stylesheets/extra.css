@@ -1,0 +1,17 @@
+#logo-light {
+  display: var(--md-header-logo-light-mode);
+}
+
+#logo-dark {
+  display: var(--md-header-logo-dark-mode);
+}
+
+[data-md-color-scheme="default"] {
+  --md-header-logo-dark-mode: none;
+  --md-header-logo-light-mode: block;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-header-logo-dark-mode: block;
+  --md-header-logo-light-mode: none;
+}
