@@ -121,7 +121,7 @@ When using in your project, research, or product, please cite the following and 
 ```bibtex
 @inproceedings{yudayev2025hermes,
   title={HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications},
-  author={Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Vanrumste, Bart, and Filtjens, Benjamin},
+  author={Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Stefanova, Vayalet and Vanrumste, Bart, and Filtjens, Benjamin},
   booktitle={},
   year={2025}
 }
@@ -137,4 +137,4 @@ and the Flemish Government under the Flanders AI Research Program (FAIR).
 HERMES is a "Ship of Theseus"[[1](https://en.wikipedia.org/wiki/Ship_of_Theseus)] of [ActionSense](https://github.com/delpreto/ActionNet) that started as a fork and became a complete architectural rewrite of the system from the ground up to bridge the fundamental gaps in the state-of-the-art, and to match our research group's needs in realtime deployments and reliable data acquisition.
 Although there is no part of ActionSense in HERMES, we believe that its authors deserve recognition as inspiration for our system.
 
-Special thanks for contributions, usage, bug reports, good times, and feature requests to Juha Carlon (KU Leuven), Stefano Nuzzo (VUB), Diwas Lamsal (KU Leuven), Vayalet Stefanova (KU Leuven), Léonore Foguenne (ULiège).
+Special thanks for contributions, usage, bug reports, good times, and feature requests to [Juha Carlon](https://www.linkedin.com/in/juha-carlon-8aa41122b) (KU Leuven), [Diwas Lamsal](https://www.linkedin.com/in/diwaslamsal123) (KU Leuven), [Vayalet Stefanova](https://www.linkedin.com/in/vayalet-stefanova-9208b2174/) (KU Leuven), [Stefano Nuzzo](https://www.linkedin.com/in/stefano-nuzzo-69648b20b) (VUB), [Léonore Foguenne](https://www.linkedin.com/in/l%C3%A9onore-foguenne-293243234/) (ULiège).
