@@ -1,3 +1,30 @@
+@media screen and (min-width: 45em) {
+  .md-footer-custom-logos {
+    padding: .6rem 0;
+  }
+}
+
+.md-footer-custom-logos {
+  display: inline-flex;
+  gap: .8rem;
+  margin: auto .6rem;
+  padding: .4rem 0;
+  margin-left: auto;
+  padding-right: 1rem;
+}
+
+.md-footer-custom-logo__link {
+  display: inline-block;
+  height: 1.6rem;
+  text-align: center;
+}
+
+.md-footer-custom-logo__link img {
+  height: 100%;
+  width: auto;
+  vertical-align: -25%;
+}
+
 #logo-light {
   display: var(--md-header-logo-light-mode);
 }

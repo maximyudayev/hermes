@@ -103,7 +103,7 @@ extra:
     - icon: fontawesome/brands/linkedin-in
       link: https://linkedin.com/in/maxim-yudayev
     - icon: octicons/globe-24
-      link: https://iiw.kuleuven.be/onderzoek/emedia
+      link: https://yudayev.com
 
 markdown_extensions:
   - toc:
