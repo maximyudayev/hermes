@@ -511,8 +511,12 @@ class Logger(LoggerInterface):
           if self._log_tag == "cameras":
             base_name = f"{base_name}_cam0{camera_id}_unblur"
             camera_id += 1
-          elif self._log_tag == "eye":
+          elif device_name == "eye-video-world":
               base_name = f"{base_name}_glasses"
+          elif device_name == "eye-video-eye0":
+              base_name = f"{base_name}_glasses_eye0"
+          elif device_name == "eye-video-eye1":
+              base_name = f"{base_name}_glasses_eye1"
           else:
               base_name = f"{base_name}_{self._log_tag}_{device_name}"
 
