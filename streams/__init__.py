@@ -6,6 +6,11 @@ except ImportError:
   pass
 
 try:
+  from .GlassesStream import GlassesStream
+except ImportError:
+  pass
+
+try:
   from .DotsStream import DotsStream
 except ImportError:
   pass

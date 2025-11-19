@@ -25,28 +25,72 @@
 #
 # ############
 
-from collections import OrderedDict, deque, namedtuple
-from typing import TypeAlias, Any, Deque, Iterable, Iterator, Mapping, TypedDict, Dict, NamedTuple
-from threading import Lock
-import zmq
+
+host_ip : "127.0.0.1"
+is_master_broker: True
+
+remote_subscriber_ips: []
+remote_publisher_ips: []
+
+is_remote_kill: False
+remote_kill_ip: null
 
 
-NewDataDict: TypeAlias = Dict[str, Dict[str, Any]]
-DataFifo: TypeAlias = Deque[Any]
-DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
-StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
-DeviceLockDict: TypeAlias = Dict[str, Lock]
-ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
-VideoFormatTuple = namedtuple('VideoFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt'))
-VideoCodecDict = TypedDict('VideoCodecDict', {'codec_name': str, 'pix_format': str, 'input_options': Mapping, 'output_options': Mapping})
-ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
+logging_spec:
+  stream_period_s     : 1
+  
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : True
+  stream_audio        : False
+  incremental_saving  : True
+  incremental_period  : 100
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
 
 
-# Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
-#   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
-VIDEO_FORMAT = {
-  'bgr':        VideoFormatTuple('rawvideo',    'bgr24'),
-  'yuv':        VideoFormatTuple('rawvideo',    'yuv420p'),
-  'jpeg':       VideoFormatTuple('image2pipe',  'yuv420p'),
-  'bayer_rg8':  VideoFormatTuple('rawvideo',    'bayer_rggb8'),
-}
+  video_codec_config_filepath : "resources/codecs/backpack_h264_qsv.yml" 
+  video_codec_num_cpu : 1
+
+  audio_format        : "wav" # currently only supports WAV
+
+
+producer_specs:
+  - class: "GlassesStreamer"
+    camera_mapping:
+      ego:
+        name: "Pupil Cam1 ID2"
+        fps: 30
+        resolution:
+          - 720
+          - 1280
+          - 3
+      left_eye:
+        name: "Pupil Cam2 ID0"
+        fps: 120
+        resolution:
+          - 192
+          - 192
+          - 3
+      right_eye:
+        name: "Pupil Cam2 ID1"
+        fps: 120
+        resolution:
+          - 192
+          - 192
+          - 3
+    video_image_format: "bgr"
+    bandwidth_factor: 2.0
+
+
+consumer_specs: []
+
+
+pipeline_specs: []
+
+# external_gui_specs:
+#   gui_ip: "192.168.68.100"
+#   gui_port: "59289"
