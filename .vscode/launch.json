@@ -22,6 +22,23 @@
       "justMyCode": false
     },
     {
+      "name": "Local Glasses",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "main.py",
+      "args": [
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=1", "group=FR", "session=01", "medication=ON",
+        "--config_file", "configs/test/local_glasses.yml"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "subProcess": true,
+      "justMyCode": false
+    },
+    {
       "name": "Local Pupil",
       "type": "debugpy",
       "request": "launch",

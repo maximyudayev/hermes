@@ -14,6 +14,12 @@ try:
 except ImportError as e:
   print(e, "\nSkipping %s"%"CameraStreamer.", flush=True)
 
+try:
+  from nodes.producers.GlassesStreamer import GlassesStreamer
+  PRODUCERS["GlassesStreamer"] = GlassesStreamer
+except ImportError as e:
+  print(e, "\nSkipping %s"%"GlassesStreamer.", flush=True)
+
 # try:
 #   from nodes.producers.CometaStreamer import CometaStreamer
 #   PRODUCERS["CometaStreamer"] = CometaStreamer

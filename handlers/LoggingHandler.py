@@ -512,23 +512,23 @@ class Logger(LoggerInterface):
             base_name = f"{base_name}_cam0{camera_id}_unblur"
             camera_id += 1
           elif device_name == "eye-video-world":
-              base_name = f"{base_name}_glasses"
+            base_name = f"{base_name}_glasses"
           elif device_name == "eye-video-eye0":
-              base_name = f"{base_name}_glasses_eye0"
+            base_name = f"{base_name}_glasses_eye0"
           elif device_name == "eye-video-eye1":
-              base_name = f"{base_name}_glasses_eye1"
+            base_name = f"{base_name}_glasses_eye1"
           else:
-              base_name = f"{base_name}_{self._log_tag}_{device_name}"
+            base_name = f"{base_name}_{self._log_tag}_{device_name}"
 
           # Create final file name
-          filename_video = f"{dt}_{base_name}.mkv"
+          filename_video = f"{dt}_{base_name}.mp4"
           filepath_video = os.path.join(self._log_dir, filename_video)    
             
           # Create a video writer.
           frame_height = stream_info['sample_size'][0]
           frame_width = stream_info['sample_size'][1]
           fps = stream_info['sampling_rate_hz']
-          input_stream_pix_fmt: str = stream_info['color_format']['ffmpeg']
+          input_stream_pix_fmt: str = stream_info['color_format']
           input_stream_format: str = stream_info['ffmpeg_input_format']
           metadata_dict = {'metadata:g:%d'%i: '%s=%s'%(k,v) for i, (k,v) in enumerate([('title', '/'.join(self._experiment.values())),
                                                                                        ('date', get_time_str(self._log_time_s, '%Y-%m-%d', False)),
@@ -553,9 +553,10 @@ class Logger(LoggerInterface):
                                        cpucount=self._video_codec_num_cpu, # prevent ffmpeg from suffocating the processor.
                                        **self._video_codec['output_options'],
                                        **metadata_dict)
+
           video_stream = video_stream.global_args('-hide_banner')
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
-          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
+          video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
+          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -693,8 +694,8 @@ class Logger(LoggerInterface):
   def _close_files_video(self) -> None:
     for (video_writer, *_) in self._video_writers:
       video_writer.stdin.close() # type: ignore
-      video_writer.stderr.close() # type: ignore
-      video_writer.stdout.close() # type: ignore
+      # video_writer.stderr.close() # type: ignore
+      # video_writer.stdout.close() # type: ignore
       video_writer.wait()
     self._video_writers = []
 
