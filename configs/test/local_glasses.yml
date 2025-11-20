@@ -43,7 +43,7 @@ logging_spec:
   stream_csv          : False
   stream_video        : True
   stream_audio        : False
-  incremental_saving  : True
+  incremental_saving  : False
   incremental_period  : 100
 
   dump_csv            : False
@@ -61,13 +61,6 @@ logging_spec:
 producer_specs:
   - class: "GlassesStreamer"
     camera_mapping:
-      ego:
-        name: "Pupil Cam1 ID2"
-        fps: 30
-        resolution:
-          - 720
-          - 1280
-          - 3
       left_eye:
         name: "Pupil Cam2 ID0"
         fps: 120
@@ -75,6 +68,29 @@ producer_specs:
           - 192
           - 192
           - 3
+        bandwidth_factor: 2.0
+        uvc_controls:
+          Auto Exposure Mode: 1
+          Auto Exposure Priority: 0
+          Absolute Exposure Time: 15
+          Auto Focus: 0
+          Absolute Focus: 1
+          Zoom absolute control: 0
+          Pan control: 0
+          Tilt control: 0
+          Roll absolute control: 0
+          Privacy Shutter control: 0
+          Backlight Compensation: 121
+          Brightness: 0
+          Contrast: 48
+          Gain: 0
+          Power Line frequency: 1
+          Hue: 0
+          Saturation: 0
+          Sharpness: 2
+          Gamma: 200
+          White Balance temperature: 4600
+          White Balance temperature,Auto: 1
       right_eye:
         name: "Pupil Cam2 ID1"
         fps: 120
@@ -82,8 +98,55 @@ producer_specs:
           - 192
           - 192
           - 3
+        bandwidth_factor: 2.0
+        uvc_controls:
+          Auto Exposure Mode: 1
+          Auto Exposure Priority: 0
+          Absolute Exposure Time: 15
+          Auto Focus: 0
+          Absolute Focus: 1
+          Zoom absolute control: 0
+          Pan control: 0
+          Tilt control: 0
+          Roll absolute control: 0
+          Privacy Shutter control: 0
+          Backlight Compensation: 121
+          Brightness: 0
+          Contrast: 48
+          Gain: 0
+          Power Line frequency: 1
+          Hue: 0
+          Saturation: 0
+          Sharpness: 2
+          Gamma: 200
+          White Balance temperature: 4600
+          White Balance temperature,Auto: 1
+
+      # ego:
+      #   name: "Pupil Cam1 ID2"
+      #   fps: 30
+      #   resolution:
+      #     - 720
+      #     - 1280
+      #     - 3
+      #   bandwidth_factor: 1.0
+      #   uvc_controls:
+      #     Auto Exposure Mode: 1
+      #     Auto Exposure Priority: 1
+      #     Absolute Exposure Time: 240
+      #     Backlight Compensation: 1
+      #     Brightness: 0
+      #     Contrast: 32
+      #     Gain: 0
+      #     Power Line frequency: 1
+      #     Hue: 0
+      #     Saturation: 60
+      #     Sharpness: 2
+      #     Gamma: 100
+      #     White Balance temperature: 4600
+      #     White Balance temperature,Auto: 1
     video_image_format: "bgr"
-    bandwidth_factor: 2.0
+    
 
 
 consumer_specs: []
