@@ -33,21 +33,29 @@ class DummyStream(Stream):
   """
   def __init__(self, 
                sampling_rate_hz: int = 1,
+               payload_num_bytes: int = 100,
                **_) -> None:
     """Constructor of the DummyStream datastructure.
 
     Args:
         sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to 1.
+        payload_num_bytes (int, optional): Size of the messages to send. Defaults to 100.
     """
     super().__init__()
 
     self._device_name = 'sensor-emulator'
 
     self.add_stream(device_name=self._device_name,
-                    stream_name='toa',
-                    data_type='float32',
+                    stream_name='sequence',
+                    data_type='uint32',
                     sample_size=[1],
-                    sampling_rate_hz=sampling_rate_hz,
+                    sampling_rate_hz=int(sampling_rate_hz),
+                    is_measure_rate_hz=False)
+    self.add_stream(device_name=self._device_name,
+                    stream_name='data',
+                    data_type=f"S{payload_num_bytes}",
+                    sample_size=[1],
+                    sampling_rate_hz=int(sampling_rate_hz),
                     is_measure_rate_hz=True)
 
 

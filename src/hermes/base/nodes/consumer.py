@@ -30,6 +30,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 import zmq
 
+from hermes.utils.time_utils import get_time
 from hermes.utils.msgpack_utils import deserialize
 from hermes.utils.node_utils import search_node_class
 from hermes.utils.zmq_utils import CMD_END, CMD_EXIT, DNS_LOCALHOST, PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
@@ -68,7 +69,8 @@ class Consumer(ConsumerInterface, Node):
     """
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync, 
-                     port_killsig=port_killsig)
+                     port_killsig=port_killsig,
+                     ref_time=logging_spec['log_time_s'])
     self._port_sub = port_sub
     self._log_history_filepath = log_history_filepath
     self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
@@ -128,9 +130,10 @@ class Consumer(ConsumerInterface, Node):
     In normal operation mode, all messages are 2-part.
     """
     topic, payload = self._sub.recv_multipart()
+    receive_time = get_time()
     msg = deserialize(payload)
     topic_tree: list[str] = topic.decode('utf-8').split('.')
-    self._streams[topic_tree[0]].append_data(**msg)
+    self._streams[topic_tree[0]].append_data(process_time_s=receive_time, **msg)
 
 
   def _poll_ending_data_packets(self) -> None:
@@ -144,6 +147,7 @@ class Consumer(ConsumerInterface, Node):
     If triggered to stop and no more available data, sends empty 'END' packet and joins.
     """
     topic, payload = self._sub.recv_multipart()
+    receive_time = get_time()
     # 'END' empty packet from a Producer.
     if CMD_END.encode('utf-8') in payload:
       topic_tree: list[str] = topic.decode('utf-8').split('.')
@@ -154,7 +158,8 @@ class Consumer(ConsumerInterface, Node):
     else:
       msg = deserialize(payload)
       topic_tree: list[str] = topic.decode('utf-8').split('.')
-      self._streams[topic_tree[0]].append_data(**msg)
+      self._streams[topic_tree[0]].append_data(process_time_s=receive_time, **msg)
+
 
 
   def _trigger_stop(self):

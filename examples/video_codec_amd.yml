@@ -1,0 +1,10 @@
+# Optimized codec settings for AMD CPU
+codec_name  : 'h264_amf'
+pix_format  : 'nv12'
+input_options: {}
+output_options:
+  "profile:v"   : 'high'
+  usage         : 'lowlatency_high_quality'
+  quality       : 'quality'
+  preset        : 'quality'
+  video_bitrate : '6M'

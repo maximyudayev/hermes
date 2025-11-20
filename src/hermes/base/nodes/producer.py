@@ -67,7 +67,8 @@ class Producer(ProducerInterface, Node):
     """
     super().__init__(host_ip=host_ip,
                      port_sync=port_sync,
-                     port_killsig=port_killsig)
+                     port_killsig=port_killsig,
+                     ref_time=logging_spec['log_time_s'])
     self._sampling_rate_hz = sampling_rate_hz
     self._sampling_period = 1/sampling_rate_hz
     self._port_pub = port_pub
@@ -137,7 +138,7 @@ class Producer(ProducerInterface, Node):
     self._keep_samples()
 
 
-  def _store_and_broadcast(self, tag: str, **kwargs) -> None:
+  def _store_and_broadcast(self, tag: str, process_time_s: float, **kwargs) -> None:
     """Place captured data into the corresponding Stream datastructure and transmit serialized ZeroMQ packets to subscribers.
 
     Args:
@@ -145,7 +146,7 @@ class Producer(ProducerInterface, Node):
     """
     msg = serialize(**kwargs)
     self._pub.send_multipart([tag.encode('utf-8'), msg])
-    self._stream.append_data(**kwargs)
+    self._stream.append_data(process_time_s=process_time_s, **kwargs)
 
 
   def _trigger_stop(self):

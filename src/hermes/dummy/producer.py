@@ -26,6 +26,7 @@
 # ############
 
 import time
+import random
 
 from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import PORT_BACKEND, PORT_KILL, PORT_SYNC_HOST
@@ -45,7 +46,8 @@ class DummyProducer(Producer):
   def __init__(self,
                host_ip: str,
                logging_spec: dict,
-               sampling_rate_hz: int = 1,
+               sampling_rate_hz: int | str = 1,
+               payload_num_bytes: int | str = 100,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -56,21 +58,32 @@ class DummyProducer(Producer):
     Args:
         host_ip (str): IP address of the local master Broker.
         logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
-        sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to float('nan').
+        sampling_rate_hz (int | str, optional): Expected sample rate of the device. Defaults to 1.
+        payload_num_bytes (int | str, optional): Size of the messages in bytes to generate. Defaults to 100.
         port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
         port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
         port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
         transmit_delay_sample_period_s (float, optional): Duration of the period over which to estimate propagation delay of measurements from the corresponding device. Defaults to float('nan').
     """
     
+    sampling_rate_hz = sampling_rate_hz if isinstance(sampling_rate_hz, (int, float)) else int(sampling_rate_hz)
+    payload_num_bytes = payload_num_bytes if isinstance(payload_num_bytes, (int)) else int(payload_num_bytes)
+
+    self._period = 1 / sampling_rate_hz
+    self._payload_num_bytes = payload_num_bytes
+    self._sequence = 0
+    self._data = random.randbytes(self._payload_num_bytes)
+    self._tag: str = "%s.data" % self._log_source_tag()
+    self._next_period: float
+
     stream_out_spec = {
-      "sampling_rate_hz": sampling_rate_hz
+      "sampling_rate_hz": sampling_rate_hz,
+      "payload_num_bytes": payload_num_bytes
     }
 
     super().__init__(host_ip=host_ip,
                      stream_out_spec=stream_out_spec,
                      logging_spec=logging_spec,
-                     sampling_rate_hz=sampling_rate_hz,
                      port_pub=port_pub,
                      port_sync=port_sync,
                      port_killsig=port_killsig,
@@ -91,16 +104,28 @@ class DummyProducer(Producer):
 
 
   def _keep_samples(self) -> None:
-    pass
+    self._next_period = get_time() + self._period
 
 
   def _process_data(self) -> None:
     if self._is_continue_capture:
-      time.sleep(1.0)
-      process_time_s: float = get_time()
-      print(process_time_s, flush=True)
-      tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, process_time_s=process_time_s, data={'sensor-emulator': {'toa': process_time_s}})
+      process_time_s = get_time()
+      time_to_wait = self._next_period - process_time_s
+
+      if time_to_wait > 0:
+        time.sleep(time_to_wait*0.9)
+        while (process_time_s := get_time()) < self._next_period:
+          pass
+
+      self._publish(self._tag,
+                    process_time_s=process_time_s,
+                    data={
+                      'sensor-emulator': {
+                        'data': self._data,
+                        'sequence': self._sequence
+                      }})
+      self._sequence += 1
+      self._next_period += self._period
     else:
       self._send_end_packet()
 

@@ -50,9 +50,14 @@ class SystemTime(metaclass=SingletonMeta):
 
   def time(self) -> float:
     return self._ref_time + perf_counter()
+  
+  def set_ref_time(self, ref_time: float) -> None:
+    self._ref_time = ref_time
 
+def init_time(ref_time: float) -> None:
+  SystemTime().set_ref_time(ref_time)
 
-def get_time() -> float: 
+def get_time() -> float:
   return SystemTime().time()
 
 

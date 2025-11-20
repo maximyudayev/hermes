@@ -28,6 +28,7 @@
 from abc import abstractmethod
 import zmq
 
+from hermes.utils.time_utils import init_time
 from hermes.utils.zmq_utils import DNS_LOCALHOST, PORT_KILL, PORT_KILL_BTN, PORT_SYNC_HOST, TOPIC_KILL
 
 from hermes.base.nodes.node_interface import NodeInterface
@@ -38,12 +39,14 @@ class Node(NodeInterface):
   """An abstract class with common functionality for concrete Nodes.
   """
   def __init__(self,
+               ref_time: float,
                host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL) -> None:
     """Constructor of the Node parent class.
 
     Args:
+        ref_time (float): Reference time of the local Broker w.r.t which to align all Nodes.
         host_ip (str, optional): IP address of the local master Broker. Defaults to DNS_LOCALHOST.
         port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
         port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
@@ -52,6 +55,7 @@ class Node(NodeInterface):
     self._port_sync = port_sync
     self._port_killsig = port_killsig
     self.__is_done = False
+    init_time(ref_time=ref_time)
 
     self._state = StartState(self)
 

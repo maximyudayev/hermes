@@ -81,7 +81,7 @@ class DummyPipeline(Pipeline):
     if self._is_continue_produce:
       process_time_s: float = get_time()
       tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, time_s=process_time_s, data=process_time_s)
+      self._publish(tag, process_time_s=process_time_s, data=process_time_s)
     elif not self._is_continue_produce:
       # If triggered to stop and no more available data, send empty 'END' packet and join.
       self._send_end_packet()

@@ -79,6 +79,55 @@ The following subpackages are in development.
 </details>
 <br>
 
+### FFmpeg (Optional)
+If dealing with video or audio, you will have to install [FFmpeg](https://ffmpeg.org/).
+
+Make a copy of the `examples/video_codec_<type>.yml`, that matches your video encoding hardware (AMD or Intel CPU, or an NVIDIA GPU), as `examples/video_codec.yml`
+
+#### Windows
+1. Download the full build with shared libraries from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z).
+1. Unpack the archive into the desired folder, like `C:\Program Files\ffmpeg`.
+1. Add path to the FFmpeg binaries to the `Path` environment variable manually, or via CMD. 
+   ```powershell
+   SETX PATH "%PATH%;C:\Program Files\ffmpeg\bin;C:\Program Files\ffmpeg" /M
+   ```
+1. Open a new terminal window and check that FFmpeg can be correctly found by the system `where ffmpeg`.
+
+#### Linux
+1. Install with the package manager `sudo apt-get install ffmpeg`.
+1. Check that ffmpeg is on path `which ffmpeg`.
+
+## Running
+The system runs based on YAML configuration files, where connection to other hosts, and local or remote [Producer](https://maximyudayev.github.io/hermes/api/nodes/producer/)'s, [Consumer](https://maximyudayev.github.io/hermes/api/nodes/consumer/)'s, [Pipeline](https://maximyudayev.github.io/hermes/api/nodes/pipeline/)'s.
+
+## Benchmarking
+### Latency
+1. Install Plotly into the current virtual environment `pip install plotly`.
+1. On each host device, run the latency evaluation automated script under `test/`:
+   ```bash
+   cd test
+   ```
+   as `test_latency.bat` for Windows or `. test_latency.sh` for Linux.
+1. Gather generated text files from all tested devices and place in `test/data/latency/<device_name>` subfolders in the following structure. The folder name will be used as the trace name of the corresponding series.
+   ```bash
+   root/
+   └───test
+       └───data
+           └───latency
+               ├───laptop
+               │   ├───latency_vs_frequency.txt
+               │   └───latency_vs_msgsize.txt
+               ├───nuc
+               ├───pi
+               └───server
+   ```
+1. Visualize latencies by running `plot_latency.bat` for Windows or `. plot_latency.sh` for Linux:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_freq.png" alt="Latency vs sampling frequency" width="45%" />
+  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_msgsize.png" alt="Latency vs message size" width="45%" />
+</p>
+
 # Documentation
 Check out the [full documentation site](https://maximyudayev.github.io/hermes) for more usage examples, architecture overview, detailed extension guide, and FAQs.
 
@@ -132,9 +181,10 @@ This project was primarily written by Maxim Yudayev while at the Department of E
 
 This study was funded, in part, by the AidWear project funded by the Federal Public Service for Policy and Support, 
 the AID-FOG project by the Michael J. Fox Foundation for Parkinson’s Research under Grant No.: MJFF-024628, 
+the strategic basic research project RevalExo (S001024N) funded by the Research Foundation Flanders, 
 and the Flemish Government under the Flanders AI Research Program (FAIR).
 
 HERMES is a "Ship of Theseus"[[1](https://en.wikipedia.org/wiki/Ship_of_Theseus)] of [ActionSense](https://github.com/delpreto/ActionNet) that started as a fork and became a complete architectural rewrite of the system from the ground up to bridge the fundamental gaps in the state-of-the-art, and to match our research group's needs in realtime deployments and reliable data acquisition.
 Although there is no part of ActionSense in HERMES, we believe that its authors deserve recognition as inspiration for our system.
 
-Special thanks for contributions, usage, bug reports, good times, and feature requests to [Juha Carlon](https://www.linkedin.com/in/juha-carlon-8aa41122b) (KU Leuven), [Diwas Lamsal](https://www.linkedin.com/in/diwaslamsal123) (KU Leuven), [Vayalet Stefanova](https://www.linkedin.com/in/vayalet-stefanova-9208b2174/) (KU Leuven), [Stefano Nuzzo](https://www.linkedin.com/in/stefano-nuzzo-69648b20b) (VUB), [Léonore Foguenne](https://www.linkedin.com/in/l%C3%A9onore-foguenne-293243234/) (ULiège).
+Special thanks for contributions, usage, bug reports, good times, and feature requests to [Juha Carlon](https://www.linkedin.com/in/juha-carlon-8aa41122b) (KU Leuven), [Vayalet Stefanova](https://www.linkedin.com/in/vayalet-stefanova-9208b2174/) (KU Leuven), [Diwas Lamsal](https://www.linkedin.com/in/diwaslamsal123) (KU Leuven), [Stefano Nuzzo](https://www.linkedin.com/in/stefano-nuzzo-69648b20b) (VUB), [Léonore Foguenne](https://www.linkedin.com/in/l%C3%A9onore-foguenne-293243234/) (ULiège).

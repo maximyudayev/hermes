@@ -29,12 +29,14 @@ import threading
 import os
 import yaml
 import argparse
+from inputimeout import inputimeout, TimeoutOccurred
 
 from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
 from hermes.utils.mp_utils import launch_callable
 from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import PORT_BACKEND, PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
+from hermes.__version__ import __version__
 
 
 # TODO: replace with HERMES-branded font
@@ -46,7 +48,6 @@ _  __  / _  /___  _  _, _/_  /  / / _  /___  ____/ /
 /_/ /_/  /_____/  /_/ |_| /_/  /_/  /_____/  /____/  
                                                      
 """
-VERSION = 'v0.1.1'
 DESCRIPTION = HERMES + \
               'Heterogeneous edge realtime measurement and execution system '\
               'for continual multimodal data acquisition and AI processing.'
@@ -65,7 +66,7 @@ def define_parser() -> argparse.ArgumentParser:
                       help='increase level of logging verbosity [0,3]')
   parser.add_argument('--version',
                       action='version',
-                      version='%(prog)s ' + VERSION)
+                      version='%(prog)s v' + __version__)
 
   parser.add_argument('--out_dir', '-o',
                       type=validate_path,
@@ -93,56 +94,6 @@ def define_parser() -> argparse.ArgumentParser:
                       help='path to the configuration file for the current host device, '
                            'instead of the CLI arguments')
 
-  # parser.add_argument('--host_ip',
-  #                     type=validate_ip,
-  #                     help='LAN IPv4 address of the host device')
-  # parser.add_argument('--is_master',
-  #                     dest='is_master_broker',
-  #                     action='store_true',
-  #                     help='flag to set host as Master Broker that others connect to')
-  # parser.add_argument('--subscriber_ips',
-  #                     nargs='*',
-  #                     dest='remote_subscriber_ips',
-  #                     type=validate_ip,
-  #                     default=list(),
-  #                     help='list of IPv4 devices listening to data of the host')
-  # parser.add_argument('--publisher_ips',
-  #                     nargs='*',
-  #                     dest='remote_publisher_ips',
-  #                     type=validate_ip,
-  #                     default=list(),
-  #                     help='list of IPv4 devices to listen to for their data')
-  # parser.add_argument('--kill',
-  #                     dest='is_remote_kill',
-  #                     action='store_true',
-  #                     help='flag to set host to listen to remote KILLSIG (only for slave devices)')
-  # parser.add_argument('--kill_ip',
-  #                     dest='remote_kill_ip',
-  #                     type=validate_ip,
-  #                     help='LAN IPv4 address of device delegating KILLSIG (only for slave devices)')
-
-
-  # parser.add_argument('--logging_spec',
-  #                     nargs='*',
-  #                     action=ParseLoggingKwargs,
-  #                     help='key-value pair tags configuring logging modules of each Node')
-
-  # parser.add_argument('--producer_specs',
-  #                     nargs='*',
-  #                     action=ParseNodeKwargs,
-  #                     default=list(),
-  #                     help='key-value pair tags detailing local producer Nodes of the host')
-  # parser.add_argument('--consumer_specs',
-  #                     nargs='*',
-  #                     action=ParseNodeKwargs,
-  #                     default=list(),
-  #                     help='key-value pair tags detailing local consumer Nodes of the host')
-  # parser.add_argument('--pipeline_specs',
-  #                     nargs='*',
-  #                     action=ParseNodeKwargs,
-  #                     default=list(),
-  #                     help='key-value pair tags detailing local pipeline Nodes of the host')
-
   return parser
 
 
@@ -158,7 +109,11 @@ def override_cli_args_with_config_file(parser: argparse.ArgumentParser, args: ar
   if args.config_file is not None:
     with open(args.config_file, "r") as f:
       try:
-        config: dict = yaml.safe_load(f)
+        config_str = f.read()
+        # Replace ${VAR} with environment variable values
+        for key, value in os.environ.items():
+          config_str = config_str.replace(f'${{{key}}}', value)
+        config: dict = yaml.safe_load(config_str)
         parser.set_defaults(**config)
       except yaml.YAMLError as e:
         print(e)
@@ -186,7 +141,6 @@ def load_codec_spec(args: argparse.Namespace) -> argparse.Namespace:
 def init_output_files(args: argparse.Namespace) -> tuple[float, str, str]:
   log_time_s = args.log_time_s if args.log_time_s is not None else get_time()
   log_dir: str = os.path.join(args.out_dir,
-                              'data',
                               *map(lambda tup: '_'.join(tup), args.experiment.items()))
   log_history_filepath: str = os.path.join(log_dir, '%s.log'%args.host_ip)
 
@@ -234,7 +188,7 @@ def app():
   for ip in args.remote_publisher_ips:
     local_broker.connect_to_remote_broker(addr=ip)
 
-  # Expose local wearable data to remote subscribers (e.g. lab PC in AidFOG project).
+  # Expose local wearable data to remote subscribers (e.g. edge server).
   if args.remote_subscriber_ips:
     local_broker.expose_to_remote_broker(args.remote_subscriber_ips)
 
@@ -248,8 +202,11 @@ def app():
     # Run broker's main until user exits in GUI or 'q' in terminal.
     t = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
     t.start()
-    while not is_quit:
-      is_quit = input("Enter 'q' to exit: ") == 'q'
+    while not is_quit and not local_broker.is_done():
+      try:
+        is_quit = inputimeout(prompt="Enter 'q' to exit: ", timeout=5) == 'q'
+      except TimeoutOccurred:
+        continue
     local_broker.set_is_quit()
     t.join()
   else:

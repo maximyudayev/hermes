@@ -99,6 +99,7 @@ class Broker(BrokerInterface):
     self._port_killsig = port_killsig
     self._node_specs = node_specs
     self._is_quit = False
+    self._is_done = False
 
     self._remote_pub_brokers: list[str] = []
     self._remote_sub_brokers: list[str] = []
@@ -185,6 +186,12 @@ class Broker(BrokerInterface):
     """External asynchronous trigger to indicate termination to the Broker. 
     """
     self._is_quit = True
+
+
+  def is_done(self) -> bool:
+    """External check for Broker's completion. 
+    """
+    return self._is_done
 
 
   #####################
@@ -377,3 +384,4 @@ class Broker(BrokerInterface):
 
     # Destroy ZeroMQ context.
     self._ctx.term()
+    self._is_done = True

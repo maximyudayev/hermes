@@ -674,12 +674,12 @@ class Storage(StorageInterface):
       new_data: Iterator[Any] = self._streams[node_name].pop_data(device_name=device_name, stream_name=stream_name, is_flush=self._is_flush)
       for data in new_data:
         dataset_dtype: np.dtype = dataset.dtype
-        if dataset_dtype.char == 'S':
-          data: str
-          encoded_text = [data.encode("ascii", "ignore")]
-          arr = np.array(encoded_text, ndmin=1)
-        else:
-          arr = np.array(data, ndmin=1)
+        # if dataset_dtype.char == 'S':
+        #   data: str
+        #   encoded_text = [data.encode("ascii", "ignore")]
+        #   arr = np.array(encoded_text, ndmin=1)
+        # else:
+        arr = np.array(data, ndmin=1)
         num_elements = 1 if arr.shape == dataset.shape[1:] else arr.shape[0]
         # Extend the dataset as needed while iterating over the 'new_data'.
         start_index = self._next_data_indices_hdf5[node_name][device_name][stream_name]

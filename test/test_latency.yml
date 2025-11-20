@@ -1,0 +1,52 @@
+host_ip : "127.0.0.1"
+is_master_broker: True
+
+remote_subscriber_ips: []
+remote_publisher_ips: []
+
+is_remote_kill: False
+remote_kill_ip: null
+
+duration_s: 30
+
+logging_spec:
+  stream_period_s     : 5
+
+  stream_hdf5         : True
+  stream_csv          : False
+  stream_video        : False
+  stream_audio        : False
+
+  dump_csv            : False
+  dump_hdf5           : False
+  dump_video          : False
+  dump_audio          : False
+
+  video_codec_config_filepath : "../examples/video_codec.yml" 
+  video_codec_num_cpu : 1
+
+  audio_codec_config_filepath : "../examples/audio_codec.yml" 
+  audio_codec_num_cpu : 1
+
+
+producer_specs:
+  - package: "dummy"
+    class: "DummyProducer"
+    settings:
+      sampling_rate_hz: ${HERMES_EXP_RATE}
+      payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
+
+
+consumer_specs:
+  - package: "dummy"
+    class: "DummyConsumer"
+    settings:
+      stream_in_specs:
+        - package: "dummy"
+          class: "DummyProducer"
+          settings:
+            sampling_rate_hz: ${HERMES_EXP_RATE}
+            payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
+
+
+pipeline_specs: []
