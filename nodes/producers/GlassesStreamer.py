@@ -32,13 +32,60 @@ from utils.print_utils import *
 from utils.zmq_utils import *
 
 import uvc
-
+from multiprocessing import Process, Queue, Event
+from queue import Empty
 
 #######################################################
 #######################################################
 # A class for streaming videos from Pupil core cameras.
 #######################################################
 #######################################################
+def _get_frame(camera_name: str, cap: uvc.Capture, queue: Queue) -> None:
+  try:
+    frame = cap.get_frame(timeout=5)
+    toa_s = get_time()
+    out = {
+      "timestamp": frame.timestamp,
+      "index": frame.index,
+      "bgr": frame.bgr,
+    }
+    queue.put((camera_name, out, toa_s))
+  except TimeoutError:
+    pass
+  except uvc.InitError as err:
+    print(f"[GlassesStreamer] Failed to init {camera_name}: {err}", flush=True)
+    pass
+  except uvc.StreamError as err:
+    print(f"[GlassesStreamer] Stream error for {camera_name}: {err}", flush=True)
+    pass
+
+
+def _run_capture(camera_name: str, camera_spec: dict, queue: Queue, stop_event: Event):
+  devices = dict(map(lambda dev: (dev['name'], dev['uid']), uvc.device_list()))
+
+  cap = uvc.Capture(devices[camera_spec['name']])
+  cap.bandwidth_factor = camera_spec['bandwidth_factor']
+
+  for mode in cap.available_modes:
+    if (mode.width == camera_spec['resolution'][1] and
+        mode.height == camera_spec['resolution'][0] and
+        mode.fps == camera_spec['fps']):
+      cap.frame_mode = mode
+      break
+    # configure the controls on each `Capture` object (exposure, brightness, sharpness, etc)
+    controls_by_name = {c.display_name: c for c in cap.controls}
+
+    for ctrl_name, value in camera_spec.get('uvc_controls', {}).items():
+      ctrl = controls_by_name.get(ctrl_name)
+      try:
+        ctrl.value = value
+      except Exception as e:
+        print(f"Could not set control for {camera_spec['name']} '{ctrl_name}' to {value}: {e}")
+
+  while not stop_event.is_set():
+    _get_frame(camera_name, cap, queue)
+  cap.close()
+
 
 class GlassesStreamer(Producer):
   @classmethod
@@ -51,7 +98,6 @@ class GlassesStreamer(Producer):
                camera_mapping: dict,
                logging_spec: dict,
                video_image_format: str = "jpeg", # [bgr, jpeg, yuv]
-               bandwidth_factor: float = 2.0,
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -59,13 +105,14 @@ class GlassesStreamer(Producer):
                timesteps_before_solidified: int = 0,
                **_):
 
-    self._bandwidth_factor = bandwidth_factor
     self._camera_mapping = camera_mapping
     self._video_image_format = video_image_format
-    self._captures: dict[str, uvc.Capture] = {}
-    self._start_index: dict[str, int] = dict(map(lambda cam: (cam, None), camera_mapping.keys()))
-    self._get_frame_fn = self._get_first_frame
-
+    self._is_continue_grabbing = True
+    self._start_index: dict[str, int] = dict(map(lambda cam: (cam, None), self._camera_mapping.keys()))
+    self._parse_frame_fn = self._parse_first_frame
+    self._cap_queue: Queue = Queue()
+    self._stop_event: Event = Event()
+    
     stream_info = {
       "camera_mapping": self._camera_mapping,
       "pixel_format": video_image_format,
@@ -91,26 +138,14 @@ class GlassesStreamer(Producer):
 
 
   def _connect(self) -> bool:
-    devices = dict(map(lambda dev: (dev['name'], dev['uid']), uvc.device_list()))
-
-    for camera_name, camera_spec in self._camera_mapping.items():
-      try:
-        self._captures[camera_name] = uvc.Capture(devices[camera_spec['name']])
-        self._captures[camera_name].bandwidth_factor = self._bandwidth_factor
-
-        for mode in self._captures[camera_name].available_modes:
-          if (mode.width == camera_spec['resolution'][1] and
-              mode.height == camera_spec['resolution'][0] and
-              mode.fps == camera_spec['fps']):
-            self._captures[camera_name].frame_mode = mode
-            break
-
-        # TODO: configure the controls on each `Capture` object (exposure, brightness, sharpness, etc)
-
-      except Exception as err:
-        print(f"[GlassesStreamer] Failed to open camera {camera_name}: {err}", flush=True)
-        return False
-
+    self._cap_procs: list[Process] = []
+    # launch each capture subprocess
+    for cam in self._camera_mapping.keys(): 
+      proc = Process(target=_run_capture, args=(cam, self._camera_mapping[cam], self._cap_queue, self._stop_event))
+      self._cap_procs.append(proc)
+      proc.start()
+    # TODO: read their pipe with confirmation that each connected to the camera 
+    # NOTE: for now will immediately start producing data
     return True
 
 
@@ -119,92 +154,63 @@ class GlassesStreamer(Producer):
 
 
   def _process_data(self) -> None:
-    res = self._get_frame_fn()
-    if res is not None:
-      process_time_s = get_time()
-      tag: str = "%s.data" % self._log_source_tag()
-      self._publish(tag, process_time_s=process_time_s, data=res)
-    elif not self._is_continue_capture:
-      self._send_end_packet()
+    try:
+      msg = self._cap_queue.get(timeout=10)
+    except Empty:
+      if not self._is_continue_capture:
+        self._send_end_packet()
+      return
+
+    process_time_s = get_time()
+    output = self._parse_frame_fn(msg)
+    if output is None:
+      return
+    tag: str = "%s.data" % self._log_source_tag()
+    self._publish(tag, process_time_s=process_time_s, data=output)
 
 
-  def _get_first_frame(self) -> dict | None:
-    output = {}
-    for camera_name, cap in self._captures.items():
-      try:
-        frame = cap.get_frame(timeout=0.01) # TODO: will consume resources unnecessarily
-        toa_s = get_time()
-      except TimeoutError:
-        continue
-      except uvc.InitError as err:
-        print(f"[GlassesStreamer] Failed to init {camera_name}: {err}", flush=True)
-        continue
-      except uvc.StreamError as err:
-        print(f"[GlassesStreamer] Stream error for {camera_name}: {err}", flush=True)
-        continue
+  def _parse_first_frame(self, msg: tuple) -> dict:
+    camera_name, frame, toa_s = msg
 
-      if self._start_index[camera_name] is None:
-        self._start_index[camera_name] = frame.index
-        frame_index = 0
-      else:
-        frame_index = frame.index - self._start_index[camera_name]
-
-      if all(map(lambda camera_start_index: camera_start_index is not None, self._start_index.values())):
-        self._get_frame_fn = self._get_frame
-
-      output[camera_name] = {
-        'frame_timestamp': frame.timestamp,
-        'frame_index': frame_index,
-        'frame_sequence_id': frame.index,
-        'frame': (frame.bgr, False, frame_index),
-        'toa_s': toa_s
-      }
-
-    if not not output:
-      return output
+    if self._start_index[camera_name] is None:
+      self._start_index[camera_name] = frame['index']
+      frame_index = 0
     else:
-      return None
+      frame_index = frame['index'] - self._start_index[camera_name]
 
+    if all(v is not None for v in self._start_index.values()):
+      self._parse_frame_fn = self._parse_frame
 
-  def _get_frame(self) -> dict | None:
-    output = {}
-    for camera_name, cap in self._captures.items():
-      try:
-        frame = cap.get_frame(timeout=0.01) # TODO: will consumer resources unnecessarily
-        toa_s = get_time()
-      except TimeoutError:
-        continue
-      except uvc.InitError as err:
-        print(f"[GlassesStreamer] Failed to init {camera_name}: {err}", flush=True)
-        continue
-      except uvc.StreamError as err:
-        print(f"[GlassesStreamer] Stream error for {camera_name}: {err}", flush=True)
-        continue
+    output: dict[str, dict] = {}
+    output[camera_name] = {
+      'frame_timestamp': frame['timestamp'],
+      'frame_index': frame_index,
+      'frame_sequence_id': frame['index'],
+      'frame': (frame['bgr'], False, frame_index),
+      'toa_s': toa_s
+    }
+    return output
 
-      frame_index = frame.index - self._start_index[camera_name]
+  def _parse_frame(self, msg: tuple) -> dict:
+    camera_name, frame, toa_s = msg
 
-      output[camera_name] = {
-        'frame_timestamp': frame.timestamp,
-        'frame_index': frame_index,
-        'frame_sequence_id': frame.index,
-        'frame': (frame.bgr, False, frame_index),
-        'toa_s': toa_s
-      }
+    frame_index = frame['index'] - self._start_index[camera_name]
 
-    if not not output:
-      return output
-    else:
-      return None
+    output: dict[str, dict] = {}
+    output[camera_name] = {
+      'frame_timestamp': frame['timestamp'],
+      'frame_index': frame_index,
+      'frame_sequence_id': frame['index'],
+      'frame': (frame['bgr'], False, frame_index),
+      'toa_s': toa_s
+    }
+    return output
 
 
   def _stop_new_data(self) -> None:
-    self._get_frame_fn = lambda: None
+    self._stop_event.set()
 
 
   def _cleanup(self) -> None:
-    for cap in self._captures.values():
-      try:
-        cap.close()
-      except Exception:
-        pass
+    for proc in self._cap_procs: proc.join()
     super()._cleanup()
