@@ -33,7 +33,7 @@ import pypylon.pylon as pylon
 from utils.print_utils import *
 from utils.zmq_utils import *
 from collections import OrderedDict
-from utils.live_gui_utils import LiveGUIPoster
+# from utils.live_gui_utils import LiveGUIPoster
 from typing import Optional
 import threading
 
@@ -80,14 +80,14 @@ class CameraStreamer(Producer):
       "timesteps_before_solidified": timesteps_before_solidified
     }
 
-    self.GUIposter = None
-    if gui_ip and gui_port:
-      # print(f"GUI port: {gui_port}")
-      self.GUIposter = LiveGUIPoster(
-        self._log_source_tag(),
-        gui_ip,
-        gui_port
-      ) 
+    # self.GUIposter = None
+    # if gui_ip and gui_port:
+    #   # print(f"GUI port: {gui_port}")
+    #   self.GUIposter = LiveGUIPoster(
+    #     self._log_source_tag(),
+    #     gui_ip,
+    #     gui_port
+    #   ) 
 
     super().__init__(host_ip=host_ip,
                      stream_info=stream_info,

@@ -100,7 +100,7 @@ class GlassesStream(Stream):
                                     data_path={camera_id: 'frame'},
                                     legend_name=camera_name,
                                     update_interval_ms=self._update_interval_ms,
-                                    color_format=self._streams_info[camera_id]['frame']['color_format']['cv2'],
+                                    color_format=self._streams_info[camera_id]['frame']['color_format'],
                                     col_width=6)
                     for camera_id, camera_name in self._camera_mapping.items()]
     return dbc.Row([camera_plot.layout for camera_plot in camera_plots])
