@@ -32,7 +32,7 @@ from utils.time_utils import *
 from utils.argparse_utils import *
 from utils.user_input_utils import *
 from utils.remote_runner_utils import *
-from utils.live_gui_utils import get_free_udp_port, launch_gui
+# from utils.live_gui_utils import get_free_udp_port, launch_gui
 
 import os
 import yaml
@@ -148,8 +148,8 @@ if __name__ == '__main__':
   # Parse launch arguments.
   args = parser.parse_args()
   # Create a GUI to ask for user input about the experiment information and file naming
-  user_input_gui = ExperimentGUI(args)
-  args = user_input_gui.get_experiment_inputs()  
+  # user_input_gui = ExperimentGUI(args)
+  # args = user_input_gui.get_experiment_inputs()  
   user_config = args.config_file
 
   # Override CLI arguments with a config file.
@@ -164,9 +164,9 @@ if __name__ == '__main__':
       exit('Error parsing CLI inputs.')
 
   # Check for a free port for camera GUI
-  if args.external_gui_specs:
-    args.external_gui_specs['gui_port'] = get_free_udp_port()
-    gui_t = launch_gui(args)
+  # if args.external_gui_specs:
+  #   args.external_gui_specs['gui_port'] = get_free_udp_port()
+  #   gui_t = launch_gui(args)
 
   # Load video codec spec.
   if 'stream_video' in args.logging_spec and args.logging_spec['stream_video']:
@@ -247,19 +247,19 @@ if __name__ == '__main__':
     t = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
     t.start()
     # ssh into NUC to start the other script
-    backpack_ip = args.remote_publisher_ips[0]
-    nuc_t = threading.Thread(target=start_remote, args=(
-          REMOTE_MAIN, REMOTE_PROJECT_PATH, REMOTE_LOG, backpack_ip, BACKPACK_USER, cmd_args))
-    nuc_t.start()
-    tail_t =  threading.Thread(target=tail_remote_log, args=(
-          BACKPACK_USER, backpack_ip, REMOTE_LOG))
-    tail_t.start()
+    # backpack_ip = args.remote_publisher_ips[0]
+    # nuc_t = threading.Thread(target=start_remote, args=(
+    #       REMOTE_MAIN, REMOTE_PROJECT_PATH, REMOTE_LOG, backpack_ip, BACKPACK_USER, cmd_args))
+    # nuc_t.start()
+    # tail_t =  threading.Thread(target=tail_remote_log, args=(
+    #       BACKPACK_USER, backpack_ip, REMOTE_LOG))
+    # tail_t.start()
   
     while not is_quit:
       is_quit = input("Enter 'stop' to exit: ") == 'stop'
     local_broker.set_is_quit()
     t.join()
-    nuc_t.join()
-    tail_t.join()
+    # nuc_t.join()
+    # tail_t.join()
   else:
     local_broker()  

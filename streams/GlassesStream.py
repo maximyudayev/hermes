@@ -72,13 +72,13 @@ class GlassesStream(Stream):
                       data_notes=self._data_notes[camera_name]["frame_timestamp"])
       self.add_stream(device_name=camera_name,
                       stream_name='frame_index',
-                      data_type='float64',
+                      data_type='uint64',
                       sample_size=[1],
                       sampling_rate_hz=camera_spec['fps'],
                       data_notes=self._data_notes[camera_name]["frame_index"])
       self.add_stream(device_name=camera_name,
                       stream_name='frame_sequence_id',
-                      data_type='float64',
+                      data_type='uint64',
                       sample_size=[1],
                       sampling_rate_hz=camera_spec['fps'],
                       data_notes=self._data_notes[camera_name]["frame_sequence_id"])

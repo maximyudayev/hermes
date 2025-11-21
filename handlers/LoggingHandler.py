@@ -556,7 +556,6 @@ class Logger(LoggerInterface):
 
           video_stream = video_stream.global_args('-hide_banner')
           video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))

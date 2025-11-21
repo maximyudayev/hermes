@@ -75,12 +75,12 @@ def _run_capture(camera_name: str, camera_spec: dict, queue: Queue, stop_event: 
     # configure the controls on each `Capture` object (exposure, brightness, sharpness, etc)
     controls_by_name = {c.display_name: c for c in cap.controls}
 
-    for ctrl_name, value in camera_spec.get('uvc_controls', {}).items():
-      ctrl = controls_by_name.get(ctrl_name)
-      try:
-        ctrl.value = value
-      except Exception as e:
-        print(f"Could not set control for {camera_spec['name']} '{ctrl_name}' to {value}: {e}")
+  for ctrl_name, value in camera_spec.get('uvc_controls', {}).items():
+    ctrl = controls_by_name.get(ctrl_name)
+    try:
+      ctrl.value = value
+    except Exception as e:
+      print(f"Could not set control for {camera_spec['name']} '{ctrl_name}' to {value}: {e}")
 
   while not stop_event.is_set():
     _get_frame(camera_name, cap, queue)
