@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,10 @@
 #
 # ############
 
-from collections import OrderedDict, deque, namedtuple
-from typing import TypeAlias, Any, Deque, Iterable, Iterator, Mapping, TypedDict, Dict, NamedTuple
+from collections import namedtuple
+from dataclasses import dataclass
+from typing import Optional, TypeAlias, Any, Deque, Iterable, Mapping, Dict
+from enum import Enum
 from threading import Lock
 import zmq
 
@@ -37,25 +39,95 @@ DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
 StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
 DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
-VideoFormatTuple = namedtuple('VideoFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt'))
-VideoCodecDict = TypedDict('VideoCodecDict', {'codec_name': str, 'pix_format': str, 'input_options': Mapping, 'output_options': Mapping})
-AudioFormatTuple = namedtuple('AudioFormatTuple', ('ffmpeg_input_format', 'ffmpeg_pix_fmt'))
-AudioCodecDict = TypedDict('AudioCodecDict', {'codec_name': str, 'pix_format': str, 'input_options': Mapping, 'output_options': Mapping})
+VideoFormatTuple = namedtuple(
+    "VideoFormatTuple", ("format", "color")
+)
+AudioFormatTuple = namedtuple(
+    "AudioFormatTuple", ("format", "color")
+)
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
-# Must be a tuple of (<FFmpeg write format>, <OpenCV display format>):
-#   one of the supported FFmpeg pixel formats: https://ffmpeg.org/doxygen/trunk/pixfmt_8h.html#a9a8e335cf3be472042bc9f0cf80cd4c5 
-VIDEO_FORMAT = {
-  'bgr':        VideoFormatTuple('rawvideo',    'bgr24'),
-  'yuv':        VideoFormatTuple('rawvideo',    'yuv420p'),
-  'jpeg':       VideoFormatTuple('image2pipe',  'yuv420p'),
-  'bayer_rg8':  VideoFormatTuple('rawvideo',    'bayer_rggb8'),
-}
+@dataclass
+class LoggingSpec:
+    """Object specifying data storage options.
 
-AUDIO_FORMAT = {
-  'bgr':        AudioFormatTuple('rawvideo',    'bgr24'),
-  'yuv':        AudioFormatTuple('rawvideo',    'yuv420p'),
-  'jpeg':       AudioFormatTuple('image2pipe',  'yuv420p'),
-  'bayer_rg8':  AudioFormatTuple('rawvideo',    'bayer_rggb8'),
-}
+    Args:
+        log_dir (str): Path to the directory on disk to flush data to.
+        experiment (dict[str, str]): Nested setup definition of Nodes across distributed hosts.
+        log_time_s (float): Start time of saving data.
+        stream_period_s (float, optional): Duration of periods over which to flush streamed accumulated data from memory to disk. Defaults to `30.0`.
+        is_quiet (bool): Whether to print FFmpeg stats to the terminal. Defaults to `False`.
+        stream_hdf5 (bool, optional): Whether to stream data into HDF5 files. Defaults to `False`.
+        stream_video (bool, optional): Whether to stream video data into MP4/MKV files. Defaults to `False`.
+        stream_csv (bool, optional): Whether to stream data into CSV files. Defaults to `False`.
+        stream_audio (bool, optional): Whether to stream audio data into MP3/WAV files. Defaults to `False`.
+        dump_csv (bool, optional): Weather to dump in-memory recorded data in CSV files. Defaults to `False`.
+        dump_hdf5 (bool, optional): Weather to dump in-memory recorded data in HDF5 files. Defaults to `False`.
+        dump_video (bool, optional): Weather to dump in-memory recorded video data in MP4/MKV files. Defaults to `False`.
+        dump_audio (bool, optional): Weather to dump in-memory recorded audio data in MP3/WAV files. Defaults to `False`.
+        video_codec (VideoCodec, optional): Definition of the video codec to use for FFmpeg. Defaults to `None`.
+        audio_codec (AudioCodec, optional): Definition of the audio codec to use for FFmpeg. Defaults to `None`.
+    """
+
+    log_dir: str
+    experiment: dict[str, str]
+    log_time_s: float
+    stream_period_s: Optional[float] = 30.0
+    is_quiet: Optional[bool] = False
+    stream_hdf5: Optional[bool] = False
+    stream_video: Optional[bool] = False
+    stream_csv: Optional[bool] = False
+    stream_audio: Optional[bool] = False
+    dump_hdf5: Optional[bool] = False
+    dump_video: Optional[bool] = False
+    dump_csv: Optional[bool] = False
+    dump_audio: Optional[bool] = False
+    video_codec: Optional[VideoCodec] = None
+    audio_codec: Optional[AudioCodec] = None
+
+
+@dataclass
+class VideoCodec:
+    """Object specifying video codec options for FFmpeg."""
+    codec_name: str
+    pix_format: str
+    num_cpu: int = 1
+    input_options: Mapping = None
+    output_options: Mapping = None
+
+
+@dataclass
+class AudioCodec:
+    """Object specifying audio codec options for FFmpeg."""
+    codec_name: str
+    pix_format: str
+    num_cpu: int = 1
+    input_options: Mapping = None
+    output_options: Mapping = None
+
+
+class VideoFormatEnum(Enum):
+    """Video format enumeration for supported FFmpeg video formats.
+    
+    Must be a tuple of (<FFmpeg write format>, <Color format>), where:
+        write format is one of: `ffmpeg -formats`
+        pixel color is one of: `ffmpeg -pix_fmts`
+    """
+    BGR = VideoFormatTuple("rawvideo", "bgr24")
+    YUV = VideoFormatTuple("rawvideo", "yuv420p")
+    JPEG = VideoFormatTuple("image2pipe", "yuv420p")
+    BAYER_RG8 = VideoFormatTuple("rawvideo", "bayer_rggb8")
+
+
+class AudioFormatEnum(Enum):
+    """Audio format enumeration for supported FFmpeg video formats.
+    
+    TODO:
+    Must be a tuple of (<FFmpeg write format>, ...), where:
+        write format is one of: `ffmpeg -formats`
+    """
+    BGR = AudioFormatTuple("rawvideo", "bgr24")
+    YUV = AudioFormatTuple("rawvideo", "yuv420p")
+    JPEG = AudioFormatTuple("image2pipe", "yuv420p")
+    BAYER_RG8 = AudioFormatTuple("rawvideo", "bayer_rggb8")

@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,5 +27,6 @@
 
 from typing import Callable
 
+
 def launch_callable(obj: Callable, *args, **kwargs):
-  obj(*args, **kwargs)
+    obj(*args, **kwargs)

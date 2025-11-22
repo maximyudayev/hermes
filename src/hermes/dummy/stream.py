@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,35 +29,37 @@ from hermes.base.stream import Stream
 
 
 class DummyStream(Stream):
-  """A Stream structure to store Dummy modality data.
-  """
-  def __init__(self, 
-               sampling_rate_hz: int = 1,
-               payload_num_bytes: int = 100,
-               **_) -> None:
-    """Constructor of the DummyStream datastructure.
+    """A Stream structure to store Dummy modality data."""
 
-    Args:
-        sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to 1.
-        payload_num_bytes (int, optional): Size of the messages to send. Defaults to 100.
-    """
-    super().__init__()
+    def __init__(
+        self, sampling_rate_hz: int = 1, payload_num_bytes: int = 100, **_
+    ) -> None:
+        """Constructor of the DummyStream datastructure.
 
-    self._device_name = 'sensor-emulator'
+        Args:
+            sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to 1.
+            payload_num_bytes (int, optional): Size of the messages to send. Defaults to 100.
+        """
+        super().__init__()
 
-    self.add_stream(device_name=self._device_name,
-                    stream_name='sequence',
-                    data_type='uint32',
-                    sample_size=[1],
-                    sampling_rate_hz=int(sampling_rate_hz),
-                    is_measure_rate_hz=False)
-    self.add_stream(device_name=self._device_name,
-                    stream_name='data',
-                    data_type=f"S{payload_num_bytes}",
-                    sample_size=[1],
-                    sampling_rate_hz=int(sampling_rate_hz),
-                    is_measure_rate_hz=True)
+        self._device_name = "sensor-emulator"
 
+        self.add_stream(
+            device_name=self._device_name,
+            stream_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+            is_measure_rate_hz=False,
+        )
+        self.add_stream(
+            device_name=self._device_name,
+            stream_name="data",
+            data_type=f"S{payload_num_bytes}",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+            is_measure_rate_hz=True,
+        )
 
-  def get_fps(self) -> dict[str, float | None]:
-    return {self._device_name: super()._get_fps(self._device_name, 'toa')}
+    def get_fps(self) -> dict[str, float | None]:
+        return {self._device_name: super()._get_fps(self._device_name, "toa")}

@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,6 @@ from hermes.base.nodes.node_interface import NodeInterface
 
 
 class ConsumerInterface(NodeInterface):
-  """Interface for the Consumer Node component.
-  """
-  pass
+    """Interface for the Consumer Node component."""
+
+    pass

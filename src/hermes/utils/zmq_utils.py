@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,41 +26,41 @@
 # ############
 
 # ZeroMQ topics and message strings
-TOPIC_KILL      = 'KILL'
-CMD_HELLO       = 'HELLO'
-CMD_ACK         = 'ACK'
-CMD_START_TIME  = 'START_TIME'
-CMD_GO          = 'GO'
-CMD_END         = 'END'
-CMD_EXIT        = 'EXIT?'
-CMD_BYE         = 'BYE'
-MSG_ON          = 'ON'
-MSG_OFF         = 'OFF'
-MSG_OK          = 'OK'
+TOPIC_KILL = "KILL"
+CMD_HELLO = "HELLO"
+CMD_ACK = "ACK"
+CMD_START_TIME = "START_TIME"
+CMD_GO = "GO"
+CMD_END = "END"
+CMD_EXIT = "EXIT?"
+CMD_BYE = "BYE"
+MSG_ON = "ON"
+MSG_OFF = "OFF"
+MSG_OK = "OK"
 
 # Ports used for ZeroMQ by our system
-PORT_BACKEND        = '42069'
-PORT_FRONTEND       = '42070'
-PORT_SYNC_HOST      = '42071'
-PORT_SYNC_REMOTE    = '42072'
-PORT_KILL           = '42066'
-PORT_KILL_BTN       = '42065'
-PORT_PAUSE          = '42067'
+PORT_BACKEND = "42069"
+PORT_FRONTEND = "42070"
+PORT_SYNC_HOST = "42071"
+PORT_SYNC_REMOTE = "42072"
+PORT_KILL = "42066"
+PORT_KILL_BTN = "42065"
+PORT_PAUSE = "42067"
 
 # Ports of connected devices/sensors
-PORT_MOTICON      = '8888' # defined by the Moticon desktop app, putting data at the loopback address for listening
-PORT_PROSTHESIS   = '51702' # defined by LabView code of VUB
-PORT_GUI          = '8005'
-PORT_EYE          = '50020'
-PORT_VICON        = '801' # defined by Vicon software
-PORT_MVN          = '9763' # defined by MVN Analyze
+PORT_MOTICON = "8888"  # defined by the Moticon desktop app, putting data at the loopback address for listening
+PORT_PROSTHESIS = "51702"  # defined by LabView code of VUB
+PORT_GUI = "8005"
+PORT_EYE = "50020"
+PORT_VICON = "801"  # defined by Vicon software
+PORT_MVN = "9763"  # defined by MVN Analyze
 
 # IP addresses of devices on the network used by our system
-DNS_LOCALHOST   = 'localhost'
-IP_LOOPBACK     = '127.0.0.1'
+DNS_LOCALHOST = "localhost"
+IP_LOOPBACK = "127.0.0.1"
 
 # TODO: remove hardcoding
-IP_TERMINAL     = '192.168.0.100'
-IP_PROSTHESIS   = '192.168.0.101'
-IP_BACKPACK     = '192.168.0.103'
-IP_VICON        = '192.168.0.104'
+IP_TERMINAL = "192.168.0.100"
+IP_PROSTHESIS = "192.168.0.101"
+IP_BACKPACK = "192.168.0.103"
+IP_VICON = "192.168.0.104"
