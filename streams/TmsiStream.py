@@ -26,7 +26,6 @@
 # ############
 
 from streams import Stream
-import dash_bootstrap_components as dbc
 
 
 ###############################################
@@ -85,7 +84,3 @@ class TmsiStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'tmsi-data': super()._get_fps('tmsi-data', 'counter')}
-
-
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()

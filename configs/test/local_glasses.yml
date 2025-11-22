@@ -37,7 +37,7 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 1
+  stream_period_s     : 10
   
   stream_hdf5         : True
   stream_csv          : False
@@ -65,8 +65,8 @@ producer_specs:
         name: "Pupil Cam2 ID0"
         fps: 120
         resolution:
-          - 192
-          - 192
+          - 400
+          - 400
           - 3
         bandwidth_factor: 1.0
         uvc_controls:
@@ -95,8 +95,8 @@ producer_specs:
         name: "Pupil Cam2 ID1"
         fps: 120
         resolution:
-          - 192
-          - 192
+          - 400
+          - 400
           - 3
         bandwidth_factor: 1.0
         uvc_controls:
@@ -145,7 +145,7 @@ producer_specs:
           Gamma: 100
           White Balance temperature: 4600
           White Balance temperature,Auto: 1
-    video_image_format: "bgr"
+    video_image_format: "mjpeg"
     
 
 

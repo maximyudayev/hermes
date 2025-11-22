@@ -27,8 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-from visualizers import LinePlotVisualizer#, SkeletonVisualizer
-import dash_bootstrap_components as dbc
 
 
 ##################################################
@@ -130,33 +128,6 @@ class AwindaStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'awinda-imu': super()._get_fps('awinda-imu', 'timestamp')}
-
-
-  # TODO: add `SkeletonVisualizer` for orientation data.
-  def build_visulizer(self) -> dbc.Row:
-    acceleration_plot = LinePlotVisualizer(unique_id='awinda-acc',
-                                           stream=self,
-                                           data_path={'awinda-imu': ['acceleration']},
-                                           legend_names=list(self._device_mapping.values()),
-                                           plot_duration_timesteps=self._timesteps_before_solidified,
-                                           update_interval_ms=self._update_interval_ms,
-                                           col_width=6)
-    gyroscope_plot = LinePlotVisualizer(unique_id='awinda-gyr',
-                                        stream=self,
-                                        data_path={'awinda-imu': ['gyroscope']},
-                                        legend_names=list(self._device_mapping.values()),
-                                        plot_duration_timesteps=self._timesteps_before_solidified,
-                                        update_interval_ms=self._update_interval_ms,
-                                        col_width=6)
-    magnetometer_plot = LinePlotVisualizer(unique_id='awinda-mag',
-                                           stream=self,
-                                           data_path={'awinda-imu': ['magnetometer']},
-                                           legend_names=list(self._device_mapping.values()),
-                                           plot_duration_timesteps=self._timesteps_before_solidified,
-                                           update_interval_ms=self._update_interval_ms,
-                                           col_width=6)
-    # skeleton_plot = SkeletonVisualizer()
-    return dbc.Row([acceleration_plot.layout, gyroscope_plot.layout, magnetometer_plot.layout])
 
 
   def _define_data_notes(self) -> None:

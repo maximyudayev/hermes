@@ -27,9 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-import dash_bootstrap_components as dbc
-
-from visualizers import ExperimentControlVisualizer
 
 
 ################################################
@@ -51,13 +48,6 @@ class ExperimentControlStream(Stream):
                     data_type='S26',
                     sample_size=[1],
                     sampling_rate_hz=sampling_rate_hz)
-
-
-  def build_visulizer(self) -> dbc.Row:
-    control_gui = ExperimentControlVisualizer(stream=self,
-                                              activities=self._activities,
-                                              col_width=6)
-    return dbc.Row([control_gui.layout])
 
 
   def get_fps(self) -> dict[str, float | None]:

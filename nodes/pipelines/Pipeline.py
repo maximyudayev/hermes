@@ -59,7 +59,8 @@ class Pipeline(Node):
     from nodes.pipelines import PIPELINES
     from nodes.producers import PRODUCERS
 
-    super().__init__(host_ip=host_ip,
+    super().__init__(ref_time=logging_spec["log_time_s"],
+                     host_ip=host_ip,
                      port_sync=port_sync,
                      port_killsig=port_killsig)
     self._port_pub = port_pub

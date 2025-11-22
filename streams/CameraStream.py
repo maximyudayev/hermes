@@ -27,8 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-from visualizers import VideoVisualizer
-import dash_bootstrap_components as dbc
 
 
 ############################################
@@ -93,18 +91,6 @@ class CameraStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.values()}
-
-
-  def build_visulizer(self) -> dbc.Row:
-    camera_plots = [VideoVisualizer(stream=self,
-                                    unique_id=camera_id,
-                                    data_path={camera_id: 'frame'},
-                                    legend_name=camera_name,
-                                    update_interval_ms=self._update_interval_ms,
-                                    color_format=self._streams_info[camera_id]['frame']['color_format']['cv2'],
-                                    col_width=6)
-                    for camera_id, camera_name in self._camera_mapping.items()]
-    return dbc.Row([camera_plot.layout for camera_plot in camera_plots])
 
 
   def _define_data_notes(self):

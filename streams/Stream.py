@@ -30,7 +30,6 @@ from abc import ABC, abstractmethod
 import copy
 from collections import OrderedDict, deque
 from typing import Any, Dict, Iterable, Iterator, Mapping
-import dash_bootstrap_components as dbc
 from threading import Lock
 
 from utils.time_utils import get_time
@@ -84,14 +83,6 @@ class Stream(ABC):
   @abstractmethod
   def get_fps(self) -> dict[str, float | None]:
     pass
-
-
-  # Get how each stream should be visualized.
-  # Should be overridden by subclasses if desired.
-  # Returns a Dash `Row`.
-  @abstractmethod
-  def build_visulizer(self) -> dbc.Row | None:
-    return None
 
 
   #############################

@@ -29,7 +29,9 @@ from abc import ABC, abstractmethod
 
 import zmq
 from utils.zmq_utils import *
+from utils.time_utils import init_time
 import datetime
+
 
 class NodeInterface(ABC):
   # Read-only property that every subclass must implement.
@@ -171,6 +173,7 @@ class JoinState(NodeState):
 
 class Node(NodeInterface):
   def __init__(self,
+               ref_time: float,
                host_ip: str = DNS_LOCALHOST,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL) -> None:
@@ -178,10 +181,11 @@ class Node(NodeInterface):
     self._port_sync = port_sync
     self._port_killsig = port_killsig
     self.__is_done = False
+    init_time(ref_time=ref_time)
 
     self._state = StartState(self)
 
-    self._ctx: zmq.Context = zmq.Context.instance()
+    self._ctx: zmq.Context = zmq.Context(io_threads=1).instance()
     self._poller: zmq.Poller = zmq.Poller()
 
 

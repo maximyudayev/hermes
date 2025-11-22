@@ -521,7 +521,7 @@ class Logger(LoggerInterface):
             base_name = f"{base_name}_{self._log_tag}_{device_name}"
 
           # Create final file name
-          filename_video = f"{dt}_{base_name}.mp4"
+          filename_video = f"{dt}_{base_name}.mkv"
           filepath_video = os.path.join(self._log_dir, filename_video)    
             
           # Create a video writer.
@@ -991,11 +991,12 @@ class Logger(LoggerInterface):
       if (not self._is_streaming) and self._is_flush and is_flush_all_in_current_iteration:
         self._is_finished = True
 
-      if self._incremental_saving:
+      if self._incremental_saving and self._log_tag != 'eye' and self._log_tag != 'glasses':
         # Increment counter every time data is flushed. Can be used only for dots while all data is being saved in ai
         self._flush_counter += 1
         # print(f'Counter: {self._flush_counter}', flush=True)
         if self._flush_counter % self._incremental_period == 0: # create a new hdf5 file every 15 mins 
+          print("Creating a new file", flush=True)
           self._file_counter +=1
           # Log metadata.
           self._log_metadata_hdf5()

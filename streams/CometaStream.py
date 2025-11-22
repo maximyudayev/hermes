@@ -27,9 +27,7 @@
 
 from collections import OrderedDict
 from streams import Stream
-from visualizers import LinePlotVisualizer
 from streams.Stream import Stream
-import dash_bootstrap_components as dbc
 
 
 ###########################################
@@ -75,17 +73,6 @@ class CometaStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'cometa-emg': super()._get_fps('cometa-emg', 'emg')}
-
-
-  def build_visulizer(self) -> dbc.Row:
-    electromyography_plot = LinePlotVisualizer(stream=self,
-                                               unique_id='cometa_emg',
-                                               data_path={'cometa-emg': ['emg']},
-                                               legend_names=list(self._device_mapping.values()),
-                                               plot_duration_timesteps=self._timesteps_before_solidified,
-                                               update_interval_ms=self._update_interval_ms,
-                                               col_width=6)
-    return dbc.Row([electromyography_plot.layout])
 
 
   def _define_data_notes(self) -> None:

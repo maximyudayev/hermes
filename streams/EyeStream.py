@@ -26,9 +26,7 @@
 # ############
 
 from collections import OrderedDict
-import dash_bootstrap_components as dbc
 from streams import Stream
-from visualizers import GazeVisualizer, VideoVisualizer
 
 
 ################################################
@@ -370,36 +368,6 @@ class EyeStream(Stream):
       if self._is_binocular:
         fps['eye-video-eye1'] = super()._get_fps('eye-video-eye1', 'frame')
     return fps
-
-
-  def build_visulizer(self) -> dbc.Row:
-    devices = ['eye-video-world',
-               'eye-video-eye0',
-               'eye-video-eye1']
-    predicates = [self._is_stream_video_world,
-                  self._is_stream_video_eye,
-                  self._is_stream_video_eye and self._is_binocular]
-    
-    gaze_plot = [GazeVisualizer(stream=self,
-                                unique_id=device,
-                                world_data_path={'eye-video-world': 'frame'},
-                                gaze_data_path={'eye-gaze': 'position'},
-                                legend_name=device,
-                                update_interval_ms=self._update_interval_ms,
-                                color_format=self._streams_info['eye-video-world']['frame']['color_format']['cv2'],
-                                col_width=6)
-                    for device, predicate in zip(devices[0:1],predicates[0:1]) if predicate]
-
-    eye_plots = [VideoVisualizer(stream=self,
-                                 unique_id=device,
-                                 data_path={device: 'frame'},
-                                 legend_name=device,
-                                 update_interval_ms=self._update_interval_ms,
-                                 color_format=self._streams_info[device]['frame']['color_format']['cv2'],
-                                 col_width=6)
-                    for device, predicate in zip(devices[1:],predicates[1:]) if predicate]
-    
-    return dbc.Row([camera_plot.layout for camera_plot in gaze_plot+eye_plots])
 
 
   def _define_data_notes(self) -> None:

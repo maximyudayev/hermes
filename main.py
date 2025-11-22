@@ -215,12 +215,12 @@ if __name__ == '__main__':
   producer_specs: list[dict] = args.producer_specs
   consumer_specs: list[dict] = args.consumer_specs
   pipeline_specs: list[dict] = args.pipeline_specs
-  external_gui_specs: list[dict] = args.external_gui_specs
+  # external_gui_specs: list[dict] = args.external_gui_specs
 
   # Create the broker and manage all the components of the experiment.
   local_broker: Broker = Broker(host_ip=args.host_ip,
                                 node_specs=producer_specs+consumer_specs+pipeline_specs,
-                                external_gui_specs=external_gui_specs,
+                                # external_gui_specs=external_gui_specs,
                                 is_master_broker=args.is_master_broker)
 
   # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
