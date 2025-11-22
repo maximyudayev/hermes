@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,38 +33,32 @@ from hermes.utils.time_utils import get_time
 
 
 class DelayEstimator:
-  """Functional callable class for periodic device-specific propagation delay estimation.
-  """
-  def __init__(self,
-               sample_period_s: float):
-    """Constructor of the DelayEstimator component for propagation delay estimation.
+    """Functional callable class for periodic device-specific propagation delay estimation."""
 
-    Args:
-        sample_period_s (float): Duration of periods over which to estimate propagation delay.
-    """
-    self._sample_period_s = sample_period_s
-    self._is_continue = True
+    def __init__(self, sample_period_s: float):
+        """Constructor of the DelayEstimator component for propagation delay estimation.
 
+        Args:
+            sample_period_s (float): Duration of periods over which to estimate propagation delay.
+        """
+        self._sample_period_s = sample_period_s
+        self._is_continue = True
 
-  def __call__(self,
-               ping_fn: Callable,
-               publish_fn: Callable):
-    """Callable that runs periodic propagation delay estimation.
+    def __call__(self, ping_fn: Callable, publish_fn: Callable):
+        """Callable that runs periodic propagation delay estimation.
 
-    Uses user-passed estimation and callback functions until termination.
+        Uses user-passed estimation and callback functions until termination.
 
-    Args:
-        ping_fn (Callable): Propagation delay estimation function pointer.
-        publish_fn (Callable): Callback function pointer.
-    """
-    while self._is_continue:
-      delay_s: float = estimate_transmission_delay(ping_fn=ping_fn)
-      time_s = get_time()
-      publish_fn(time_s, delay_s)
-      time.sleep(self._sample_period_s)
+        Args:
+            ping_fn (Callable): Propagation delay estimation function pointer.
+            publish_fn (Callable): Callback function pointer.
+        """
+        while self._is_continue:
+            delay_s: float = estimate_transmission_delay(ping_fn=ping_fn)
+            time_s = get_time()
+            publish_fn(time_s, delay_s)
+            time.sleep(self._sample_period_s)
 
-
-  def cleanup(self):
-    """Method for external trigger to terminate the delay estimator.
-    """
-    self._is_continue = False
+    def cleanup(self):
+        """Method for external trigger to terminate the delay estimator."""
+        self._is_continue = False

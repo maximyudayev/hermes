@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,36 +30,43 @@ import numpy as np
 
 
 def encode_ndarray(obj):
-  if isinstance(obj, np.ndarray):
-    return {'__numpy__': True, 
-            'shape': obj.shape, 
-            'dtype': str(obj.dtype), 
-            'bytes': obj.tobytes()}
-  return obj
+    if isinstance(obj, np.ndarray):
+        return {
+            "__numpy__": True,
+            "shape": obj.shape,
+            "dtype": str(obj.dtype),
+            "bytes": obj.tobytes(),
+        }
+    return obj
 
 
 def decode_ndarray(obj):
-  if b'__numpy__' in obj:
-    obj = np.frombuffer(obj[b'bytes'], dtype=obj[b'dtype']).reshape(obj[b'shape'])
-  return obj
+    if "__numpy__" in obj:
+        obj = np.frombuffer(obj["bytes"], dtype=obj["dtype"]).reshape(obj["shape"])
+    return obj
 
 
 def convert_bytes_keys_to_strings(obj):
-  if isinstance(obj, dict):
-    return {(key.decode('utf-8') if isinstance(key, bytes) else key): convert_bytes_keys_to_strings(value) for key, value in obj.items()}
-  elif isinstance(obj, list):
-    return [convert_bytes_keys_to_strings(item) for item in obj]
-  else:
-    return obj
+    if isinstance(obj, dict):
+        return {
+            (
+                key.decode("utf-8") if isinstance(key, bytes) else key
+            ): convert_bytes_keys_to_strings(value)
+            for key, value in obj.items()
+        }
+    elif isinstance(obj, list):
+        return [convert_bytes_keys_to_strings(item) for item in obj]
+    else:
+        return obj
 
 
 # Serializes the message objects.
 #   Preserves named arguments as key-value pairs for a dictionary-like message.
 def serialize(**kwargs) -> bytes:
-  return msgpack.packb(o=kwargs, default=encode_ndarray) # type: ignore
+    return msgpack.packb(o=kwargs, default=encode_ndarray)  # type: ignore
 
 
 # Deserializes the message back into a dictionary-like message.
 def deserialize(msg) -> dict:
-  raw_dict = msgpack.unpackb(msg, object_hook=decode_ndarray)
-  return convert_bytes_keys_to_strings(raw_dict) # type: ignore
+    raw_dict = msgpack.unpackb(msg, object_hook=decode_ndarray)
+    return convert_bytes_keys_to_strings(raw_dict)  # type: ignore

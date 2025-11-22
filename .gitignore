@@ -6,6 +6,7 @@ __pycache__
 
 .vscode/*
 !.vscode/launch.json
+!.vscode/settings.json
 
 # Virtual environments
 .venv*/

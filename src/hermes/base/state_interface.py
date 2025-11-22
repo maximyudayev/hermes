@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,26 +29,23 @@ from abc import ABC, abstractmethod
 
 
 class StateInterface(ABC):
-  """Basic FSM interface for Broker, Node, Storage.
-  """
+    """Basic FSM interface for Broker, Node, Storage."""
 
-  @abstractmethod
-  def run(self) -> None:
-    """Run the logic of the currently selected state.
-    """
-    pass
+    @abstractmethod
+    def run(self) -> None:
+        """Run the logic of the currently selected state."""
+        pass
 
-  @abstractmethod
-  def is_continue(self) -> bool:
-    """Check if to stay in the current state.
+    @abstractmethod
+    def is_continue(self) -> bool:
+        """Check if to stay in the current state.
 
-    Returns:
-        bool: Whether to stay in the same state.
-    """
-    pass
+        Returns:
+            bool: Whether to stay in the same state.
+        """
+        pass
 
-  @abstractmethod
-  def kill(self) -> None:
-    """Trigger to enter the KILL state from any other.
-    """
-    pass
+    @abstractmethod
+    def kill(self) -> None:
+        """Trigger to enter the KILL state from any other."""
+        pass

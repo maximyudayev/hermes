@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,16 +30,15 @@ from typing import Callable
 import numpy as np
 
 
-def estimate_transmission_delay(ping_fn: Callable, 
-                                num_samples: int = 100):
-  # Estimate the network delay when sending the set-time command.
-  transmit_delays_s: list[float] = []
-  for i in range(num_samples):
-    local_time_before = time.time()
-    ping_fn()
-    local_time_after = time.time()
-    # Assume symmetric delays.
-    transmit_delays_s.append((local_time_after - local_time_before)/2.0)
-  # TODO: remove outliers before averaging.
-  delays = np.array(transmit_delays_s)
-  return float(np.mean(delays))
+def estimate_transmission_delay(ping_fn: Callable, num_samples: int = 100):
+    # Estimate the network delay when sending the set-time command.
+    transmit_delays_s: list[float] = []
+    for i in range(num_samples):
+        local_time_before = time.time()
+        ping_fn()
+        local_time_after = time.time()
+        # Assume symmetric delays.
+        transmit_delays_s.append((local_time_after - local_time_before) / 2.0)
+    # TODO: remove outliers before averaging.
+    delays = np.array(transmit_delays_s)
+    return float(np.mean(delays))
