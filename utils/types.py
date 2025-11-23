@@ -48,5 +48,6 @@ VIDEO_FORMAT = {
   'bgr':        VideoFormatTuple('rawvideo',    'bgr24'),
   'yuv':        VideoFormatTuple('rawvideo',    'yuv420p'),
   'jpeg':       VideoFormatTuple('image2pipe',  'yuv420p'),
+  'mjpeg':      VideoFormatTuple('jpeg_pipe',  'yuv420p'),
   'bayer_rg8':  VideoFormatTuple('rawvideo',    'bayer_rggb8'),
 }

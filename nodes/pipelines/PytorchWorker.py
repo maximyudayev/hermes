@@ -37,7 +37,7 @@ import torch
 from torch import nn
 from collections import deque
 from pytorch_tcn import TCN
-#from scipy.signal import butter, lfilter, lfilter_zi # TODO: install scipy
+# from scipy.signal import butter, lfilter, lfilter_zi # TODO: install scipy
 
 
 ######################################################

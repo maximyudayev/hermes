@@ -39,8 +39,8 @@ def encode_ndarray(obj):
 
 
 def decode_ndarray(obj):
-  if b'__numpy__' in obj:
-    obj = np.frombuffer(obj[b'bytes'], dtype=obj[b'dtype']).reshape(obj[b'shape'])
+  if '__numpy__' in obj:
+    obj = np.frombuffer(obj['bytes'], dtype=obj['dtype']).reshape(obj['shape'])
   return obj
 
 

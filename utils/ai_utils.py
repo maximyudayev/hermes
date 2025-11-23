@@ -27,6 +27,7 @@
 import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi 
 
+
 def smooth(pred: int, state: tuple) -> tuple:
     in_fog, consec_ones, consec_zeros = state
 

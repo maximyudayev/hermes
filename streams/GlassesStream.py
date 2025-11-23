@@ -27,8 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-from visualizers import VideoVisualizer
-import dash_bootstrap_components as dbc
 
 
 ####################################################
@@ -72,13 +70,13 @@ class GlassesStream(Stream):
                       data_notes=self._data_notes[camera_name]["frame_timestamp"])
       self.add_stream(device_name=camera_name,
                       stream_name='frame_index',
-                      data_type='float64',
+                      data_type='uint64',
                       sample_size=[1],
                       sampling_rate_hz=camera_spec['fps'],
                       data_notes=self._data_notes[camera_name]["frame_index"])
       self.add_stream(device_name=camera_name,
                       stream_name='frame_sequence_id',
-                      data_type='float64',
+                      data_type='uint64',
                       sample_size=[1],
                       sampling_rate_hz=camera_spec['fps'],
                       data_notes=self._data_notes[camera_name]["frame_sequence_id"])
@@ -92,18 +90,6 @@ class GlassesStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {camera_name: super()._get_fps(camera_name, 'frame') for camera_name in self._camera_mapping.keys()}
-
-
-  def build_visulizer(self) -> dbc.Row:
-    camera_plots = [VideoVisualizer(stream=self,
-                                    unique_id=camera_id,
-                                    data_path={camera_id: 'frame'},
-                                    legend_name=camera_name,
-                                    update_interval_ms=self._update_interval_ms,
-                                    color_format=self._streams_info[camera_id]['frame']['color_format'],
-                                    col_width=6)
-                    for camera_id, camera_name in self._camera_mapping.items()]
-    return dbc.Row([camera_plot.layout for camera_plot in camera_plots])
 
 
   def _define_data_notes(self):

@@ -27,9 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-import dash_bootstrap_components as dbc
-
-from visualizers import LinePlotVisualizer
 
 
 ##########################################################
@@ -73,17 +70,6 @@ class ViconStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'vicon-data': super()._get_fps('vicon-data', 'emg')}
-
-
-  def build_visulizer(self) -> dbc.Row:
-    emg_plot = LinePlotVisualizer(stream=self,
-                                  unique_id='vicon-emg',
-                                  data_path={'vicon-data': ['emg']},
-                                  legend_names=list(self._device_mapping.keys()),
-                                  plot_duration_timesteps=self._timesteps_before_solidified,
-                                  update_interval_ms=self._update_interval_ms,
-                                  col_width=6)
-    return dbc.Row([emg_plot.layout])
 
 
   def _define_data_notes(self) -> None:

@@ -37,7 +37,7 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 1
+  stream_period_s     : 10
   
   stream_hdf5         : True
   stream_csv          : False
@@ -53,7 +53,7 @@ logging_spec:
 
 
   video_codec_config_filepath : "resources/codecs/backpack_h264_qsv.yml" 
-  video_codec_num_cpu : 1
+  video_codec_num_cpu : 2
 
   audio_format        : "wav" # currently only supports WAV
 
@@ -65,10 +65,10 @@ producer_specs:
         name: "Pupil Cam2 ID0"
         fps: 120
         resolution:
-          - 192
-          - 192
+          - 400
+          - 400
           - 3
-        bandwidth_factor: 2.0
+        bandwidth_factor: 1.0
         uvc_controls:
           Auto Exposure Mode: 1
           Auto Exposure Priority: 0
@@ -95,10 +95,10 @@ producer_specs:
         name: "Pupil Cam2 ID1"
         fps: 120
         resolution:
-          - 192
-          - 192
+          - 400
+          - 400
           - 3
-        bandwidth_factor: 2.0
+        bandwidth_factor: 1.0
         uvc_controls:
           Auto Exposure Mode: 1
           Auto Exposure Priority: 0
@@ -122,30 +122,30 @@ producer_specs:
           White Balance temperature: 4600
           White Balance temperature,Auto: 1
 
-      # ego:
-      #   name: "Pupil Cam1 ID2"
-      #   fps: 30
-      #   resolution:
-      #     - 720
-      #     - 1280
-      #     - 3
-      #   bandwidth_factor: 1.0
-      #   uvc_controls:
-      #     Auto Exposure Mode: 1
-      #     Auto Exposure Priority: 1
-      #     Absolute Exposure Time: 240
-      #     Backlight Compensation: 1
-      #     Brightness: 0
-      #     Contrast: 32
-      #     Gain: 0
-      #     Power Line frequency: 1
-      #     Hue: 0
-      #     Saturation: 60
-      #     Sharpness: 2
-      #     Gamma: 100
-      #     White Balance temperature: 4600
-      #     White Balance temperature,Auto: 1
-    video_image_format: "bgr"
+      ego:
+        name: "Pupil Cam1 ID2"
+        fps: 30
+        resolution:
+          - 720
+          - 1280
+          - 3
+        bandwidth_factor: 1.0
+        uvc_controls:
+          Auto Exposure Mode: 1
+          Auto Exposure Priority: 1
+          Absolute Exposure Time: 240
+          Backlight Compensation: 1
+          Brightness: 0
+          Contrast: 32
+          Gain: 0
+          Power Line frequency: 1
+          Hue: 0
+          Saturation: 60
+          Sharpness: 2
+          Gamma: 100
+          White Balance temperature: 4600
+          White Balance temperature,Auto: 1
+    video_image_format: "mjpeg"
     
 
 

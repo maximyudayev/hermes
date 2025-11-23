@@ -27,8 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-#from visualizers import InsolePressureVisualizer
-import dash_bootstrap_components as dbc
 
 
 ####################################################
@@ -127,22 +125,6 @@ class InsoleStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'insoles-data': super()._get_fps('insoles-data', 'timestamp')}
-
-
-  # Visualize the foot pressure data from the 16 sensors per side.
-  # https://moticon.com/wp-content/uploads/2021/09/OpenGo-Sensor-Insole-Specification-A4-RGB-EN-03.03.pdf (p.4)
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()
-  # def build_visulizer(self) -> dbc.Row | None:
-  #   insole_pressure_plot = InsolePressureVisualizer(stream=self,
-  #                                                   device_name='insoles-data',
-  #                                                   stream_names=['foot_pressure_left',
-  #                                                                 'foot_pressure_right'],
-  #                                                   legend_names=['pressure'],
-  #                                                   plot_duration_timesteps=self._timesteps_before_solidified,
-  #                                                   update_interval_ms=self._update_interval_ms,
-  #                                                   col_width=6)
-  #   return dbc.Row([insole_pressure_plot.layout])
 
 
   def _define_data_notes(self) -> None:

@@ -556,7 +556,6 @@ class Logger(LoggerInterface):
 
           video_stream = video_stream.global_args('-hide_banner')
           video_writer: Popen = ffmpeg.run_async(video_stream, quiet=False, pipe_stdin=True) # type: ignore
-          # video_writer: Popen = ffmpeg.run_async(video_stream, quiet=True, pipe_stdin=True) # type: ignore
 
           # Store the writer.
           self._video_writers.append((video_writer, streamer_name, device_name, stream_name))
@@ -992,11 +991,12 @@ class Logger(LoggerInterface):
       if (not self._is_streaming) and self._is_flush and is_flush_all_in_current_iteration:
         self._is_finished = True
 
-      if self._incremental_saving:
+      if self._incremental_saving and self._log_tag != 'eye' and self._log_tag != 'glasses':
         # Increment counter every time data is flushed. Can be used only for dots while all data is being saved in ai
         self._flush_counter += 1
         # print(f'Counter: {self._flush_counter}', flush=True)
         if self._flush_counter % self._incremental_period == 0: # create a new hdf5 file every 15 mins 
+          print("Creating a new file", flush=True)
           self._file_counter +=1
           # Log metadata.
           self._log_metadata_hdf5()

@@ -58,7 +58,8 @@ class Consumer(Node):
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
                log_history_filepath: str | None = None) -> None:
-    super().__init__(host_ip=host_ip,
+    super().__init__(ref_time=logging_spec["log_time_s"],
+                     host_ip=host_ip,
                      port_sync=port_sync, 
                      port_killsig=port_killsig,
                      ref_time=logging_spec['log_time_s'])

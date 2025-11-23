@@ -29,9 +29,7 @@
 from collections import OrderedDict, namedtuple
 from enum import Enum
 from streams import Stream
-from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
-import dash_bootstrap_components as dbc
 
 
 MVN_SEGMENT_MAPPING = {
@@ -447,17 +445,6 @@ class MvnAnalyzeStream(Stream):
   def get_fps(self) -> dict[str, float | None]:
     return {device_name: super()._get_fps(device_name, 'counter') for device_name in self._streams_info.keys()}
   
-
-  def build_visulizer(self) -> dbc.Row:
-    acceleration_plot = LinePlotVisualizer(stream=self,
-                                           unique_id='xsens_acc',
-                                           data_path={'xsens-motion-trackers': ['acceleration']},
-                                           legend_names=list(self._mvn_sensor_setup.values()),
-                                           plot_duration_timesteps=self._timesteps_before_solidified,
-                                           update_interval_ms=self._update_interval_ms,
-                                           col_width=6)
-    return dbc.Row([acceleration_plot])
-
 
   def _define_data_notes(self):
     self._data_notes = {}

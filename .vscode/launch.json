@@ -39,13 +39,30 @@
       "justMyCode": false
     },
     {
+      "name": "Local Glasses DOTs",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "main.py",
+      "args": [
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=2", "group=FR", "session=02", "medication=ON",
+        "--config_file", "configs/test/local_glasses_dots.yml"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "subProcess": true,
+      "justMyCode": false
+    },
+    {
       "name": "Local Pupil",
       "type": "debugpy",
       "request": "launch",
       "cwd": "${workspaceFolder}",
       "program": "main.py",
       "args": [
-        "--experiment", "project=Tests", "type=Pupil", "trial=0",
+        "--experiment", "project=AidFOG", "site=Leuven", "subject=2", "group=FR", "session=01", "medication=ON",
         "--config_file", "configs/test/local_pupil.yml"
       ],
       "env": {

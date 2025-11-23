@@ -25,6 +25,7 @@
 #
 # ############
 
+from typing import Callable
 from nodes.producers.Producer import Producer
 from streams import GlassesStream
 
@@ -40,14 +41,15 @@ from queue import Empty
 # A class for streaming videos from Pupil core cameras.
 #######################################################
 #######################################################
-def _get_frame(camera_name: str, cap: uvc.Capture, queue: Queue) -> None:
+def _get_frame(camera_name: str, cap: uvc.Capture, queue: Queue, get_buffer_fn: Callable) -> None:
   try:
     frame = cap.get_frame(timeout=5)
     toa_s = get_time()
+    # if frame.data_fully_received:
     out = {
       "timestamp": frame.timestamp,
       "index": frame.index,
-      "bgr": frame.bgr,
+      "data": get_buffer_fn(frame)
     }
     queue.put((camera_name, out, toa_s))
   except TimeoutError:
@@ -60,7 +62,7 @@ def _get_frame(camera_name: str, cap: uvc.Capture, queue: Queue) -> None:
     pass
 
 
-def _run_capture(camera_name: str, camera_spec: dict, queue: Queue, stop_event: Event):
+def _run_capture(camera_name: str, camera_spec: dict, queue: Queue, video_image_format: str, stop_event: Event, keep_event: Event):
   devices = dict(map(lambda dev: (dev['name'], dev['uid']), uvc.device_list()))
 
   cap = uvc.Capture(devices[camera_spec['name']])
@@ -75,15 +77,28 @@ def _run_capture(camera_name: str, camera_spec: dict, queue: Queue, stop_event: 
     # configure the controls on each `Capture` object (exposure, brightness, sharpness, etc)
     controls_by_name = {c.display_name: c for c in cap.controls}
 
-    for ctrl_name, value in camera_spec.get('uvc_controls', {}).items():
-      ctrl = controls_by_name.get(ctrl_name)
-      try:
-        ctrl.value = value
-      except Exception as e:
-        print(f"Could not set control for {camera_spec['name']} '{ctrl_name}' to {value}: {e}")
+  print(f"Settings controls for {camera_spec['name']}", flush=True) 
+  for ctrl_name, value in camera_spec.get('uvc_controls', {}).items():
+    ctrl = controls_by_name.get(ctrl_name)
+    try:
+      ctrl.value = value
+    except Exception as e:
+      print(f"Could not set control for {camera_spec['name']} '{ctrl_name}' to {value}: {e}")
 
-  while not stop_event.is_set():
-    _get_frame(camera_name, cap, queue)
+  if video_image_format == "mjpeg":
+    get_buffer_fn = lambda frame: bytes(frame.jpeg_buffer)
+  elif video_image_format == "bgr":
+    get_buffer_fn = lambda frame: frame.bgr
+  elif video_image_format == "yuv":
+    get_buffer_fn = lambda frame: frame.yuv
+  else:
+    get_buffer_fn = lambda _: None
+
+  while not stop_event.is_set(): # TODO @vayalet: consider that here on every frame grabbing attempt, it will waste time checking with OS the event status
+    if not keep_event.is_set():
+      time.sleep(0.01)
+      continue
+    _get_frame(camera_name, cap, queue, get_buffer_fn)
   cap.close()
 
 
@@ -97,7 +112,7 @@ class GlassesStreamer(Producer):
                host_ip: str,
                camera_mapping: dict,
                logging_spec: dict,
-               video_image_format: str = "jpeg", # [bgr, jpeg, yuv]
+               video_image_format: str = "mjpeg", # [bgr, mjpeg, yuv]
                port_pub: str = PORT_BACKEND,
                port_sync: str = PORT_SYNC_HOST,
                port_killsig: str = PORT_KILL,
@@ -108,10 +123,11 @@ class GlassesStreamer(Producer):
     self._camera_mapping = camera_mapping
     self._video_image_format = video_image_format
     self._is_continue_grabbing = True
-    self._start_index: dict[str, int] = dict(map(lambda cam: (cam, None), self._camera_mapping.keys()))
+    self._start_index: dict[str, int | None] = dict(map(lambda cam: (cam, None), self._camera_mapping.keys()))
     self._parse_frame_fn = self._parse_first_frame
     self._cap_queue: Queue = Queue()
     self._stop_event: Event = Event()
+    self._keep_event: Event = Event()
     
     stream_info = {
       "camera_mapping": self._camera_mapping,
@@ -141,7 +157,12 @@ class GlassesStreamer(Producer):
     self._cap_procs: list[Process] = []
     # launch each capture subprocess
     for cam in self._camera_mapping.keys(): 
-      proc = Process(target=_run_capture, args=(cam, self._camera_mapping[cam], self._cap_queue, self._stop_event))
+      proc = Process(target=_run_capture, args=(cam,
+                                                self._camera_mapping[cam],
+                                                self._cap_queue,
+                                                self._video_image_format,
+                                                self._stop_event,
+                                                self._keep_event))
       self._cap_procs.append(proc)
       proc.start()
     # TODO: read their pipe with confirmation that each connected to the camera 
@@ -150,7 +171,7 @@ class GlassesStreamer(Producer):
 
 
   def _keep_samples(self) -> None:
-    return None
+    self._keep_event.set()
 
 
   def _process_data(self) -> None:
@@ -186,7 +207,7 @@ class GlassesStreamer(Producer):
       'frame_timestamp': frame['timestamp'],
       'frame_index': frame_index,
       'frame_sequence_id': frame['index'],
-      'frame': (frame['bgr'], False, frame_index),
+      'frame': (frame['data'], False, frame_index),
       'toa_s': toa_s
     }
     return output
@@ -201,7 +222,7 @@ class GlassesStreamer(Producer):
       'frame_timestamp': frame['timestamp'],
       'frame_index': frame_index,
       'frame_sequence_id': frame['index'],
-      'frame': (frame['bgr'], False, frame_index),
+      'frame': (frame['data'], False, frame_index),
       'toa_s': toa_s
     }
     return output

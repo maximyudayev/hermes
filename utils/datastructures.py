@@ -197,7 +197,7 @@ class AlignedFifoBuffer(BufferInterface):
     try:
       return self._output_queue.get(timeout=timeout)
     except queue.Empty:
-      print("Timed out on no more snapshots in the output Queue.")
+      print("Timed out on no more snapshots in the output Queue.", flush=True)
       return None
 
 

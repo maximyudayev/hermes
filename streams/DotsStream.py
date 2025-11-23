@@ -29,9 +29,7 @@ from collections import OrderedDict
 from handlers.MovellaDots.MovellaHandler import MOVELLA_PAYLOAD_MODE
 from handlers.MovellaDots.MovellaConstants import MOVELLA_STATUS_MASK
 from streams import Stream
-from visualizers import LinePlotVisualizer#, SkeletonVisualizer
 from streams.Stream import Stream
-import dash_bootstrap_components as dbc
 
 
 ##########################################
@@ -103,33 +101,6 @@ class DotsStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'dots-imu': super()._get_fps('dots-imu', 'timestamp')}
-
-
-  def build_visulizer(self) -> dbc.Row:
-    acceleration_plot = LinePlotVisualizer(stream=self,
-                                           unique_id='dots_acc',
-                                           data_path={'dots-imu': ['acceleration']},
-                                           legend_names=list(self._device_mapping.values()),
-                                           plot_duration_timesteps=self._timesteps_before_solidified,
-                                           update_interval_ms=self._update_interval_ms,
-                                           col_width=6)
-    gyroscope_plot = LinePlotVisualizer(stream=self,
-                                        unique_id='dots_gyr',
-                                        data_path={'dots-imu': ['gyroscope']},
-                                        legend_names=list(self._device_mapping.values()),
-                                        plot_duration_timesteps=self._timesteps_before_solidified,
-                                        update_interval_ms=self._update_interval_ms,
-                                        col_width=6)
-    magnetometer_plot = LinePlotVisualizer(stream=self,
-                                           unique_id='dots_mag',
-                                           data_path={'dots-imu': ['magnetometer']},
-                                           legend_names=list(self._device_mapping.values()),
-                                           plot_duration_timesteps=self._timesteps_before_solidified,
-                                           update_interval_ms=self._update_interval_ms,
-                                           col_width=6)
-    # TODO: add `SkeletonVisualizer` for orientation data.
-    # skeleton_plot = SkeletonVisualizer()
-    return dbc.Row([acceleration_plot.layout, gyroscope_plot.layout, magnetometer_plot.layout])
 
 
   def _define_data_notes(self) -> None:

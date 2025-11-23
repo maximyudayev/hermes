@@ -185,7 +185,7 @@ class Node(NodeInterface):
 
     self._state = StartState(self)
 
-    self._ctx: zmq.Context = zmq.Context.instance()
+    self._ctx: zmq.Context = zmq.Context(io_threads=1).instance()
     self._poller: zmq.Poller = zmq.Poller()
 
 

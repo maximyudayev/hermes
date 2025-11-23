@@ -26,7 +26,7 @@
 # ############
 
 from streams import Stream
-import dash_bootstrap_components as dbc
+
 
 ###############################################
 ###############################################
@@ -51,7 +51,3 @@ class DummyStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {self._device_name: super()._get_fps(self._device_name, 'toa')}
-
-
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()

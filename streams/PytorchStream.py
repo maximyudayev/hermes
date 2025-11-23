@@ -27,7 +27,6 @@
 
 from collections import OrderedDict
 from streams import Stream
-import dash_bootstrap_components as dbc
 
 
 ##################################################
@@ -80,10 +79,6 @@ class PytorchStream(Stream):
   def get_fps(self) -> dict[str, float | None]:
     return {'pytorch-worker': super()._get_fps('pytorch-worker', 'prediction')}
 
-
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()
-  
 
   def _define_data_notes(self) -> None:
     self._data_notes = {}

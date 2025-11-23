@@ -26,7 +26,6 @@
 # ############
 
 from streams import Stream
-import dash_bootstrap_components as dbc
 
 
 ##########################################
@@ -73,7 +72,3 @@ class MoxyStream(Stream):
   
   def get_fps(self) -> dict[str, float | None]:
     return {device: super()._get_fps(device, 'counter') for device in self._devices}
-
-
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()

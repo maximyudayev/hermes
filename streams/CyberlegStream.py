@@ -26,7 +26,6 @@
 # ############
 
 from streams import Stream
-import dash_bootstrap_components as dbc
 
 
 ###############################################
@@ -55,7 +54,3 @@ class CyberlegStream(Stream):
 
   def get_fps(self) -> dict[str, float | None]:
     return {'cyberleg-data': super()._get_fps('cyberleg-data', 'activity')}
-
-
-  def build_visulizer(self) -> dbc.Row | None:
-    return super().build_visulizer()
