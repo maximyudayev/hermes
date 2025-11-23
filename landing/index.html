@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications - Maxim Yudayev, Juha Carlon, Diwas Lamsal, Bart Vanrumste, Benjamin Filtjens">
+  <!-- TODO: Write a compelling 150-160 character description of your research -->
+  <meta name="description" content="BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS">
+  <meta name="keywords" content="multimodal, edge, wearables, closed-loop, synchronized, sensing, physiological, streaming, realtime, AI">
+  <meta name="author" content="Maxim Yudayev, Juha Carlon, Diwas Lamsal, Bart Vanrumste, Benjamin Filtjens">
+  <meta name="robots" content="index, follow">
+  <meta name="language" content="English">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="KU Leuven">
+  <meta property="og:title" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications - Maxim Yudayev, Juha Carlon, Diwas Lamsal, Bart Vanrumste, Benjamin Filtjens">
+  <!-- TODO: Same as description above -->
+  <meta property="og:description" content="BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS">
+  <meta property="og:url" content="https://https://maximyudayev.github.io/hermes/">
+  <!-- TODO: Create a 1200x630px preview image and update path -->
+  <meta property="og:image" content="https://YOUR_DOMAIN.com/static/images/social_preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications - Research Preview">
+  <meta property="article:published_time" content="2024-01-01T00:00:00.000Z">
+  <meta property="article:author" content="Maxim Yudayev">
+  <meta property="article:section" content="Research">
+  <meta property="article:tag" content="multimodal">
+  <meta property="article:tag" content="edge">
+  <meta property="article:tag" content="wearables">
+  <meta property="article:tag" content="closed-loop">
+  <meta property="article:tag" content="synchronized">
+  <meta property="article:tag" content="sensing">
+  <meta property="article:tag" content="physiological">
+  <meta property="article:tag" content="streaming">
+  <meta property="article:tag" content="realtime">
+  <meta property="article:tag" content="AI">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@emediaresearch">
+  <meta name="twitter:creator" content="@MaximYudayev">
+  <meta name="twitter:title" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications">
+  <!-- TODO: Same as description above -->
+  <meta name="twitter:description" content="BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS">
+  <!-- TODO: Same as social preview image above -->
+  <meta name="twitter:image" content="https://YOUR_DOMAIN.com/static/images/social_preview.png">
+  <meta name="twitter:image:alt" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications - Research Preview">
+
+  <!-- Academic/Research Specific -->
+  <meta name="citation_title" content="HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications">
+  <meta name="citation_author" content="Yudayev, Maxim">
+  <meta name="citation_author" content="Carlon, Juha">
+  <meta name="citation_author" content="Lamsal, Diwas">
+  <meta name="citation_author" content="Vanrumste, Bart">
+  <meta name="citation_author" content="Filtjens, Benjamin">
+  <meta name="citation_publication_date" content="2025">
+  <meta name="citation_conference_title" content="SenSys 2026 ACM/IEEE International Conference on Embedded Artificial Intelligence and Sensing Systems">
+  <!-- TODO: Populate with the link to the published PDF -->
+  <meta name="citation_pdf_url" content="https://YOUR_DOMAIN.com/static/pdfs/paper.pdf">
+
+  <!-- Additional SEO -->
+  <meta name="theme-color" content="#2563eb">
+  <meta name="msapplication-TileColor" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://ajax.googleapis.com">
+  <link rel="preconnect" href="https://documentcloud.adobe.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
+  <title>HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications | Academic Research</title>
+
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="static/images/favicon.png">
+  <link rel="apple-touch-icon" href="static/images/favicon.png">
+
+  <!-- Critical CSS - Load synchronously -->
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <!-- Non-critical CSS - Load asynchronously -->
+  <link rel="preload" href="static/css/bulma-carousel.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/bulma-slider.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/fontawesome.all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+
+  <!-- Fallback for browsers that don't support preload -->
+  <noscript>
+    <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  </noscript>
+
+  <!-- Fonts - Optimized loading -->
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:opsz,wght@10..72,100..900&family=Gugi&family=Google+Sans&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Defer non-critical JavaScript -->
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/bulma-carousel.min.js"></script>
+  <script defer src="static/js/bulma-slider.min.js"></script>
+  <script defer src="static/js/index.js"></script>
+
+  <!-- TODO: Structured Data for Academic Papers -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    "headline": "HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications",
+    "description": "BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS",
+    "author": [
+      {
+        "@type": "Person",
+        "name": "Maxim Yudayev",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "KU Leuven"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "Juha Carlon",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "KU Leuven"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "Diwas Lamsal",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "KU Leuven"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "Bart Vanrumste",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "KU Leuven"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "Benjamin Filtjens",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "Delft University of Technology"
+        }
+      }
+    ],
+    "datePublished": "2025-11-06",
+    "publisher": {
+      "@type": "Organization",
+      "name": "SenSys 2026 ACM/IEEE International Conference on Embedded Artificial Intelligence and Sensing Systems"
+    },
+    "url": "https://maximyudayev.github.io/hermes",
+    "image": "https://YOUR_DOMAIN.com/static/images/social_preview.png",
+    "keywords": ["multimodal", "edge", "wearables", "closed-loop", "synchronized", "sensing", "physiological", "streaming", "realtime", "AI"],
+    "abstract": "FULL_ABSTRACT_TEXT_HERE",
+    "citation": "BIBTEX_CITATION_HERE",
+    "isAccessibleForFree": true,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "mainEntity": {
+      "@type": "WebPage",
+      "@id": "https://maximyudayev.github.io/hermes"
+    },
+    "about": [
+      {
+        "@type": "Thing",
+        "name": "RESEARCH_AREA_1"
+      },
+      {
+        "@type": "Thing", 
+        "name": "RESEARCH_AREA_2"
+      }
+    ]
+  }
+  </script>
+
+  <!-- TODO: Website/Organization Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "KU Leuven e-Media Research Lab",
+    "url": "https://iiw.kuleuven.be/onderzoek/emedia",
+    "logo": "https://YOUR_DOMAIN.com/static/images/favicon.png",
+    "sameAs": [
+      "https://x.com/eMediaResearch",
+      "https://github.com/kuleuven-emedia"
+    ]
+  }
+  </script>
+</head>
+<body>
+  <!-- Scroll to Top Button -->
+  <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <!-- More Works Dropdown -->
+  <!-- <div class="more-works-container">
+    <button class="more-works-btn" onclick="toggleMoreWorks()" title="View More Works from Our Lab">
+      <i class="fas fa-flask"></i>
+      More Works
+      <i class="fas fa-chevron-down dropdown-arrow"></i>
+    </button>
+    <div class="more-works-dropdown" id="moreWorksDropdown">
+      <div class="dropdown-header">
+        <h4>More Works from Our Lab</h4>
+        <button class="close-btn" onclick="toggleMoreWorks()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="works-list">
+        <a href="https://arxiv.org/abs/PAPER_ID_1" class="work-item" target="_blank">
+          <div class="work-info">
+            <h5>Paper Title 1</h5>
+            <p>Brief description of the work and its main contribution.</p>
+            <span class="work-venue">Conference/Journal 2024</span>
+          </div>
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+      </div>
+    </div>
+  </div> -->
+
+  <main id="main-content">
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <!-- <h1 class="title is-1 publication-title hermes">hermes</h1> -->
+            <img src="static/images/logo.png" width="40%" style="margin-bottom: 1.5rem;" alt="Branding logo of HERMES"/>
+            <h1 class="title is-2 publication-title">A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications</h1>
+            <h4 class="title is-4 publication-title">(SenSys 2026)</h4>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block"><a href="https://yudayev.com" target="_blank">Maxim Yudayev</a><sup>1</sup>,</span>
+              <span class="author-block"><a href="https://scholar.google.com/citations?user=tzf_Kg8AAAAJ&hl=en" target="_blank">Juha Carlon</a><sup>1</sup>,</span>
+              <span class="author-block"><a href="https://iiw.kuleuven.be/onderzoek/emedia/people/lamsaldiwas" target="_blank">Diwas Lamsal</a><sup>1</sup>,</span>
+              <span class="author-block"><a href="https://scholar.google.be/citations?user=PlNkF7cAAAAJ&hl=en" target="_blank">Bart Vanrumste*</a><sup>1</sup>,</span>
+              <span class="author-block"><a href="https://scholar.google.com/citations?user=uL44AIYAAAAJ&hl=en" target="_blank">Benjamin Filtjens*</a><sup>2</sup></span>
+            </div>
+
+            <div class="is-size-5 publication-authors">
+              <span class="author-block"><sup>1</sup>KU Leuven</span>
+              <span class="author-block"><sup>2</sup>Delft University of Technology</span>
+              <span class="eql-cntrb"><small><br><sup>*</sup>Indicates Equal Contribution</small></span>
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <!-- TODO: Update with your arXiv paper ID -->
+                <span class="link-block">
+                  <a href="https://arxiv.org/pdf/<ARXIV PAPER ID>.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                    </span>
+                    <span>arXiv</span>
+                  </a>
+                </span>
+
+                <!-- TODO: Update with your arXiv paper ID -->
+                <span class="link-block">
+                  <a href="https://arxiv.org/abs/<ARXIV PAPER ID>" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>Paper</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://github.com/maximyudayev/hermes" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://maximyudayev.github.io/hermes" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                    </span>
+                    <span>Documentation</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Teaser video-->
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+      <div class="hero-body">
+        <!-- TODO: Replace with your teaser video -->
+        <video poster="" id="tree" autoplay controls muted loop height="100%" preload="metadata">
+          <!-- TODO: Add your video file path here -->
+          <source src="static/videos/banner_video.mp4" type="video/mp4">
+        </video>
+        <!-- TODO: Replace with your video description -->
+        <h2 class="subtitle has-text-centered">
+          Aliquam vitae elit ullamcorper tellus egestas pellentesque. Ut lacus tellus, maximus vel lectus at, placerat pretium mi. Maecenas dignissim tincidunt vestibulum. Sed consequat hendrerit nisl ut maximus. 
+        </h2>
+      </div>
+    </div>
+  </section>
+  <!-- End teaser video -->
+
+  <!-- Paper abstract -->
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">Abstract</h2>
+          <div class="content has-text-justified">
+            <!-- TODO: Replace with your paper abstract -->
+            <p>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin ullamcorper tellus sed ante aliquam tempus. Etiam porttitor urna feugiat nibh elementum, et tempor dolor mattis. Donec accumsan enim augue, a vulputate nisi sodales sit amet. Proin bibendum ex eget mauris cursus euismod nec et nibh. Maecenas ac gravida ante, nec cursus dui. Vivamus purus nibh, placerat ac purus eget, sagittis vestibulum metus. Sed vestibulum bibendum lectus gravida commodo. Pellentesque auctor leo vitae sagittis suscipit.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- End paper abstract -->
+
+  <!-- Image carousel -->
+  <section class="hero is-small">
+    <div class="hero-body">
+      <div class="container">
+        <div id="results-carousel" class="carousel results-carousel">
+        <div class="item">
+          <!-- TODO: Replace with your research result images -->
+          <img src="static/images/carousel1.jpg" alt="First research result visualization" loading="lazy"/>
+          <!-- TODO: Replace with description of this result -->
+          <h2 class="subtitle has-text-centered">
+            First image description.
+          </h2>
+        </div>
+        <div class="item">
+          <!-- Your image here -->
+          <img src="static/images/carousel2.jpg" alt="Second research result visualization" loading="lazy"/>
+          <h2 class="subtitle has-text-centered">
+            Second image description.
+          </h2>
+        </div>
+        <div class="item">
+          <!-- Your image here -->
+          <img src="static/images/carousel3.jpg" alt="Third research result visualization" loading="lazy"/>
+          <h2 class="subtitle has-text-centered">
+          Third image description.
+        </h2>
+      </div>
+      <div class="item">
+        <!-- Your image here -->
+        <img src="static/images/carousel4.jpg" alt="Fourth research result visualization" loading="lazy"/>
+        <h2 class="subtitle has-text-centered">
+          Fourth image description.
+        </h2>
+      </div>
+    </div>
+  </div>
+  </div>
+  </section>
+  <!-- End image carousel -->
+
+  <!-- Youtube video -->
+  <section class="hero is-small is-light">
+    <div class="hero-body">
+      <div class="container">
+        <!-- Paper video. -->
+        <h2 class="title is-3">Video Presentation</h2>
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            
+            <div class="publication-video">
+              <!-- TODO: Replace with your YouTube video ID -->
+              <iframe src="https://www.youtube.com/embed/JkaxUblCGz0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- End youtube video -->
+
+  <!-- Video carousel -->
+  <section class="hero is-small">
+    <div class="hero-body">
+      <div class="container">
+        <h2 class="title is-3">Another Carousel</h2>
+        <div id="results-carousel" class="carousel results-carousel">
+          <div class="item item-video1">
+            <!-- TODO: Add poster image for better preview -->
+            <video poster="" id="video1" controls muted loop height="100%" preload="metadata">
+              <!-- Your video file here -->
+              <source src="static/videos/carousel1.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item item-video2">
+            <!-- TODO: Add poster image for better preview -->
+            <video poster="" id="video2" controls muted loop height="100%" preload="metadata">
+              <!-- Your video file here -->
+              <source src="static/videos/carousel2.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item item-video3">
+            <!-- TODO: Add poster image for better preview -->
+            <video poster="" id="video3" controls muted loop height="100%" preload="metadata">
+              <!-- Your video file here -->
+              <source src="static/videos/carousel3.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- End video carousel -->
+
+  <!-- Paper poster -->
+  <section class="hero is-small is-light">
+    <div class="hero-body">
+      <div class="container">
+        <h2 class="title">Poster</h2>
+        <!-- TODO: Replace with your poster PDF -->
+        <iframe  src="static/pdfs/sample.pdf" width="100%" height="550"></iframe>
+      </div>
+    </div>
+  </section>
+  <!--End paper poster -->
+
+  <!--BibTex citation -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <div class="bibtex-header">
+        <h2 class="title">BibTeX</h2>
+        <button class="copy-bibtex-btn" onclick="copyBibTeX()" title="Copy BibTeX to clipboard">
+          <i class="fas fa-copy"></i>
+          <span class="copy-text">Copy</span>
+        </button>
+      </div>
+      <pre id="bibtex-code">
+        <code>
+          <!-- TODO: add valid bibtex -->
+          @inproceedings{yudayev2025hermes,
+            title = {HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications},
+            author = {Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Vanrumste, Bart and Filtjens, Benjamin},
+            booktitle = {Proceedings of the ACM/IEEE International Conference on Embedded Artificial Intelligence and Sensing Systems},
+            series = {SenSys '26}
+            year = {2026},
+            url = {https://maximyudayev.github.io/hermes}
+          }
+        </code>
+      </pre>
+    </div>
+  </section>
+  <!--End BibTex citation -->
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a> which was adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+              This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+<!-- Statcounter tracking code -->
+  
+<!-- You can add a tracker to track page visits by creating an account at statcounter.com -->
+
+<!-- End of Statcounter Code -->
+
+</body>
+</html>

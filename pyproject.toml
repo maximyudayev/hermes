@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pysio-hermes"
+dynamic = ["version"]
+requires-python = ">=3.7"
+authors = [
+  { name="Maxim Yudayev", email="maxim.yudayev@gmail.com" },
+  { name="e-Media Research Lab @ KU Leuven" },
+]
+description = "A realtime physiological sensing and edge AI processing framework"
+keywords = ["embedded ai", "wearables", "sensors", "streaming", "realtime processing", "physiology"]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE", "LOGO_LICENSE.md"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Healthcare Industry",
+  "Intended Audience :: Education",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "Topic :: System :: Distributed Computing"
+]
+dependencies = [
+  "pyzmq",
+  "msgpack",
+  "ffmpeg-python",
+  "h5py",
+  "numpy",
+  "pandas",
+  "pyyaml",
+  "pyusb",
+  "pyserial",
+  "pyperclip",
+  "openpyxl",
+  "orjson",
+  "inputimeout",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "hermes.__version__.__version__"}
+
+[project.scripts]
+hermes-cli = "hermes.cli:app"
+
+[project.urls]
+Homepage = "https://maximyudayev.github.io/hermes"
+Documentation = "https://maximyudayev.github.io/hermes"
+Repository = "https://github.com/maximyudayev/hermes.git"
+Issues = "https://github.com/maximyudayev/hermes/issues"
+Changelog = "https://github.com/maximyudayev/hermes/blob/main/CHANGELOG.md"

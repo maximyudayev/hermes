@@ -4,10 +4,20 @@ __pycache__
 *.pyc
 *.asv
 
-# Data
-###################################
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+
+# Virtual environments
+.venv*/
+
+# Recorded data
 data/
 
-# VS Code
-###################################
-.venv*/
+# Site data
+site/
+
+# Distribution files
+dist/
+*.egg-info/
+build/

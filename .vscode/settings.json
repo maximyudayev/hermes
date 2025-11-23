@@ -1,4 +1,16 @@
 {
-    "python-envs.pythonProjects": [],
-    "python-envs.defaultEnvManager": "ms-python.python:venv"
+    "yaml.schemas": {
+        "https://squidfunk.github.io/mkdocs-material/schema.json": [
+            "mkdocs.yml",
+        ]
+    },
+    "editor.tabSize": 4,
+    "yaml.customTags": [
+        "!ENV scalar",
+        "!ENV sequence",
+        "!relative scalar",
+        "tag:yaml.org,2002:python/name:material.extensions.emoji.to_svg",
+        "tag:yaml.org,2002:python/name:material.extensions.emoji.twemoji",
+        "tag:yaml.org,2002:python/name:pymdownx.superfences.fence_code_format"
+    ],
 }
