@@ -521,7 +521,7 @@ class Logger(LoggerInterface):
             base_name = f"{base_name}_{self._log_tag}_{device_name}"
 
           # Create final file name
-          filename_video = f"{dt}_{base_name}.mkv"
+          filename_video = f"{dt}_{base_name}.mp4"
           filepath_video = os.path.join(self._log_dir, filename_video)    
             
           # Create a video writer.
