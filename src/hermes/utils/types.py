@@ -117,6 +117,7 @@ class VideoFormatEnum(Enum):
     BGR = VideoFormatTuple("rawvideo", "bgr24")
     YUV = VideoFormatTuple("rawvideo", "yuv420p")
     JPEG = VideoFormatTuple("image2pipe", "yuv420p")
+    MJPEG = VideoFormatTuple('jpeg_pipe', 'yuv420p')
     BAYER_RG8 = VideoFormatTuple("rawvideo", "bayer_rggb8")
 
 

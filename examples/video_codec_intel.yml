@@ -3,7 +3,7 @@ codec_name  : 'h264_qsv'
 pix_format  : 'nv12'
 input_options: {}
 output_options:
-    preset        : 'veryslow'
-    "profile:v"   : 'high'
-    scenario      : 'livestreaming'
-    video_bitrate : '6M'
+    preset        : 'veryslow' # slower or slow or medium or fast
+    "profile:v"   : 'high' # main
+    scenario      : 'livestreaming' # cameracapture but preset and profile should also be lowered
+    video_bitrate : '6M' # 3M

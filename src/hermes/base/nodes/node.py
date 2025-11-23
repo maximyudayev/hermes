@@ -28,7 +28,7 @@
 from abc import abstractmethod
 import zmq
 
-from hermes.utils.time_utils import init_time
+# from hermes.utils.time_utils import init_time
 from hermes.utils.zmq_utils import (
     DNS_LOCALHOST,
     PORT_KILL,
@@ -63,7 +63,7 @@ class Node(NodeInterface):
         self._port_sync = port_sync
         self._port_killsig = port_killsig
         self.__is_done = False
-        init_time(ref_time=ref_time)
+        # init_time(ref_time=ref_time)
 
         self._state = StartState(self)
 
