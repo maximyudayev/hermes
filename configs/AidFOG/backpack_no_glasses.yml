@@ -44,6 +44,8 @@ logging_spec:
   stream_csv          : False
   stream_video        : False
   stream_audio        : False
+  incremental_saving  : True
+  incremental_period  : 90
 
   dump_csv            : False
   dump_hdf5           : False

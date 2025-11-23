@@ -37,12 +37,14 @@ remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 30
+  stream_period_s     : 10
   
   stream_hdf5         : True
   stream_csv          : False
   stream_video        : False
   stream_audio        : False
+  incremental_saving  : True
+  incremental_period  : 6
 
   dump_csv            : False
   dump_hdf5           : False

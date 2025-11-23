@@ -64,7 +64,7 @@ producer_specs:
     gaze_estimate_stale_s   : 0.2
     is_binocular            : True # uses both eyes for gaze data and for video.
     is_stream_video_world   : True
-    is_stream_video_eye     : False
+    is_stream_video_eye     : True
     is_stream_fixation      : True
     is_stream_blinks        : True
     shape_video_world: 
