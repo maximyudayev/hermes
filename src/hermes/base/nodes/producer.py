@@ -88,18 +88,18 @@ class Producer(ProducerInterface, Node):
         self._transmit_delay_sample_period_s = transmit_delay_sample_period_s
         self._publish_fn = lambda tag, **kwargs: None
 
-        # Data structure for keeping track of data
+        # Data structure for keeping track of data.
         self._stream: Stream = self.create_stream(stream_out_spec)
 
-        # Create the DataLogger object
-        self._logger = Storage(self._log_source_tag(), logging_spec)
+        # Create the data storing object.
+        self._storage = Storage(self._log_source_tag(), logging_spec)
 
         # Launch datalogging thread with reference to the Stream object.
-        self._logger_thread = threading.Thread(
-            target=self._logger,
+        self._storage_thread = threading.Thread(
+            target=self._storage,
             args=(OrderedDict([(self._log_source_tag(), self._stream)]),),
         )
-        self._logger_thread.start()
+        self._storage_thread.start()
 
         # Conditional creation of the transmission delay estimate thread.
         if not math.isnan(self._transmit_delay_sample_period_s):
@@ -177,8 +177,8 @@ class Producer(ProducerInterface, Node):
 
     @abstractmethod
     def _cleanup(self) -> None:
-        # Indicate to Logger to wrap up and exit.
-        self._logger.cleanup()
+        # Indicate to Storage to wrap up and exit.
+        self._storage.cleanup()
         if not math.isnan(self._transmit_delay_sample_period_s):
             self._delay_estimator.cleanup()
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
@@ -195,7 +195,7 @@ class Producer(ProducerInterface, Node):
         )
         self._pub.close()
         # Join on the logging background thread last, so that all things can finish in parallel.
-        self._logger_thread.join()
+        self._storage_thread.join()
         if not math.isnan(self._transmit_delay_sample_period_s):
             self._delay_thread.join()
         super()._cleanup()

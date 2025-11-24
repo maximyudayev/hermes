@@ -2,3 +2,5 @@ build
 twine
 mkdocs-material
 mkdocstrings-python
+ruff
+black

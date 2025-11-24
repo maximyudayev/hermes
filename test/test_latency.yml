@@ -22,11 +22,8 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-  video_codec_config_filepath : "../examples/video_codec.yml" 
-  video_codec_num_cpu : 1
-
-  audio_codec_config_filepath : "../examples/audio_codec.yml" 
-  audio_codec_num_cpu : 1
+video_codec_config_filepath : "../examples/video_codec.yml" 
+audio_codec_config_filepath : "../examples/audio_codec.yml" 
 
 
 producer_specs:

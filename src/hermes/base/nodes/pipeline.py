@@ -107,12 +107,12 @@ class Pipeline(PipelineInterface, Node):
             self._in_streams.setdefault(class_type._log_source_tag(), class_object)
             self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
 
-        # Create the Logger object.
-        self._logger = Storage(self._log_source_tag(), logging_spec)
+        # Create the data storing object.
+        self._storage = Storage(self._log_source_tag(), logging_spec)
 
         # Launch datalogging thread with reference to the Stream objects, to save Pipeline's outputs and inputs.
-        self._logger_thread = threading.Thread(
-            target=self._logger,
+        self._storage_thread = threading.Thread(
+            target=self._storage,
             args=(
                 OrderedDict(
                     [
@@ -122,7 +122,7 @@ class Pipeline(PipelineInterface, Node):
                 ),
             ),
         )
-        self._logger_thread.start()
+        self._storage_thread.start()
 
     def _initialize(self):
         super()._initialize()
@@ -228,7 +228,7 @@ class Pipeline(PipelineInterface, Node):
 
     @abstractmethod
     def _cleanup(self) -> None:
-        self._logger.cleanup()
+        self._storage.cleanup()
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
             [self._log_source_tag().encode("utf-8"), CMD_EXIT.encode("utf-8")]
@@ -244,5 +244,5 @@ class Pipeline(PipelineInterface, Node):
         self._pub.close()
         self._sub.close()
         # Join on the logging background thread last, so that all things can finish in parallel.
-        self._logger_thread.join()
+        self._storage_thread.join()
         super()._cleanup()

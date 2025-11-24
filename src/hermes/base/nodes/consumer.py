@@ -99,13 +99,13 @@ class Consumer(ConsumerInterface, Node):
             self._streams.setdefault(class_type._log_source_tag(), class_object)
             self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
 
-        # Create the Storage object
-        self._logger = Storage(self._log_source_tag(), logging_spec)
+        # Create the data storing object.
+        self._storage = Storage(self._log_source_tag(), logging_spec)
         # Launch datalogging thread with reference to the Stream object.
-        self._logger_thread = threading.Thread(
-            target=self._logger, args=(self._streams,)
+        self._storage_thread = threading.Thread(
+            target=self._storage, args=(self._streams,)
         )
-        self._logger_thread.start()
+        self._storage_thread.start()
 
     def _initialize(self):
         super()._initialize()
@@ -171,8 +171,8 @@ class Consumer(ConsumerInterface, Node):
 
     @abstractmethod
     def _cleanup(self):
-        self._logger.cleanup()
-        self._logger_thread.join()
+        self._storage.cleanup()
+        self._storage_thread.join()
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
             [self._log_source_tag().encode("utf-8"), CMD_EXIT.encode("utf-8")]

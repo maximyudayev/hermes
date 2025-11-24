@@ -35,7 +35,7 @@ from hermes.__version__ import __version__
 from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
 from hermes.utils.mp_utils import launch_callable
-from hermes.utils.time_utils import get_time
+from hermes.utils.time_utils import get_ref_time, get_time
 from hermes.utils.zmq_utils import (
     PORT_BACKEND,
     PORT_FRONTEND,
@@ -285,6 +285,7 @@ def configure_specs(
     logging_spec = LoggingSpec(
         log_dir=log_dir,
         log_time_s=log_time_s,
+        ref_time_s=get_ref_time(),
         experiment=args.experiment,
         **args.logging_spec,
     )
