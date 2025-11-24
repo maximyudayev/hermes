@@ -72,10 +72,10 @@ class Pipeline(PipelineInterface, Node):
             stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
             stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
             logging_spec (LoggingSpec): Specification of what and how to store.
-            port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
-            port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
-            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
-            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+            port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
+            port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
+            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
+            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
         """
         super().__init__(
             host_ip=host_ip,

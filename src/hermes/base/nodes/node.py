@@ -55,9 +55,9 @@ class Node(NodeInterface):
 
         Args:
             ref_time (float): Reference time of the local Broker w.r.t which to align all Nodes.
-            host_ip (str, optional): IP address of the local master Broker. Defaults to DNS_LOCALHOST.
-            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
-            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
+            host_ip (str, optional): IP address of the local master Broker. Defaults to `DNS_LOCALHOST`.
+            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
+            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
         """
         self._host_ip = host_ip
         self._port_sync = port_sync

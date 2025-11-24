@@ -37,8 +37,8 @@ class DummyStream(Stream):
         """Constructor of the DummyStream datastructure.
 
         Args:
-            sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to 1.
-            payload_num_bytes (int, optional): Size of the messages to send. Defaults to 100.
+            sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to `1`.
+            payload_num_bytes (int, optional): Size of the messages to send. Defaults to `100`.
         """
         super().__init__()
 

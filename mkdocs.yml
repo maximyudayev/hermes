@@ -14,42 +14,42 @@ copyright: Copyright &copy; 2025 Maxim Yudayev and KU Leuven e-Media Research La
 nav:
   - Home: index.md
   - Architecture:
-      - Overview: architecture/index.md
+    - Overview: architecture/index.md
   - Getting started:
-      - firststeps/index.md
-      - Changelog: firststeps/changelog.md
-      - License: firststeps/license.md
-      - Contributing: firststeps/contributing.md
-      - "Tutorials":
-          - firststeps/tutorials/index.md
-          - Data acquisition: firststeps/tutorials/acquisition.md
-          - Closed-loop AI worker: firststeps/tutorials/ai-worker.md
-          - Data annotation: firststeps/tutorials/annotation.md
+    - firststeps/index.md
+    - Changelog: firststeps/changelog.md
+    - License: firststeps/license.md
+    - Contributing: firststeps/contributing.md
+    - "Tutorials":
+      - firststeps/tutorials/index.md
+      - Data acquisition: firststeps/tutorials/acquisition.md
+      - Closed-loop AI worker: firststeps/tutorials/ai-worker.md
+      - Data annotation: firststeps/tutorials/annotation.md
   - API:
-      - api/index.md
-      - Base:
-          - api/base/index.md
-          - Broker: api/base/broker.md
-          - Stream: api/base/stream.md
-          - Storage: api/base/storage.md
-          - Delay estimator: api/base/delay_estimator.md
-      - Nodes:
-        - api/nodes/index.md
-        - Node: api/nodes/node.md
-        - Producer: api/nodes/producer.md
-        - Consumer: api/nodes/consumer.md
-        - Pipeline: api/nodes/pipeline.md
-      - Datastructures: 
-        - api/datastructures/index.md
-        - Cache: api/datastructures/cache.md
-        - FIFO: api/datastructures/fifo.md
-      - Utils: 
-        - api/utils/index.md
+    - api/index.md
+    - Base:
+      - api/base/index.md
+      - Broker: api/base/broker.md
+      - Stream: api/base/stream.md
+      - Storage: api/base/storage.md
+      - Delay estimator: api/base/delay_estimator.md
+    - Nodes:
+      - api/nodes/index.md
+      - Node: api/nodes/node.md
+      - Producer: api/nodes/producer.md
+      - Consumer: api/nodes/consumer.md
+      - Pipeline: api/nodes/pipeline.md
+    - Datastructures: 
+      - api/datastructures/index.md
+      - Cache: api/datastructures/cache.md
+      - FIFO: api/datastructures/fifo.md
+    - Utils: 
+      - api/utils/index.md
   - Help desk:
-      - Current limitations: helpdesk/limitations.md
-      - Known issues: helpdesk/issues.md
-      - Roadmap: helpdesk/roadmap.md
-      - FAQs: helpdesk/faq.md
+    - Current limitations: helpdesk/limitations.md
+    - Known issues: helpdesk/issues.md
+    - Roadmap: helpdesk/roadmap.md
+    - FAQs: helpdesk/faq.md
 
 extra_css:
   - stylesheets/extra.css
@@ -58,79 +58,79 @@ extra_javascript:
   - javascripts/extra.js
 
 theme:
-    name: material
-    custom_dir: docs/overrides
-    language: en
-    favicon: assets/favicon_bkp.png
-    favicon_light: assets/favicon_light.png
-    favicon_dark: assets/favicon_dark.png
-    logo_light: assets/logo_light.png
-    logo_dark: assets/logo_dark.png
-    features:
-      - navigation.footer
-      - navigation.sections
-      - navigation.tabs
-      - navigation.top
-      - navigation.indexes
-      - navigation.tracking
-      - content.code.annotate
-      - content.code.copy
-      - toc.follow
-      # - search.highlight
-      # - search.share
-      - search.suggest
-    palette:
-      - scheme: slate
-        media: "(prefers-color-scheme: dark)"
-        primary: black
-        accent: indigo
-        toggle:
-            icon: material/toggle-switch-off-outline
-            name: Switch to light mode
-      - scheme: default
-        media: "(prefers-color-scheme: light)"
-        primary: white
-        accent: indigo
-        toggle:
-            icon: material/toggle-switch
-            name: Switch to dark mode
-    font:
-        text: Roboto
-        code: Roboto Mono
+  name: material
+  custom_dir: docs/overrides
+  language: en
+  favicon: assets/favicon_bkp.png
+  favicon_light: assets/favicon_light.png
+  favicon_dark: assets/favicon_dark.png
+  logo_light: assets/logo_light.png
+  logo_dark: assets/logo_dark.png
+  features:
+    - navigation.footer
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.indexes
+    - navigation.tracking
+    - content.code.annotate
+    - content.code.copy
+    - toc.follow
+    # - search.highlight
+    # - search.share
+    - search.suggest
+  palette:
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      primary: white
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+  font:
+    text: Roboto
+    code: Roboto Mono
 
 extra:
-    social:
-      - icon: fontawesome/brands/github
-        link: https://github.com/maximyudayev/hermes
-      - icon: fontawesome/brands/python
-        link: https://pypi.org/project/pysio-hermes/
-      - icon: fontawesome/brands/linkedin-in
-        link: https://linkedin.com/in/maxim-yudayev
-      - icon: octicons/globe-24
-        link: https://yudayev.com
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/maximyudayev/hermes
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pysio-hermes/
+    - icon: fontawesome/brands/linkedin-in
+      link: https://linkedin.com/in/maxim-yudayev
+    - icon: octicons/globe-24
+      link: https://yudayev.com
 
 markdown_extensions:
   - toc:
-        toc_depth: 4
-        permalink: true
-        permalink_title: Anchor link to this section for reference
+      toc_depth: 4
+      permalink: true
+      permalink_title: Anchor link to this section for reference
   - footnotes
   - admonition
   - attr_list
   - pymdownx.superfences:
-        custom_fences:
-          - name: mermaid
-            class: mermaid
-            format: !!python/name:pymdownx.superfences.fence_code_format 
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format 
   - pymdownx.details
   - pymdownx.tabbed:
-        alternate_style: true
+      alternate_style: true
   - pymdownx.highlight:
-        anchor_linenums: true
+      anchor_linenums: true
   - pymdownx.snippets
   - pymdownx.emoji:
-        emoji_index: !!python/name:material.extensions.emoji.twemoji
-        emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.critic
   - pymdownx.caret
   - pymdownx.keys
@@ -139,41 +139,41 @@ markdown_extensions:
 
 plugins:
   - mkdocstrings:
-        handlers:
-            python:
-                paths: [src]
-                # options:
-                #   show_signature: false
-                #   # docstring_options:
-                #   #   ignore_init_summary: false
-                #   # merge_init_into_class: false
-                options:
-                    backlinks: tree
-                    docstring_options:
-                        ignore_init_summary: true
-                    docstring_section_style: table
-                    # extensions: [scripts/griffe_extensions.py]
-                    filters: []
-                    heading_level: 1
-                    inherited_members: true
-                    line_length: 88
-                    merge_init_into_class: false
-                    parameter_headings: true
-                    type_parameter_headings: true
-                    preload_modules: [mkdocstrings]
-                    relative_crossrefs: true
-                    scoped_crossrefs: true
-                    separate_signature: true
-                    show_bases: true
-                    show_inheritance_diagram: true
-                    show_root_heading: true
-                    show_root_full_path: false
-                    show_signature_annotations: true
-                    show_signature_type_parameters: true
-                    show_source: false
-                    show_symbol_type_heading: true
-                    show_symbol_type_toc: true
-                    signature_crossrefs: true
-                    summary: true
-                    unwrap_annotated: true
+      handlers:
+        python:
+          paths: [src]
+          # options:
+          #   show_signature: false
+          #   # docstring_options:
+          #   #   ignore_init_summary: false
+          #   # merge_init_into_class: false
+          options:
+            backlinks: tree
+            docstring_options:
+              ignore_init_summary: true
+            docstring_section_style: table
+            # extensions: [scripts/griffe_extensions.py]
+            filters: []
+            heading_level: 1
+            inherited_members: true
+            line_length: 88
+            merge_init_into_class: false
+            parameter_headings: true
+            type_parameter_headings: true
+            preload_modules: [mkdocstrings]
+            relative_crossrefs: true
+            scoped_crossrefs: true
+            separate_signature: true
+            show_bases: true
+            show_inheritance_diagram: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_signature_type_parameters: true
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+            unwrap_annotated: true
   - search

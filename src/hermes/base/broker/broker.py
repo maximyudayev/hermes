@@ -93,12 +93,12 @@ class Broker(BrokerInterface):
         Args:
             host_ip (str): Public LAN IP address of this host.
             node_specs (list[dict]): List of to-be-created Node specification dictionaries.
-            port_backend (str, optional): XSUB port of the Broker. Defaults to PORT_BACKEND.
-            port_frontend (str, optional): XPUB port of the Broker. Defaults to PORT_FRONTEND.
-            port_sync_host (str, optional): Port for SYNC socket to coordinate startup of local Nodes. Defaults to PORT_SYNC_HOST.
-            port_sync_remote (str, optional): Port for SYNC socket to coordinate startup across remote hosts. Defaults to PORT_SYNC_REMOTE.
-            port_killsig (str, optional): Port of the KILL signal this Broker announces from. Defaults to PORT_KILL.
-            is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to False.
+            port_backend (str, optional): XSUB port of the Broker. Defaults to `PORT_BACKEND`.
+            port_frontend (str, optional): XPUB port of the Broker. Defaults to `PORT_FRONTEND`.
+            port_sync_host (str, optional): Port for SYNC socket to coordinate startup of local Nodes. Defaults to `PORT_SYNC_HOST`.
+            port_sync_remote (str, optional): Port for SYNC socket to coordinate startup across remote hosts. Defaults to `PORT_SYNC_REMOTE`.
+            port_killsig (str, optional): Port of the KILL signal this Broker announces from. Defaults to `PORT_KILL`.
+            is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to `False`.
         """
         self._host_ip = host_ip
         self._is_master_broker = is_master_broker
@@ -172,7 +172,7 @@ class Broker(BrokerInterface):
 
         Args:
             addr (str): Remote host IP to connect to as a listener.
-            port_pub (str, optional): Port number on which remote host publishes local Nodes' data. Defaults to PORT_FRONTEND.
+            port_pub (str, optional): Port number on which remote host publishes local Nodes' data. Defaults to `PORT_FRONTEND`.
         """
         backend_remote: zmq.SyncSocket = self._ctx.socket(zmq.XSUB)
         backend_remote.connect("tcp://%s:%s" % (addr, port_pub))
@@ -184,7 +184,7 @@ class Broker(BrokerInterface):
 
         Args:
             addr (str): IP address of the master Broker in a distributed setting.
-            port_killsig (str, optional): Port of the remote Broker to listen to for the termination signal. Defaults to PORT_KILL.
+            port_killsig (str, optional): Port of the remote Broker to listen to for the termination signal. Defaults to `PORT_KILL`.
         """
         killsig_sub: zmq.SyncSocket = self._ctx.socket(zmq.SUB)
         killsig_sub.connect("tcp://%s:%s" % (addr, port_killsig))
@@ -210,7 +210,7 @@ class Broker(BrokerInterface):
         The duration start to count only after all Nodes established communication and synced.
 
         Args:
-            duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to None.
+            duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
         self._duration_s = duration_s
         while self._state.is_continue() and not self._is_quit:

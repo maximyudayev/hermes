@@ -35,7 +35,6 @@ from threading import Lock
 from hermes.utils.time_utils import get_time
 from hermes.utils.types import (
     VideoFormatEnum,
-    VideoFormatTuple,
     DataFifoDict,
     DeviceLockDict,
     ExtraDataInfoDict,
@@ -103,7 +102,7 @@ class Stream(ABC):
         is_measure_rate_hz: bool = False,
         data_notes: Mapping[str, str] = {},
         is_video: bool = False,
-        color_format: str | None = None,
+        color_format: VideoFormatEnum | None = None,
         is_audio: bool = False,
         timesteps_before_solidified: int = 0,
         extra_data_info: ExtraDataInfoDict = {},
@@ -118,15 +117,15 @@ class Stream(ABC):
             stream_name (str): Unique sub-stream name under this device tree.
             data_type (str): Fixed data type expected in the sub-stream.
             sample_size (Iterable[int]): An interable of dimensions of given data type in each captured sample.
-            sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to 0.0.
-            is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to False.
-            data_notes (Mapping[str, str], optional): Mapping of streams to notes for Storage to use in file metadata. Defaults to {}.
-            is_video (bool, optional): Whether it is a video stream. Defaults to False.
-            color_format (str | None, optional): One of the supported identifiers (see `types.py`). Defaults to None.
-            is_audio (bool, optional): Whether it is an audio stream. Defaults to False.
-            timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to 0.
+            sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to `0.0`.
+            is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to `False`.
+            data_notes (Mapping[str, str], optional): Mapping of streams to notes for Storage to use in file metadata. Defaults to `{}`.
+            is_video (bool, optional): Whether it is a video stream. Defaults to `False`.
+            color_format (VideoFormatEnum | None, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
+            is_audio (bool, optional): Whether it is an audio stream. Defaults to `False`.
+            timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
             extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
-                with at least 'data_type' and 'sample_size'. Defaults to {}.
+                with at least 'data_type' and 'sample_size'. Defaults to `{}`.
 
         Raises:
             ValueError: If stream name is not unique or is reserved.
@@ -174,7 +173,7 @@ class Stream(ABC):
         is_measure_rate_hz: bool = False,
         data_notes: Mapping[str, str] = {},
         is_video: bool = False,
-        color_format: str | None = None,
+        color_format: VideoFormatEnum | None = None,
         is_audio: bool = False,
         timesteps_before_solidified: int = 0,
         extra_data_info: ExtraDataInfoDict = {},
@@ -205,9 +204,12 @@ class Stream(ABC):
         if is_video:
             try:
                 if color_format is not None:
-                    video_format: VideoFormatTuple = VideoFormatEnum[color_format]
-                    self._streams_info[device_name][stream_name]["format"] = video_format.format
-                    self._streams_info[device_name][stream_name]["color"] = video_format.color
+                    self._streams_info[device_name][stream_name][
+                        "format"
+                    ] = color_format.value.format
+                    self._streams_info[device_name][stream_name][
+                        "color"
+                    ] = color_format.value.color
                 else:
                     raise KeyError
             except KeyError:
@@ -300,8 +302,8 @@ class Stream(ABC):
         Args:
             device_name (str): Valid device tree name.
             stream_name (str): Valid sub-stream name.
-            num_oldest_to_pop (int | None, optional): Number of samples to pop. Defaults to None.
-            is_flush (bool, optional): Whether to pop all data in the stream, regardless of timesteps_before_solidified. Defaults to False.
+            num_oldest_to_pop (int | None, optional): Number of samples to pop. Defaults to `None`.
+            is_flush (bool, optional): Whether to pop all data in the stream, regardless of timesteps_before_solidified. Defaults to `False`.
 
         Yields:
             Iterator[Any]: Iterator over poppable oldest->newest samples.
@@ -340,7 +342,7 @@ class Stream(ABC):
         Args:
             device_name (str): Valid device tree name.
             stream_name (str): Valid sub-stream name.
-            num_newest_to_peek (int | None, optional): Number of samples to peek, if less than `timesteps_before_solidified`. Defaults to None.
+            num_newest_to_peek (int | None, optional): Number of samples to peek, if less than `timesteps_before_solidified`. Defaults to `None`.
 
         Yields:
             Iterator[Any]: Iterator over peekable newest samples.
@@ -378,7 +380,7 @@ class Stream(ABC):
         Args:
             device_name (str): Valid device tree name.
             stream_name (str): Valid sub-stream name.
-            num_oldest_to_clear (int | None, optional): Number of oldest samples to clear. Defaults to None.
+            num_oldest_to_clear (int | None, optional): Number of oldest samples to clear. Defaults to `None`.
         """
         # Create the device/stream entry if it doesn't exist, else clear it.
         self._data.setdefault(device_name, OrderedDict())
@@ -438,7 +440,7 @@ class Stream(ABC):
         If device_name is None, will assume streams are the same for every device.
 
         Args:
-            device_name (str | None, optional): Name of the device tree to query. Defaults to None.
+            device_name (str | None, optional): Name of the device tree to query. Defaults to `None`.
 
         Returns:
             list[str]: Names of sub-streams in a device tree.

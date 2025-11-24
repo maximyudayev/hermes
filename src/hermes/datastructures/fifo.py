@@ -312,7 +312,7 @@ class AlignedFifoBuffer(BufferInterface):
         """Attempts to synchronously retrieve the oldest set of samples from all channels of the buffer with a timeout.
 
         Args:
-            timeout (float, optional): How long to wait for new snapshot. Defaults to 10.0.
+            timeout (float, optional): How long to wait for new snapshot. Defaults to `10.0`.
 
         Returns:
             dict | None: Multi-channel vector of the oldest sample or None if no new data became available until timeout.
@@ -345,7 +345,7 @@ class TimestampAlignedFifoBuffer(AlignedFifoBuffer):
             timesteps_before_stale (int): The number of samples in other channels after which a missing sample in a channel is marked missing.
             sampling_period (int): Sampling period in the same units as timestamp limit and timestamps.
             counter_limit (int): The upper counting limit of the sensor's timestamp.
-            maxlen (int | None): Fixed length of preallocated ring buffer. Defaults to None.
+            maxlen (int | None): Fixed length of preallocated ring buffer. Defaults to `None`.
         """
         super().__init__(
             keys=keys, timesteps_before_stale=timesteps_before_stale, maxlen=maxlen
@@ -377,7 +377,7 @@ class NonOverflowingCounterAlignedFifoBuffer(AlignedFifoBuffer):
             keys (Iterable): Set of uniquely identifying channel keys.
             timesteps_before_stale (int): The number of samples in other channels after which a missing sample in a channel is marked missing.
             num_bits_timestamp (int): The fixed-width of the counter generating the data.
-            maxlen (int | None): Fixed length of preallocated ring buffer. Defaults to None.
+            maxlen (int | None): Fixed length of preallocated ring buffer. Defaults to `None`.
         """
         super().__init__(
             keys=keys, timesteps_before_stale=timesteps_before_stale, maxlen=maxlen

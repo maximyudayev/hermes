@@ -39,12 +39,8 @@ DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
 StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
 DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
-VideoFormatTuple = namedtuple(
-    "VideoFormatTuple", ("format", "color")
-)
-AudioFormatTuple = namedtuple(
-    "AudioFormatTuple", ("format", "color")
-)
+VideoFormatTuple = namedtuple("VideoFormatTuple", ("format", "color"))
+AudioFormatTuple = namedtuple("AudioFormatTuple", ("format", "color"))
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
@@ -90,6 +86,7 @@ class LoggingSpec:
 @dataclass
 class VideoCodec:
     """Object specifying video codec options for FFmpeg."""
+
     codec_name: str
     pix_format: str
     num_cpu: int = 1
@@ -100,6 +97,7 @@ class VideoCodec:
 @dataclass
 class AudioCodec:
     """Object specifying audio codec options for FFmpeg."""
+
     codec_name: str
     pix_format: str
     num_cpu: int = 1
@@ -109,25 +107,27 @@ class AudioCodec:
 
 class VideoFormatEnum(Enum):
     """Video format enumeration for supported FFmpeg video formats.
-    
+
     Must be a tuple of (<FFmpeg write format>, <Color format>), where:
         write format is one of: `ffmpeg -formats`
         pixel color is one of: `ffmpeg -pix_fmts`
     """
+
     BGR = VideoFormatTuple("rawvideo", "bgr24")
     YUV = VideoFormatTuple("rawvideo", "yuv420p")
     JPEG = VideoFormatTuple("image2pipe", "yuv420p")
-    MJPEG = VideoFormatTuple('jpeg_pipe', 'yuv420p')
+    MJPEG = VideoFormatTuple("jpeg_pipe", "yuv420p")
     BAYER_RG8 = VideoFormatTuple("rawvideo", "bayer_rggb8")
 
 
 class AudioFormatEnum(Enum):
     """Audio format enumeration for supported FFmpeg video formats.
-    
+
     TODO:
     Must be a tuple of (<FFmpeg write format>, ...), where:
         write format is one of: `ffmpeg -formats`
     """
+
     BGR = AudioFormatTuple("rawvideo", "bgr24")
     YUV = AudioFormatTuple("rawvideo", "yuv420p")
     JPEG = AudioFormatTuple("image2pipe", "yuv420p")

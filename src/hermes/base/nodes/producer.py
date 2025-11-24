@@ -69,11 +69,11 @@ class Producer(ProducerInterface, Node):
             host_ip (str): IP address of the local master Broker.
             stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
             logging_spec (LoggingSpec): Specification of what and how to store.
-            sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to float('nan').
-            port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to PORT_BACKEND.
-            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
-            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
-            transmit_delay_sample_period_s (float, optional): Duration of the period over which to estimate propagation delay of measurements from the corresponding device. Defaults to float('nan').
+            sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to `float('nan')`.
+            port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
+            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
+            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
+            transmit_delay_sample_period_s (float, optional): Duration of the period over which to estimate propagation delay of measurements from the corresponding device. Defaults to `float('nan')`.
         """
         super().__init__(
             host_ip=host_ip,

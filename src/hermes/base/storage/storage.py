@@ -30,7 +30,6 @@ from io import TextIOWrapper
 from subprocess import Popen
 import os
 import time
-import wave
 import asyncio
 import concurrent.futures
 import h5py
@@ -85,9 +84,7 @@ class Storage(StorageInterface):
         #   Main thread will listen to the sockets and put files to the Stream objects.
         self._is_streaming: bool  # whether periodic writing is active
         self._is_flush: bool  # whether remaining data at the end should now be flushed
-        self._is_finished: (
-            bool  # whether the logging loop is finished and all data was flushed
-        )
+        self._is_finished: bool # whether the logging loop is finished and all data was flushed
 
         # Initialize the logging writers.
         self._thread_pool: concurrent.futures.ThreadPoolExecutor

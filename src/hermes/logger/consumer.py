@@ -25,6 +25,7 @@
 #
 # ############
 
+from hermes.utils.types import LoggingSpec
 from hermes.utils.zmq_utils import PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
 
 from hermes.base.nodes.consumer import Consumer
@@ -46,7 +47,7 @@ class DataLogger(Consumer):
         self,
         host_ip: str,
         stream_specs: list[dict],
-        logging_spec: dict,
+        logging_spec: LoggingSpec,
         port_sub: str = PORT_FRONTEND,
         port_sync: str = PORT_SYNC_HOST,
         port_killsig: str = PORT_KILL,
@@ -58,11 +59,11 @@ class DataLogger(Consumer):
         Args:
             host_ip (str): IP address of the local master Broker.
             stream_specs (list[dict]): List of mappings of user-configured incoming modalities.
-            logging_spec (dict): Mapping of Storage object parameters to user-defined configuration values.
-            port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to PORT_FRONTEND.
-            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to PORT_SYNC_HOST.
-            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to PORT_KILL.
-            log_history_filepath (str | None, optional): File path to the system log file. Defaults to None.
+            logging_spec (LoggingSpec): Mapping of Storage object parameters to user-defined configuration values.
+            port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
+            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
+            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
+            log_history_filepath (str | None, optional): File path to the system log file. Defaults to `None`.
         """
         super().__init__(
             host_ip=host_ip,
