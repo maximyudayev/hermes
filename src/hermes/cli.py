@@ -42,7 +42,7 @@ from hermes.utils.zmq_utils import (
     PORT_KILL,
     PORT_SYNC_HOST,
 )
-from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec
+from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
 
 
 # TODO: replace with HERMES-branded font
@@ -190,6 +190,23 @@ def override_cli_args_with_config_file(
     return parser, args
 
 
+def replace_video_format_nested(config: dict) -> dict:
+    """Recursively replace `video_image_format` strings with enum values.
+    
+    Args:
+        config (dict): A node specification dictionary potentially containing the key.
+    """
+    if "video_image_format" in config:
+        config["video_image_format"] = VideoFormatEnum[config["video_image_format"]]
+        return config
+
+    for key, value in config.items():
+        if isinstance(value, dict):
+            config[key] = replace_video_format_nested(value)
+
+    return config
+
+
 def load_codec_spec(args: argparse.Namespace) -> argparse.Namespace:
     """Load codec configuration YAML files into the `args.logging_spec`.
 
@@ -213,6 +230,10 @@ def load_codec_spec(args: argparse.Namespace) -> argparse.Namespace:
                 args.logging_spec["video_codec"] = VideoCodec(**yaml.safe_load(f))
             except yaml.YAMLError as e:
                 print(e)
+            # Replace `video_image_format` with appropriate enum value
+            args.producer_specs = [
+                replace_video_format_nested(spec) for spec in args.producer_specs
+            ]
     if "stream_audio" in args.logging_spec and args.logging_spec["stream_audio"]:
         with open(args.audio_codec_config_filepath, "r") as f:
             try:

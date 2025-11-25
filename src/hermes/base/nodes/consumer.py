@@ -80,7 +80,7 @@ class Consumer(ConsumerInterface, Node):
             host_ip=host_ip,
             port_sync=port_sync,
             port_killsig=port_killsig,
-            ref_time=logging_spec.log_time_s,
+            ref_time=logging_spec.ref_time_s,
         )
         self._port_sub = port_sub
         self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()

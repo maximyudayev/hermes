@@ -45,6 +45,28 @@ ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
 @dataclass
+class VideoCodec:
+    """Object specifying video codec options for FFmpeg."""
+
+    codec_name: str
+    pix_format: str
+    num_cpu: int = 1
+    input_options: Mapping = None
+    output_options: Mapping = None
+
+
+@dataclass
+class AudioCodec:
+    """Object specifying audio codec options for FFmpeg."""
+
+    codec_name: str
+    pix_format: str
+    num_cpu: int = 1
+    input_options: Mapping = None
+    output_options: Mapping = None
+
+
+@dataclass
 class LoggingSpec:
     """Object specifying data storage options.
 
@@ -83,28 +105,6 @@ class LoggingSpec:
     dump_audio: Optional[bool] = False
     video_codec: Optional[VideoCodec] = None
     audio_codec: Optional[AudioCodec] = None
-
-
-@dataclass
-class VideoCodec:
-    """Object specifying video codec options for FFmpeg."""
-
-    codec_name: str
-    pix_format: str
-    num_cpu: int = 1
-    input_options: Mapping = None
-    output_options: Mapping = None
-
-
-@dataclass
-class AudioCodec:
-    """Object specifying audio codec options for FFmpeg."""
-
-    codec_name: str
-    pix_format: str
-    num_cpu: int = 1
-    input_options: Mapping = None
-    output_options: Mapping = None
 
 
 class VideoFormatEnum(Enum):

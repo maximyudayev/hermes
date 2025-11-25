@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.3 <small>November 25, 2025</small>
+- Automatic parsing of Video codec from config file.
+
 ### 0.1.2 <small>November 21, 2025</small>
 - Bugfix: divergent reference system start time.
 

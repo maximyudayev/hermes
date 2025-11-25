@@ -63,6 +63,7 @@ class Node(NodeInterface):
         self._port_sync = port_sync
         self._port_killsig = port_killsig
         self.__is_done = False
+        self._ref_time_s = ref_time
         init_time(ref_time=ref_time)
 
         self._state = StartState(self)
