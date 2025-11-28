@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.4 <small>November 28, 2025</small>
+- Propagates user keyboard inputs via `keyboard` package to all threads.
+
 ### 0.1.3 <small>November 25, 2025</small>
 - Automatic parsing of Video codec from config file.
 

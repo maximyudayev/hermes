@@ -41,7 +41,7 @@ dependencies = [
   "pyperclip",
   "openpyxl",
   "orjson",
-  "inputimeout",
+  "keyboard",
 ]
 
 [tool.setuptools.dynamic]

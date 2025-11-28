@@ -25,16 +25,14 @@
 #
 # ############
 
-import threading
 import os
 import yaml
 import argparse
-from inputimeout import inputimeout, TimeoutOccurred
+import keyboard
 
 from hermes.__version__ import __version__
 from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
-from hermes.utils.mp_utils import launch_callable
 from hermes.utils.time_utils import get_ref_time, get_time
 from hermes.utils.zmq_utils import (
     PORT_BACKEND,
@@ -360,19 +358,8 @@ def app():
 
     # Only the master broker can terminate the experiment via the terminal command.
     if args.is_master_broker:
-        is_quit = False
-        # Run broker's main until user exits in GUI or 'q' in terminal.
-        t = threading.Thread(
-            target=launch_callable, args=(local_broker, args.duration_s)
-        )
-        t.start()
-        while not is_quit and not local_broker.is_done():
-            try:
-                is_quit = inputimeout(prompt="Enter 'q' to exit: ", timeout=5) == "q"
-            except TimeoutOccurred:
-                continue
-        local_broker.set_is_quit()
-        t.join()
+        keyboard.add_hotkey("shift+q", lambda: local_broker.set_is_quit())
+        local_broker(args.duration_s)
     else:
         local_broker()
 
