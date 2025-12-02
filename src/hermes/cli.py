@@ -41,7 +41,7 @@ from hermes.utils.zmq_utils import (
     PORT_SYNC_HOST,
 )
 from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
-from hermes.utils.mp_utils import launch_broker, launch_callable
+from hermes.utils.mp_utils import launch_broker
 
 
 # TODO: replace with HERMES-branded font
@@ -300,14 +300,16 @@ def configure_specs(
         log_dir (str): Path to the directory where logs should be stored.
 
     Returns:
-        tuple[argparse.Namespace, list[dict]]: The (possibly unchanged) args
-            object and a flat list of node spec dictionaries ready to be
-            consumed by the `Broker`.
+        tuple[argparse.Namespace, list[dict], float]: The (possibly unchanged)
+            args object, a flat list of node spec dictionaries ready to be
+            consumed by the `Broker`, host device's reference time for performance
+            counters.
     """
+    ref_time_s = get_ref_time()
     logging_spec = LoggingSpec(
         log_dir=log_dir,
         log_time_s=log_time_s,
-        ref_time_s=get_ref_time(),
+        ref_time_s=ref_time_s,
         experiment=args.experiment,
         **args.logging_spec,
     )
@@ -323,7 +325,7 @@ def configure_specs(
         spec["settings"]["port_sync"] = PORT_SYNC_HOST
         spec["settings"]["port_killsig"] = PORT_KILL
 
-    return args, node_specs
+    return args, node_specs, ref_time_s
 
 
 def app():
@@ -338,7 +340,7 @@ def app():
     parser = define_parser()
     args = parse_args(parser)
     log_time_s, log_dir, log_history_filepath = init_output_files(args)
-    args, node_specs = configure_specs(args, log_time_s, log_dir)
+    args, node_specs, ref_time_s = configure_specs(args, log_time_s, log_dir)
 
     set_start_method("spawn")
 
@@ -356,6 +358,7 @@ def app():
             is_setup_event,
             is_quit_event,
             is_done_event,
+            ref_time_s,
         ),
     )
     broker_proc.start()
@@ -368,7 +371,6 @@ def app():
             if args.is_master_broker and user_input == termination_char:
                 is_quit_event.set()
             else:
-                # TODO: config parameter to all Nodes whether to route user input to the process.
                 input_queue.put((get_time(), user_input))
         except TimeoutOccurred:
             pass

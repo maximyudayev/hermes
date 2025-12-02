@@ -48,7 +48,7 @@ except ImportError as e:
 from hermes.base.stream import Stream
 from hermes.base.storage.storage_interface import StorageInterface
 from hermes.base.storage.storage_states import AbstractStorageState, StartState
-from hermes.utils.time_utils import get_time, get_time_str
+from hermes.utils.time_utils import init_time, get_time, get_time_str
 from hermes.utils.dict_utils import convert_dict_values_to_str
 from hermes.utils.types import LoggingSpec
 
@@ -106,6 +106,7 @@ class Storage(StorageInterface):
         Args:
             streams (OrderedDict[str, Stream]): Reference to the Stream objects to flush to disk.
         """
+        init_time(ref_time=self._spec.ref_time_s)
         self._state = StartState(self, streams)
         while self._state.is_continue():
             self._state.run()

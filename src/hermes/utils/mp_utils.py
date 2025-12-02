@@ -39,6 +39,7 @@ def launch_broker(
     is_ready_event: Event,
     is_quit_event: Event,
     is_done_event: Event,
+    ref_time_s: float,
 ):
     # Create the broker and manage all the components of the experiment.
     local_broker: Broker = Broker(
@@ -49,6 +50,7 @@ def launch_broker(
         is_done_event=is_done_event,
         input_queue=input_queue,
         is_master_broker=args.is_master_broker,
+        ref_time_s=ref_time_s,
     )
 
     # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
@@ -63,7 +65,11 @@ def launch_broker(
     if args.is_remote_kill:
         local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
 
-    local_broker()
+    # Only master host runs with duration, others wait for commands.
+    if args.is_master_broker:
+        local_broker(args.duration_s)
+    else:
+        local_broker()
 
 
 def launch_callable(obj: Callable, *args, **kwargs):

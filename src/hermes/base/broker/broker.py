@@ -25,12 +25,12 @@
 #
 # ############
 
-from multiprocessing import Event, Process, Queue, set_start_method
+from multiprocessing import Event, Process, Queue
 from typing import Callable
 import zmq
 
 from hermes.utils.node_utils import launch_node
-from hermes.utils.time_utils import get_time
+from hermes.utils.time_utils import get_time, init_time
 from hermes.utils.types import ZMQResult
 from hermes.utils.zmq_utils import (
     IP_LOOPBACK,
@@ -85,6 +85,7 @@ class Broker(BrokerInterface):
         is_ready_event: Event,
         is_quit_event: Event,
         is_done_event: Event,
+        ref_time_s: float,
         is_master_broker: bool = False,
         port_backend: str = PORT_BACKEND,
         port_frontend: str = PORT_FRONTEND,
@@ -101,6 +102,7 @@ class Broker(BrokerInterface):
             is_ready_event (Event): Synchronization primitive to indicate to external readers that Broker is ready.
             is_quit_event (Event): Synchronization primitive to externally trigger closure of Broker.
             is_done_event (Event): Synchronization primitive to indicate to external readers completion of Broker.
+            ref_time_s (float): Host device's reference time for performance counters in subprocesses.
             is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to `False`.
             port_backend (str, optional): XSUB port of the Broker. Defaults to `PORT_BACKEND`.
             port_frontend (str, optional): XPUB port of the Broker. Defaults to `PORT_FRONTEND`.
@@ -121,6 +123,7 @@ class Broker(BrokerInterface):
         self._is_ready_event = is_ready_event
         self._is_quit_event = is_quit_event
         self._is_done_event = is_done_event
+        self._ref_time_s = ref_time_s
 
         self._remote_pub_brokers: list[str] = []
         self._remote_sub_brokers: list[str] = []
@@ -218,6 +221,7 @@ class Broker(BrokerInterface):
         Args:
             duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
+        init_time(ref_time=self._ref_time_s)
         self._duration_s = duration_s
         while self._state.is_continue() and not self._is_quit_event.is_set():
             self._state.run()
