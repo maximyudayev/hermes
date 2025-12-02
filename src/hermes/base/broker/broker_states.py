@@ -238,7 +238,7 @@ class RunningState(AbstractBrokerState):
             self._is_continue_fn = lambda: True
 
     def run(self) -> None:
-        poll_res: ZMQResult = self._context._poll(5000)
+        poll_res: ZMQResult = self._context._poll(1000)
         self._context._broker_packets(
             poll_res, on_subscription_changed=self._on_subscription_added
         )
@@ -293,7 +293,7 @@ class JoinNodeBarrierState(AbstractBrokerState):
         self._poller.register(self._sync_host_socket, zmq.POLLIN)
 
     def run(self) -> None:
-        poll_res: ZMQResult = self._context._poll(5000)
+        poll_res: ZMQResult = self._context._poll(1000)
         # Brokers packets and releases local Producer Nodes in a callback once it published the end packet.
         self._context._broker_packets(poll_res, on_data_received=self._on_is_end_packet)
         # Checks if poll event was triggered by a local Node initiating closing.

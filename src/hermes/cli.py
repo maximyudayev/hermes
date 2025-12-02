@@ -345,7 +345,7 @@ def app():
     is_setup_event = Event()
     is_quit_event = Event()
     is_done_event = Event()
-    input_queue = Queue()
+    input_queue: Queue[tuple[float, str]] = Queue()
 
     broker_proc = Process(
         target=launch_broker,
@@ -360,8 +360,6 @@ def app():
     )
     broker_proc.start()
 
-    is_setup_event.wait()
-
     user_input = ""
     termination_char = "Q"
     while not is_done_event.is_set():
@@ -371,7 +369,7 @@ def app():
                 is_quit_event.set()
             else:
                 # TODO: config parameter to all Nodes whether to route user input to the process.
-                input_queue.put(user_input)
+                input_queue.put((get_time(), user_input))
         except TimeoutOccurred:
             pass
 

@@ -32,7 +32,7 @@ from hermes.base.nodes.node import Node
 from hermes.base.nodes.node_interface import NodeInterface
 
 
-def launch_node(spec: dict, input_queue: Queue):
+def launch_node(spec: dict, input_queue: "Queue[tuple[float, str]]"):
     module_name: str = spec["package"]
     class_name: str = spec["class"]
     class_args: dict = spec["settings"]

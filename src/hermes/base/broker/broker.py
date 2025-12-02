@@ -81,7 +81,7 @@ class Broker(BrokerInterface):
         self,
         host_ip: str,
         node_specs: list[dict],
-        input_queue: Queue,
+        input_queue: "Queue[tuple[float, str]]",
         is_ready_event: Event,
         is_quit_event: Event,
         is_done_event: Event,
@@ -97,7 +97,7 @@ class Broker(BrokerInterface):
         Args:
             host_ip (str): Public LAN IP address of this host.
             node_specs (list[dict]): List of to-be-created Node specification dictionaries.
-            input_queue (Queue[str]): Queue of `stdin` user inputs to fan-out to all interested subprocesses.
+            input_queue (Queue[tuple[float, str]]): Queue of `stdin` user inputs to fan-out to all interested subprocesses.
             is_ready_event (Event): Synchronization primitive to indicate to external readers that Broker is ready.
             is_quit_event (Event): Synchronization primitive to externally trigger closure of Broker.
             is_done_event (Event): Synchronization primitive to indicate to external readers completion of Broker.
@@ -127,7 +127,7 @@ class Broker(BrokerInterface):
         self._brokered_nodes: set[str] = set()
 
         self._processes: list[Process]
-        self._queues: list[Queue[str]] = [Queue() for _ in node_specs]
+        self._queues: list[Queue[tuple[float, str]]] = [Queue() for _ in node_specs]
 
         # FSM for the broker
         self._state = InitState(self)
@@ -234,14 +234,13 @@ class Broker(BrokerInterface):
         self._stop()
         print("Experiment ended, thank you for using our system <3", flush=True)
         
-    def _fanout_user_input(self, user_input: str) -> None:
+    def _fanout_user_input(self, user_input: tuple[float, str]) -> None:
         """Forward user keyboard input from the main thread of the parent process, to all the subprocesses.
 
         Args:
-            user_input (str): Keyboard user input from the `input()` call.
+            user_input (tuple[float, str]): Keyboard user input from the `input()` call.
         """
         for q in self._queues:
-            print(f"Putting new data in {q}")
             q.put(user_input)
 
     #############################

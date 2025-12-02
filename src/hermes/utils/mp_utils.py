@@ -35,7 +35,7 @@ from hermes.base.broker.broker import Broker
 def launch_broker(
     args: Namespace,
     node_specs: list[dict],
-    input_queue: Queue,
+    input_queue: "Queue[tuple[float, str]]",
     is_ready_event: Event,
     is_quit_event: Event,
     is_done_event: Event,
