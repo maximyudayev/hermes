@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.5 <small>December 02, 2025</small>
+- Replaced `keyboard` package with `input()` calls for rootless keyboard interaction.
+
 ### 0.1.4 <small>November 28, 2025</small>
 - Propagates user keyboard inputs via `keyboard` package to all threads.
 

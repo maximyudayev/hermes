@@ -25,7 +25,7 @@
 #
 # ############
 
-from multiprocessing import Process, set_start_method
+from multiprocessing import Event, Process, Queue, set_start_method
 from typing import Callable
 import zmq
 
@@ -81,24 +81,32 @@ class Broker(BrokerInterface):
         self,
         host_ip: str,
         node_specs: list[dict],
+        input_queue: Queue,
+        is_ready_event: Event,
+        is_quit_event: Event,
+        is_done_event: Event,
+        is_master_broker: bool = False,
         port_backend: str = PORT_BACKEND,
         port_frontend: str = PORT_FRONTEND,
         port_sync_host: str = PORT_SYNC_HOST,
         port_sync_remote: str = PORT_SYNC_REMOTE,
         port_killsig: str = PORT_KILL,
-        is_master_broker: bool = False,
     ) -> None:
         """Constructor of the Broker component responsible for the lifecycle of all local Nodes and for message exchange across them and distributed hosts.
 
         Args:
             host_ip (str): Public LAN IP address of this host.
             node_specs (list[dict]): List of to-be-created Node specification dictionaries.
+            input_queue (Queue[str]): Queue of `stdin` user inputs to fan-out to all interested subprocesses.
+            is_ready_event (Event): Synchronization primitive to indicate to external readers that Broker is ready.
+            is_quit_event (Event): Synchronization primitive to externally trigger closure of Broker.
+            is_done_event (Event): Synchronization primitive to indicate to external readers completion of Broker.
+            is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to `False`.
             port_backend (str, optional): XSUB port of the Broker. Defaults to `PORT_BACKEND`.
             port_frontend (str, optional): XPUB port of the Broker. Defaults to `PORT_FRONTEND`.
             port_sync_host (str, optional): Port for SYNC socket to coordinate startup of local Nodes. Defaults to `PORT_SYNC_HOST`.
             port_sync_remote (str, optional): Port for SYNC socket to coordinate startup across remote hosts. Defaults to `PORT_SYNC_REMOTE`.
             port_killsig (str, optional): Port of the KILL signal this Broker announces from. Defaults to `PORT_KILL`.
-            is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to `False`.
         """
         self._host_ip = host_ip
         self._is_master_broker = is_master_broker
@@ -108,12 +116,18 @@ class Broker(BrokerInterface):
         self._port_sync_remote = port_sync_remote
         self._port_killsig = port_killsig
         self._node_specs = node_specs
-        self._is_quit = False
-        self._is_done = False
+
+        self._input_queue = input_queue
+        self._is_ready_event = is_ready_event
+        self._is_quit_event = is_quit_event
+        self._is_done_event = is_done_event
 
         self._remote_pub_brokers: list[str] = []
         self._remote_sub_brokers: list[str] = []
         self._brokered_nodes: set[str] = set()
+
+        self._processes: list[Process]
+        self._queues: list[Queue[str]] = [Queue() for _ in node_specs]
 
         # FSM for the broker
         self._state = InitState(self)
@@ -192,14 +206,6 @@ class Broker(BrokerInterface):
         self._poller.register(killsig_sub, zmq.POLLIN)
         self._killsigs.append(killsig_sub)
 
-    def set_is_quit(self) -> None:
-        """External asynchronous trigger to indicate termination to the Broker."""
-        self._is_quit = True
-
-    def is_done(self) -> bool:
-        """External check for Broker's completion."""
-        return self._is_done
-
     #####################
     ###### RUNNING ######
     #####################
@@ -213,9 +219,10 @@ class Broker(BrokerInterface):
             duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
         self._duration_s = duration_s
-        while self._state.is_continue() and not self._is_quit:
+        while self._state.is_continue() and not self._is_quit_event.is_set():
             self._state.run()
-        if self._is_quit:
+            if not self._input_queue.empty(): self._fanout_user_input(self._input_queue.get())
+        if self._is_quit_event.is_set():
             print(
                 "Keyboard exit signalled. Safely closing and saving, have some patience...",
                 flush=True,
@@ -226,6 +233,16 @@ class Broker(BrokerInterface):
             self._state.run()
         self._stop()
         print("Experiment ended, thank you for using our system <3", flush=True)
+        
+    def _fanout_user_input(self, user_input: str) -> None:
+        """Forward user keyboard input from the main thread of the parent process, to all the subprocesses.
+
+        Args:
+            user_input (str): Keyboard user input from the `input()` call.
+        """
+        for q in self._queues:
+            print(f"Putting new data in {q}")
+            q.put(user_input)
 
     #############################
     ###### GETTERS/SETTERS ######
@@ -233,6 +250,9 @@ class Broker(BrokerInterface):
     def _set_state(self, state: AbstractBrokerState) -> None:
         self._state = state
         self._state_start_time_s = get_time()
+
+    def _set_broker_ready(self) -> None:
+        self._is_ready_event.set()
 
     def _set_node_addresses(self, node_addresses: dict[str, bytes]) -> None:
         self._node_addresses = node_addresses
@@ -306,10 +326,9 @@ class Broker(BrokerInterface):
             self._poller.unregister(s)
 
     def _start_local_nodes(self) -> None:
-        set_start_method("spawn")
         self._processes: list[Process] = [
-            Process(target=launch_node, args=(node_spec,))
-            for node_spec in self._node_specs
+            Process(target=launch_node, args=(node_spec, input_queue))
+            for node_spec, input_queue in zip(self._node_specs, self._queues)
         ]
         for p in self._processes:
             p.start()
@@ -374,4 +393,4 @@ class Broker(BrokerInterface):
 
         # Destroy ZeroMQ context.
         self._ctx.term()
-        self._is_done = True
+        self._is_done_event.set()

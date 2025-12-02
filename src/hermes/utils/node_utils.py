@@ -26,17 +26,18 @@
 # ############
 
 import importlib
+from multiprocessing import Queue
 
 from hermes.base.nodes.node import Node
 from hermes.base.nodes.node_interface import NodeInterface
 
 
-def launch_node(spec: dict):
+def launch_node(spec: dict, input_queue: Queue):
     module_name: str = spec["package"]
     class_name: str = spec["class"]
     class_args: dict = spec["settings"]
     node_class: type[NodeInterface] = search_node_class(module_name, class_name)
-    node: Node = node_class(**class_args)  # type: ignore
+    node: Node = node_class(**class_args, input_queue=input_queue)  # type: ignore
     node()
 
 

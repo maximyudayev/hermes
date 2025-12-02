@@ -25,13 +25,13 @@
 #
 # ############
 
+from multiprocessing import Event, Process, Queue, set_start_method
 import os
 import yaml
 import argparse
-import keyboard
+from inputimeout import inputimeout, TimeoutOccurred
 
 from hermes.__version__ import __version__
-from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
 from hermes.utils.time_utils import get_ref_time, get_time
 from hermes.utils.zmq_utils import (
@@ -41,6 +41,7 @@ from hermes.utils.zmq_utils import (
     PORT_SYNC_HOST,
 )
 from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
+from hermes.utils.mp_utils import launch_broker, launch_callable
 
 
 # TODO: replace with HERMES-branded font
@@ -97,6 +98,7 @@ def define_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--experiment",
+        "-e",
         nargs="*",
         action=ParseExperimentKwargs,
         help="key-value pair tags detailing the experiment, used for "
@@ -120,6 +122,7 @@ def define_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--config_file",
+        "-f",
         type=validate_path,
         default=None,
         help="path to the configuration file for the current host device, "
@@ -190,7 +193,7 @@ def override_cli_args_with_config_file(
 
 def replace_video_format_nested(config: dict) -> dict:
     """Recursively replace `video_image_format` strings with enum values.
-    
+
     Args:
         config (dict): A node specification dictionary potentially containing the key.
     """
@@ -329,7 +332,7 @@ def app():
     This function wires together argument parsing, output directory
     creation, node specification configuration, and broker lifecycle
     management. When executed as the master broker it spawns the broker
-    in a background thread and listens for a terminal 'q' input to
+    in a background thread and listens for a terminal 'Q' input to
     gracefully terminate the experiment.
     """
     parser = define_parser()
@@ -337,31 +340,42 @@ def app():
     log_time_s, log_dir, log_history_filepath = init_output_files(args)
     args, node_specs = configure_specs(args, log_time_s, log_dir)
 
-    # Create the broker and manage all the components of the experiment.
-    local_broker: Broker = Broker(
-        host_ip=args.host_ip,
-        node_specs=node_specs,
-        is_master_broker=args.is_master_broker,
+    set_start_method("spawn")
+
+    is_setup_event = Event()
+    is_quit_event = Event()
+    is_done_event = Event()
+    input_queue = Queue()
+
+    broker_proc = Process(
+        target=launch_broker,
+        args=(
+            args,
+            node_specs,
+            input_queue,
+            is_setup_event,
+            is_quit_event,
+            is_done_event,
+        ),
     )
+    broker_proc.start()
 
-    # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
-    for ip in args.remote_publisher_ips:
-        local_broker.connect_to_remote_broker(addr=ip)
+    is_setup_event.wait()
 
-    # Expose local wearable data to remote subscribers (e.g. edge server).
-    if args.remote_subscriber_ips:
-        local_broker.expose_to_remote_broker(args.remote_subscriber_ips)
+    user_input = ""
+    termination_char = "Q"
+    while not is_done_event.is_set():
+        try:
+            user_input = inputimeout(">> ", timeout=5)
+            if args.is_master_broker and user_input == termination_char:
+                is_quit_event.set()
+            else:
+                # TODO: config parameter to all Nodes whether to route user input to the process.
+                input_queue.put(user_input)
+        except TimeoutOccurred:
+            pass
 
-    # Subscribe to the KILL signal of a remote machine.
-    if args.is_remote_kill:
-        local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
-
-    # Only the master broker can terminate the experiment via the terminal command.
-    if args.is_master_broker:
-        keyboard.add_hotkey("shift+q", lambda: local_broker.set_is_quit())
-        local_broker(args.duration_s)
-    else:
-        local_broker()
+    broker_proc.join()
 
 
 if __name__ == "__main__":

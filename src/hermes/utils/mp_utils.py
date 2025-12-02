@@ -25,7 +25,45 @@
 #
 # ############
 
+from argparse import Namespace
+from multiprocessing import Event, Queue
 from typing import Callable
+
+from hermes.base.broker.broker import Broker
+
+
+def launch_broker(
+    args: Namespace,
+    node_specs: list[dict],
+    input_queue: Queue,
+    is_ready_event: Event,
+    is_quit_event: Event,
+    is_done_event: Event,
+):
+    # Create the broker and manage all the components of the experiment.
+    local_broker: Broker = Broker(
+        host_ip=args.host_ip,
+        node_specs=node_specs,
+        is_ready_event=is_ready_event,
+        is_quit_event=is_quit_event,
+        is_done_event=is_done_event,
+        input_queue=input_queue,
+        is_master_broker=args.is_master_broker,
+    )
+
+    # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
+    for ip in args.remote_publisher_ips:
+        local_broker.connect_to_remote_broker(addr=ip)
+
+    # Expose local wearable data to remote subscribers (e.g. edge server).
+    if args.remote_subscriber_ips:
+        local_broker.expose_to_remote_broker(args.remote_subscriber_ips)
+
+    # Subscribe to the KILL signal of a remote machine.
+    if args.is_remote_kill:
+        local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
+
+    local_broker()
 
 
 def launch_callable(obj: Callable, *args, **kwargs):

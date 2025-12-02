@@ -11,9 +11,9 @@
             "cwd": "${workspaceFolder}",
             "program": "src/hermes/cli.py",
             "args": [
-                "--out_dir", "examples/data",
-                "--experiment", "project=Test", "type=Dummy", "trial=0",
-                "--config_file", "examples/dummy.yml"
+                "-o", "examples/data",
+                "-f", "examples/dummy.yml",
+                "-e", "project=Test", "type=Dummy", "trial=0",
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"

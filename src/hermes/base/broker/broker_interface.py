@@ -60,6 +60,11 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
+    def _set_broker_ready(self) -> None:
+        """Hook for FSM to set Broker's internal state as ready."""
+        pass
+
+    @abstractmethod
     def _get_num_local_nodes(self) -> int:
         """Get the number of Nodes hosted and managed by this Broker.
 
