@@ -99,7 +99,7 @@ class Pipeline(PipelineInterface, Node):
 
         for stream_spec in stream_in_specs:
             module_name: str = stream_spec["package"]
-            class_name: str = stream_spec["stream_name"]
+            class_name: str = stream_spec["class"]
             specs: dict = stream_spec["settings"]
             # Create the stream datastructure.
             class_type: type[ProducerInterface] | type[PipelineInterface] = search_node_class(module_name, class_name)  # type: ignore

@@ -25,13 +25,15 @@
 #
 # ############
 
-from multiprocessing import Event, Process, Queue, set_start_method
+from multiprocessing import Event, set_start_method
+import threading
 import os
 import yaml
 import argparse
 from inputimeout import inputimeout, TimeoutOccurred
 
 from hermes.__version__ import __version__
+from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
 from hermes.utils.time_utils import get_ref_time, get_time
 from hermes.utils.zmq_utils import (
@@ -41,7 +43,7 @@ from hermes.utils.zmq_utils import (
     PORT_SYNC_HOST,
 )
 from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
-from hermes.utils.mp_utils import launch_broker
+from hermes.utils.mp_utils import launch_callable
 
 
 # TODO: replace with HERMES-branded font
@@ -344,24 +346,39 @@ def app():
 
     set_start_method("spawn")
 
-    is_setup_event = Event()
+    is_ready_event = Event()
     is_quit_event = Event()
     is_done_event = Event()
-    input_queue: Queue[tuple[float, str]] = Queue()
 
-    broker_proc = Process(
-        target=launch_broker,
-        args=(
-            args,
-            node_specs,
-            input_queue,
-            is_setup_event,
-            is_quit_event,
-            is_done_event,
-            ref_time_s,
-        ),
+    # Create the broker and manage all the components of the experiment.
+    local_broker: Broker = Broker(
+        host_ip=args.host_ip,
+        node_specs=node_specs,
+        is_ready_event=is_ready_event,
+        is_quit_event=is_quit_event,
+        is_done_event=is_done_event,
+        is_master_broker=args.is_master_broker,
     )
-    broker_proc.start()
+
+    # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
+    for ip in args.remote_publisher_ips:
+        local_broker.connect_to_remote_broker(addr=ip)
+
+    # Expose local wearable data to remote subscribers (e.g. edge server).
+    if args.remote_subscriber_ips:
+        local_broker.expose_to_remote_broker(args.remote_subscriber_ips)
+
+    # Subscribe to the KILL signal of a remote machine.
+    if args.is_remote_kill:
+        local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
+
+    # Only master host runs with duration, others wait for commands.
+    if args.is_master_broker:
+        broker_thread = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
+    else:
+        broker_thread = threading.Thread(target=launch_callable, args=(local_broker,))
+
+    broker_thread.start()
 
     user_input = ""
     termination_char = "Q"
@@ -371,11 +388,11 @@ def app():
             if args.is_master_broker and user_input == termination_char:
                 is_quit_event.set()
             else:
-                input_queue.put((get_time(), user_input))
+                local_broker._fanout_user_input((get_time(), user_input))
         except TimeoutOccurred:
             pass
 
-    broker_proc.join()
+    broker_thread.join()
 
 
 if __name__ == "__main__":

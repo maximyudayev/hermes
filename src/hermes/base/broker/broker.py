@@ -81,11 +81,9 @@ class Broker(BrokerInterface):
         self,
         host_ip: str,
         node_specs: list[dict],
-        input_queue: "Queue[tuple[float, str]]",
         is_ready_event: Event,
         is_quit_event: Event,
         is_done_event: Event,
-        ref_time_s: float,
         is_master_broker: bool = False,
         port_backend: str = PORT_BACKEND,
         port_frontend: str = PORT_FRONTEND,
@@ -98,11 +96,9 @@ class Broker(BrokerInterface):
         Args:
             host_ip (str): Public LAN IP address of this host.
             node_specs (list[dict]): List of to-be-created Node specification dictionaries.
-            input_queue (Queue[tuple[float, str]]): Queue of `stdin` user inputs to fan-out to all interested subprocesses.
             is_ready_event (Event): Synchronization primitive to indicate to external readers that Broker is ready.
             is_quit_event (Event): Synchronization primitive to externally trigger closure of Broker.
             is_done_event (Event): Synchronization primitive to indicate to external readers completion of Broker.
-            ref_time_s (float): Host device's reference time for performance counters in subprocesses.
             is_master_broker (bool, optional): Whether this Broker is the master in the distributed host setup. Defaults to `False`.
             port_backend (str, optional): XSUB port of the Broker. Defaults to `PORT_BACKEND`.
             port_frontend (str, optional): XPUB port of the Broker. Defaults to `PORT_FRONTEND`.
@@ -119,11 +115,9 @@ class Broker(BrokerInterface):
         self._port_killsig = port_killsig
         self._node_specs = node_specs
 
-        self._input_queue = input_queue
         self._is_ready_event = is_ready_event
         self._is_quit_event = is_quit_event
         self._is_done_event = is_done_event
-        self._ref_time_s = ref_time_s
 
         self._remote_pub_brokers: list[str] = []
         self._remote_sub_brokers: list[str] = []
@@ -225,7 +219,6 @@ class Broker(BrokerInterface):
         self._duration_s = duration_s
         while self._state.is_continue() and not self._is_quit_event.is_set():
             self._state.run()
-            if not self._input_queue.empty(): self._fanout_user_input(self._input_queue.get())
         if self._is_quit_event.is_set():
             print(
                 "Keyboard exit signalled. Safely closing and saving, have some patience...",
