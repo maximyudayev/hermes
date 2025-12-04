@@ -25,12 +25,12 @@
 #
 # ############
 
-from multiprocessing import Event, Process, Queue
+from multiprocessing import Process, Queue, Event
 from typing import Callable
 import zmq
 
 from hermes.utils.node_utils import launch_node
-from hermes.utils.time_utils import get_time, init_time
+from hermes.utils.time_utils import get_time
 from hermes.utils.types import ZMQResult
 from hermes.utils.zmq_utils import (
     IP_LOOPBACK,
@@ -215,7 +215,6 @@ class Broker(BrokerInterface):
         Args:
             duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
-        init_time(ref_time=self._ref_time_s)
         self._duration_s = duration_s
         while self._state.is_continue() and not self._is_quit_event.is_set():
             self._state.run()

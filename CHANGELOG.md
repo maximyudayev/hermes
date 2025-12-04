@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.7 <small>December 04, 2025</small>
+- Bugfix: `Broker` doesn't fan-out stdin in multiprocessing -> threading instead.
+
 ### 0.1.6 <small>December 02, 2025</small>
 - Bugfix: `Broker` and `Storage` use stale reference clock.
 
