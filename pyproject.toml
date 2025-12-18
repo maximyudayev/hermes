@@ -8,7 +8,7 @@ dynamic = ["version"]
 requires-python = ">=3.7"
 authors = [
   { name="Maxim Yudayev", email="maxim.yudayev@gmail.com" },
-  { name="e-Media Research Lab @ KU Leuven" },
+  { name="e-Media Research Lab @ KU Leuven", email="emedia@kuleuven.be" },
 ]
 description = "A realtime physiological sensing and edge AI processing framework"
 keywords = ["embedded ai", "wearables", "sensors", "streaming", "realtime processing", "physiology"]
@@ -41,7 +41,6 @@ dependencies = [
   "pyperclip",
   "openpyxl",
   "orjson",
-  "inputimeout",
 ]
 
 [tool.setuptools.dynamic]

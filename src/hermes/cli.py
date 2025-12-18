@@ -26,11 +26,11 @@
 # ############
 
 from multiprocessing import Event, set_start_method
+from multiprocessing.synchronize import Event as _EventClass
 import threading
 import os
 import yaml
 import argparse
-from inputimeout import inputimeout, TimeoutOccurred
 
 from hermes.__version__ import __version__
 from hermes.base.broker.broker import Broker
@@ -43,7 +43,6 @@ from hermes.utils.zmq_utils import (
     PORT_SYNC_HOST,
 )
 from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
-from hermes.utils.mp_utils import launch_callable
 
 
 # TODO: replace with HERMES-branded font
@@ -330,6 +329,35 @@ def configure_specs(
     return args, node_specs, ref_time_s
 
 
+def parse_stdin(
+    broker: Broker,
+    is_master: bool,
+    is_ready_event: _EventClass,
+    is_done_event: _EventClass,
+    is_quit_event: _EventClass
+) -> None:
+    """
+    Blocking stdin capture loop as a daemon, that fans out
+    keyboard inputs to Broker's subprocesses and all the Nodes.
+
+    Args:
+        broker (Broker): Host's only HERMES instance. 
+        is_master (bool): Whether the Broker is the master in the setup.
+        is_ready_event (Event): Synchronization flag whether the Broker and its subprocesses finished setting up.
+        is_done_event (Event): Synchronization flag whether the Broker is done and gracefully wrapped up.
+        is_quit_event (Event): Synchronization flag to indicate to the Broker to start the graceful quit procedure.
+    """
+    user_input = ""
+    termination_char = "Q"
+    is_ready_event.wait()
+    while not is_done_event.is_set():
+        user_input = input(">> ")
+        if is_master and user_input == termination_char:
+            is_quit_event.set()
+        elif len(user_input):
+            broker._fanout_user_input((get_time(), user_input))
+
+
 def app():
     """Main entry point for the HERMES CLI application.
 
@@ -372,27 +400,24 @@ def app():
     if args.is_remote_kill:
         local_broker.subscribe_to_killsig(addr=args.remote_kill_ip)
 
+    stdin_thread = threading.Thread(
+        target=parse_stdin,
+        args=(
+            local_broker,
+            args.is_master_broker,
+            is_ready_event,
+            is_done_event,
+            is_quit_event,
+        ),
+        daemon=True
+    )
+    stdin_thread.start()
+
     # Only master host runs with duration, others wait for commands.
     if args.is_master_broker:
-        broker_thread = threading.Thread(target=launch_callable, args=(local_broker, args.duration_s))
+        local_broker(args.duration_s)
     else:
-        broker_thread = threading.Thread(target=launch_callable, args=(local_broker,))
-
-    broker_thread.start()
-
-    user_input = ""
-    termination_char = "Q"
-    while not is_done_event.is_set():
-        try:
-            user_input = inputimeout(">> ", timeout=5)
-            if args.is_master_broker and user_input == termination_char:
-                is_quit_event.set()
-            else:
-                local_broker._fanout_user_input((get_time(), user_input))
-        except TimeoutOccurred:
-            pass
-
-    broker_thread.join()
+        local_broker()
 
 
 if __name__ == "__main__":
