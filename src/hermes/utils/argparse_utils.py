@@ -26,10 +26,20 @@
 # ############
 
 import argparse
-from typing import Any, Sequence
 
 
-def validate_ip(s: str) -> str:
+def validate_ip4(s: str) -> str:
+    """Validates whether parsed value is a valid IPv4 address.
+
+    Args:
+        s (str): Parsed text value to test for validity as IPv4 address.
+
+    Returns:
+        str: Unchanged text value to use as IP address.
+
+    Raises:
+        argparse.ArgumentTypeError: If the parsed value is not a valid IPv4 address.
+    """
     try:
         a = s.split(".")
         assert len(a) == 4
@@ -43,14 +53,32 @@ def validate_ip(s: str) -> str:
 
 
 def validate_path(s: str) -> str:
+    """Validates whether parsed file path exists.
+
+    Args:
+        s (str): File path to parse.
+
+    Returns:
+        str: Unchanged path if it exists.
+
+    Raises:
+        argparse.ArgumentTypeError: If the provided path does not exist.
+    """
     try:
         return s
     except:
         raise argparse.ArgumentTypeError("Invalid path to config file: ", s)
-        # raise argparse.ArgumentTypeError("Config file does not exist: ", s)
 
 
-def parse_type(s: str) -> int | float | str:
+def parse_type(s: str) -> int | float | bool | str:
+    """Parsing utility to convert data types to native Python objects.
+    
+    Args:
+        s (str): Text to convert to the corresponding data type.
+
+    Returns:
+        int | float | bool | str: Parsed primitive data type. 
+    """
     if s.isdigit():
         return int(s)
     elif s == "True":
@@ -65,6 +93,7 @@ def parse_type(s: str) -> int | float | str:
 
 
 class ParseExperimentKwargs(argparse.Action):
+    """Parsing object for experiment details specification."""
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             setattr(namespace, self.dest, dict())
@@ -73,7 +102,8 @@ class ParseExperimentKwargs(argparse.Action):
                 getattr(namespace, self.dest)[key] = value
 
 
-class ParseLoggingKwargs(argparse.Action):
+class ParseStorageKwargs(argparse.Action):
+    """Parsing object for `Storage` specification."""
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             setattr(namespace, self.dest, dict())
@@ -86,6 +116,7 @@ class ParseLoggingKwargs(argparse.Action):
 
 
 class ParseNodeKwargs(argparse.Action):
+    """Parsing object for `Node` specifications."""
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             new_items = list()

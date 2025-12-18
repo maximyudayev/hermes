@@ -30,8 +30,19 @@ from typing import Callable
 import numpy as np
 
 
-def estimate_transmission_delay(ping_fn: Callable, num_samples: int = 100):
-    # Estimate the network delay when sending the set-time command.
+def estimate_transmission_delay(ping_fn: Callable, num_samples: int = 100) -> float:
+    """Estimates the mean transmission delay of the provided "ping" function.
+
+    Used with the custom provided `ping_fn` to measure the one-way delay to use for
+    offsetting sensor data streams from the `toa_s` to obtain true sample time.
+
+    Args:
+        ping_fn (Callable): User's function that wraps "ping" like functionality to the specific device.
+        num_samples (int, optional): Number of round-trip transmission to perform to average over. Defaults to `100`.
+
+    Returns:
+        float: Estimated mean delay for samples from the device.
+    """
     transmit_delays_s: list[float] = []
     for i in range(num_samples):
         local_time_before = time.time()

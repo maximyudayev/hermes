@@ -25,7 +25,8 @@
 #
 # ############
 
-from multiprocessing import Process, Queue, Event
+from multiprocessing import Process, Queue
+from multiprocessing.synchronize import Event as EventClass
 from typing import Callable
 import zmq
 
@@ -81,9 +82,9 @@ class Broker(BrokerInterface):
         self,
         host_ip: str,
         node_specs: list[dict],
-        is_ready_event: Event,
-        is_quit_event: Event,
-        is_done_event: Event,
+        is_ready_event: EventClass,
+        is_quit_event: EventClass,
+        is_done_event: EventClass,
         is_master_broker: bool = False,
         port_backend: str = PORT_BACKEND,
         port_frontend: str = PORT_FRONTEND,

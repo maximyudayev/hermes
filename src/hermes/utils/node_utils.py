@@ -33,6 +33,12 @@ from hermes.base.nodes.node_interface import NodeInterface
 
 
 def launch_node(spec: dict, input_queue: "Queue[tuple[float, str]]"):
+    """Launches callable `Node` objects using the user-provided specification.
+
+    Args:
+        spec (dict): Specification containing at least package and `Node` names, and constructor arguments specific to that `Node`.
+        input_queue (Queue[tuple[float, str]]): Multiprocessing queue to fan-in user keyboard inputs if the `Node` is interested to receive any.
+    """
     module_name: str = spec["package"]
     class_name: str = spec["class"]
     class_args: dict = spec["settings"]
@@ -42,6 +48,12 @@ def launch_node(spec: dict, input_queue: "Queue[tuple[float, str]]"):
 
 
 def search_node_class(module_name: str, class_name: str) -> type[NodeInterface]:
+    """Queries the current Python environment to match the requested `hermes.<module>`.
+
+    Args:
+        module_name (str): Name of the Python module containing the requested HERMES type `Node`.
+        class_name (str): Name of the `Node` in the provided module to retrieve for construction.
+    """
     module_path = "hermes.%s" % module_name
 
     try:

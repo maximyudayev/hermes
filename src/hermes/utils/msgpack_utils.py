@@ -29,7 +29,15 @@ import msgpack
 import numpy as np
 
 
-def encode_ndarray(obj):
+def encode_ndarray(obj: object) -> object:
+    """Encodes NumPy contents of the provided object into bytes.
+
+    Args:
+        obj (object): NumPy array to encode as serializeable key-value pair.
+
+    Returns:
+        object: Encoded key-value mapping with NumPy arrays serialized to bytes.
+    """
     if isinstance(obj, np.ndarray):
         return {
             "__numpy__": True,
@@ -40,13 +48,29 @@ def encode_ndarray(obj):
     return obj
 
 
-def decode_ndarray(obj):
+def decode_ndarray(obj: object) -> object:
+    """Decodes received bytes and reconstructs detected NumPy arrays into original objects.
+
+    Args:
+        obj (object): Raw bytes to convert into NumPy arrays if any detected.
+
+    Returns:
+        object: Decoded key-value mapping with NumPy arrays reconstructed.
+    """
     if "__numpy__" in obj:
         obj = np.frombuffer(obj["bytes"], dtype=obj["dtype"]).reshape(obj["shape"])
     return obj
 
 
-def convert_bytes_keys_to_strings(obj):
+def convert_bytes_keys_to_strings(obj: object) -> object:
+    """Recursively decodes keys of the key-value mappings into strings.
+
+    Args:
+        obj (object): Object whose keys to decode.
+
+    Returns:
+        object: Processed object with keys converted into proper dictionary string fields.
+    """
     if isinstance(obj, dict):
         return {
             (
@@ -60,13 +84,28 @@ def convert_bytes_keys_to_strings(obj):
         return obj
 
 
-# Serializes the message objects.
-#   Preserves named arguments as key-value pairs for a dictionary-like message.
 def serialize(**kwargs) -> bytes:
+    """Serializes a Python dict-like object for ZeroMQ transmission.
+
+    Preserves named arguments as key-value pairs.
+
+    Args:
+        kwargs (dict): Inputs to serialize using a custom encoding hook for NumPy arrays.
+
+    Returns:
+        bytes: Serialized binary data safe to transmit.
+    """
     return msgpack.packb(o=kwargs, default=encode_ndarray)  # type: ignore
 
 
-# Deserializes the message back into a dictionary-like message.
-def deserialize(msg) -> dict:
+def deserialize(msg: bytes) -> dict:
+    """Deserializes the received message to construct the original Python object.
+
+    Args:
+        msg (bytes): Raw binary data containing the original Python object.
+
+    Returns:
+        dict: Python object with the key-value pairs preserved and any NumPy arrays reconstructed.
+    """
     raw_dict = msgpack.unpackb(msg, object_hook=decode_ndarray)
     return convert_bytes_keys_to_strings(raw_dict)  # type: ignore

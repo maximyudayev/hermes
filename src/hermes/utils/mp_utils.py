@@ -26,7 +26,8 @@
 # ############
 
 from argparse import Namespace
-from multiprocessing import Event, Queue
+from multiprocessing import Queue
+from multiprocessing.synchronize import Event as _EventClass
 from typing import Callable
 
 from hermes.base.broker.broker import Broker
@@ -36,12 +37,24 @@ def launch_broker(
     args: Namespace,
     node_specs: list[dict],
     input_queue: "Queue[tuple[float, str]]",
-    is_ready_event: Event,
-    is_quit_event: Event,
-    is_done_event: Event,
+    is_ready_event: _EventClass,
+    is_quit_event: _EventClass,
+    is_done_event: _EventClass,
     ref_time_s: float,
-):
-    # Create the broker and manage all the components of the experiment.
+) -> None:
+    """Builds the `Broker` using provided configurations and manage all the components of the experiment.
+
+    Meant to be used as a target for a spawned Process or Thread.
+
+    Args:
+        args (argparse.Namespace): HERMES top-level user input arguments for the experiment definition.
+        node_specs (list[dict]): Configuration dictionaries of the Broker's locally managed `Node`s.
+        input_queue (Queue[tuple[float, str]]): Multiprocessing queue to fan-out user keyboard inputs to all `Broker`s locally managed `Node`s.
+        is_ready_event (Event): Multiprocessing synchronization primitive indicating completion of `Broker`s setup and handshaking with `Node`s.
+        is_quit_event (Event): Multiprocessing synchronization primitive triggering to the `Broker` to gracefully wrap up and end.
+        is_done_event (Event): Multiprocessing synchronization primitive indicating that the `Broker` is finished and experiment ended.
+        ref_time_s (float): Main process reference system time obtained with `get_ref_time()` to use in all child processes for syncing the data.
+    """
     local_broker: Broker = Broker(
         host_ip=args.host_ip,
         node_specs=node_specs,
@@ -72,5 +85,11 @@ def launch_broker(
         local_broker()
 
 
-def launch_callable(obj: Callable, *args, **kwargs):
+def launch_callable(obj: Callable, *args, **kwargs) -> None:
+    """Launches a callable object with the user-provided inputs.
+
+    Args:
+        args (list): Ordered unnamed inputs to provide to the callable object.
+        kwargs (dict): Named key-value inputs to provide to the callable object.
+    """
     obj(*args, **kwargs)
