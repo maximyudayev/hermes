@@ -122,7 +122,7 @@ def get_time_s_from_utc_time_no_date_str(
     """Gets local time in seconds since epoch from provided UTC time strings.
     
     Args:
-        time_utc_str (str): UTC time to convert to seconds.
+        time_utc_str (str): UTC time string to convert to seconds.
         input_time_format (str, optional): Time string format of the provided time. Defaults to `%H:%M:%S.%f`.
         date_utc_str (str, optional): UTC date to convert to seconds. Defaults to `None`.
         input_date_format (str, optional): Date string format of the provided date. Defaults to `%Y-%m-%d`.
@@ -159,9 +159,9 @@ def get_time_s_from_local_str(
     """Gets seconds since epoch from provided local time string.
     
     Args:
-        time_utc_str (str): UTC time to convert to seconds.
+        time_local_str (str): local time string to convert to seconds.
         input_time_format (str, optional): Time string format of the provided time. Defaults to `%H:%M:%S.%f`.
-        date_utc_str (str, optional): UTC date to convert to seconds. Defaults to `None`.
+        date_local_str (str, optional): local date string to convert to seconds. Defaults to `None`.
         input_date_format (str, optional): Date string format of the provided date. Defaults to `%Y-%m-%d`.
 
     Returns:
