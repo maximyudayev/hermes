@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon_bkp.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -3343,7 +3343,7 @@ It is also the program's entrypoint to the continuous sensing and processing.</p
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -3410,7 +3410,7 @@ It is also the program's entrypoint to the continuous sensing and processing.</p
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -4913,7 +4913,7 @@ excluding the lengthy setup process.</p>
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -5055,7 +5055,7 @@ After all are ready, master Broker communicates trigger signal to start streamin
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -5131,9 +5131,9 @@ The duration start to count only after all Nodes established communication and s
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__init__</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="host_ip (hermes.base.broker.broker.Broker.__init__(host_ip))" href="#hermes.base.broker.broker.Broker.__init__(host_ip)">host_ip</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="node_specs (hermes.base.broker.broker.Broker.__init__(node_specs))" href="#hermes.base.broker.broker.Broker.__init__(node_specs)">node_specs</a></span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="dict">dict</span></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_ready_event (hermes.base.broker.broker.Broker.__init__(is_ready_event))" href="#hermes.base.broker.broker.Broker.__init__(is_ready_event)">is_ready_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.Event">Event</span></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_quit_event (hermes.base.broker.broker.Broker.__init__(is_quit_event))" href="#hermes.base.broker.broker.Broker.__init__(is_quit_event)">is_quit_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.Event">Event</span></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_done_event (hermes.base.broker.broker.Broker.__init__(is_done_event))" href="#hermes.base.broker.broker.Broker.__init__(is_done_event)">is_done_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.Event">Event</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_ready_event (hermes.base.broker.broker.Broker.__init__(is_ready_event))" href="#hermes.base.broker.broker.Broker.__init__(is_ready_event)">is_ready_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.synchronize.Event">Event</span></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_quit_event (hermes.base.broker.broker.Broker.__init__(is_quit_event))" href="#hermes.base.broker.broker.Broker.__init__(is_quit_event)">is_quit_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.synchronize.Event">Event</span></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_done_event (hermes.base.broker.broker.Broker.__init__(is_done_event))" href="#hermes.base.broker.broker.Broker.__init__(is_done_event)">is_done_event</a></span><span class="p">:</span> <span class="n"><span title="multiprocessing.synchronize.Event">Event</span></span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><a class="autorefs autorefs-internal" title="is_master_broker (hermes.base.broker.broker.Broker.__init__(is_master_broker))" href="#hermes.base.broker.broker.Broker.__init__(is_master_broker)">is_master_broker</a></span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n"><a class="autorefs autorefs-internal" title="port_backend (hermes.base.broker.broker.Broker.__init__(port_backend))" href="#hermes.base.broker.broker.Broker.__init__(port_backend)">port_backend</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="hermes.utils.zmq_utils.PORT_BACKEND">PORT_BACKEND</span></span><span class="p">,</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n"><a class="autorefs autorefs-internal" title="port_frontend (hermes.base.broker.broker.Broker.__init__(port_frontend))" href="#hermes.base.broker.broker.Broker.__init__(port_frontend)">port_frontend</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="hermes.utils.zmq_utils.PORT_FRONTEND">PORT_FRONTEND</span></span><span class="p">,</span>
@@ -5195,7 +5195,7 @@ The duration start to count only after all Nodes established communication and s
 <h5 id="hermes.base.broker.broker.Broker.__init__(is_ready_event)" class="doc doc-heading doc-heading-parameter">                  <code>is_ready_event</code>
 <a href="#hermes.base.broker.broker.Broker.__init__(is_ready_event)" class="headerlink" title="Anchor link to this section for reference">&para;</a></h5>            </td>
             <td>
-                  <code><span title="multiprocessing.Event">Event</span></code>
+                  <code><span title="Event">Event</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5211,7 +5211,7 @@ The duration start to count only after all Nodes established communication and s
 <h5 id="hermes.base.broker.broker.Broker.__init__(is_quit_event)" class="doc doc-heading doc-heading-parameter">                  <code>is_quit_event</code>
 <a href="#hermes.base.broker.broker.Broker.__init__(is_quit_event)" class="headerlink" title="Anchor link to this section for reference">&para;</a></h5>            </td>
             <td>
-                  <code><span title="multiprocessing.Event">Event</span></code>
+                  <code><span title="Event">Event</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5227,7 +5227,7 @@ The duration start to count only after all Nodes established communication and s
 <h5 id="hermes.base.broker.broker.Broker.__init__(is_done_event)" class="doc doc-heading doc-heading-parameter">                  <code>is_done_event</code>
 <a href="#hermes.base.broker.broker.Broker.__init__(is_done_event)" class="headerlink" title="Anchor link to this section for reference">&para;</a></h5>            </td>
             <td>
-                  <code><span title="multiprocessing.Event">Event</span></code>
+                  <code><span title="Event">Event</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5733,7 +5733,7 @@ The duration start to count only after all Nodes established communication and s
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -5840,7 +5840,7 @@ The duration start to count only after all Nodes established communication and s
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6024,7 +6024,7 @@ The duration start to count only after all Nodes established communication and s
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6165,7 +6165,7 @@ Use the remote SYNC socket to coordinate when every Broker can exit.</p>
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6254,7 +6254,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6475,7 +6475,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6613,7 +6613,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6742,7 +6742,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6880,7 +6880,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -6988,7 +6988,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
 
 
 
-  <div class="doc doc-children">
+<div class="doc doc-children">
 
 
 
@@ -7179,7 +7179,7 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
           <img src="/hermes/assets/kul_logo.svg" alt="Logo of the KU Leuven University in Leuven, Belgium">
         </a>
         <a class="md-footer-custom-logo__link" href="https://iiw.kuleuven.be/onderzoek/emedia" target="_blank">
-          <img src="/hermes/assets/emedia_logo.png" alt="Logo of the eMedia Research Lab at the KU Leuven University in Leuven, Belgium">
+          <img src="/hermes/assets/emedia_logo.svg" alt="Logo of the eMedia Research Lab at the KU Leuven University in Leuven, Belgium">
         </a>
       </div>
 
@@ -7247,10 +7247,10 @@ Append a frame to the ZeroMQ message that indicates the last message from the se
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.footer", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.indexes", "navigation.tracking", "content.code.annotate", "content.code.copy", "toc.follow", "search.suggest"], "search": "../../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.footer", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.indexes", "navigation.tracking", "content.code.annotate", "content.code.copy", "toc.follow", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
         <script src="../../../javascripts/extra.js"></script>
       
