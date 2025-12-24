@@ -50,8 +50,8 @@ version = {attr = "hermes.__version__.__version__"}
 hermes-cli = "hermes.cli:app"
 
 [project.urls]
-Homepage = "https://maximyudayev.github.io/hermes"
-Documentation = "https://maximyudayev.github.io/hermes"
+Homepage = "https://yudayev.com/hermes"
+Documentation = "https://yudayev.com/hermes"
 Repository = "https://github.com/maximyudayev/hermes.git"
 Issues = "https://github.com/maximyudayev/hermes/issues"
 Changelog = "https://github.com/maximyudayev/hermes/blob/main/CHANGELOG.md"

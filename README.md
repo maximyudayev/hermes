@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> •
-  <a href="https://maximyudayev.github.io/hermes">Docs</a> •
+  <a href="https://yudayev.com/hermes">Docs</a> •
   <a href="#data-annotation">GUI</a> •
   <a href="#showcase">Showcase</a> •
   <a href="#citation">Cite</a> •
@@ -98,7 +98,7 @@ Make a copy of the `examples/video_codec_<type>.yml`, that matches your video en
 1. Check that ffmpeg is on path `which ffmpeg`.
 
 ## Running
-The system runs based on YAML configuration files, where connection to other hosts, and local or remote [Producer](https://maximyudayev.github.io/hermes/api/nodes/producer/)'s, [Consumer](https://maximyudayev.github.io/hermes/api/nodes/consumer/)'s, [Pipeline](https://maximyudayev.github.io/hermes/api/nodes/pipeline/)'s.
+The system runs based on YAML configuration files, where connection to other hosts, and local or remote [Producer](https://yudayev.com/hermes/api/nodes/producer/)'s, [Consumer](https://yudayev.com/hermes/api/nodes/consumer/)'s, [Pipeline](https://yudayev.com/hermes/api/nodes/pipeline/)'s.
 
 ## Benchmarking
 ### Latency
@@ -129,7 +129,7 @@ The system runs based on YAML configuration files, where connection to other hos
 </p>
 
 # Documentation
-Check out the [full documentation site](https://maximyudayev.github.io/hermes) for more usage examples, architecture overview, detailed extension guide, and FAQs.
+Check out the [full documentation site](https://yudayev.com/hermes) for more usage examples, architecture overview, detailed extension guide, and FAQs.
 
 # Data Annotation
 <br>
@@ -177,14 +177,16 @@ When using in your project, research, or product, please cite the following and 
 ``` -->
 
 # Acknowledgement
-This project was primarily written by Maxim Yudayev while at the Department of Electrical Engineering, KU Leuven.
+This project was primarily written by [Maxim Yudayev](https://yudayev.com) while at the Department of Electrical Engineering, KU Leuven.
 
-This study was funded, in part, by the AidWear project funded by the Federal Public Service for Policy and Support, 
-the AID-FOG project by the Michael J. Fox Foundation for Parkinson’s Research under Grant No.: MJFF-024628, 
-the strategic basic research project RevalExo (S001024N) funded by the Research Foundation Flanders, 
-and the Flemish Government under the Flanders AI Research Program (FAIR).
+This study was funded, in part, by the [AidWear](https://iiw.kuleuven.be/onderzoek/emedia/projects/AidWear) project funded by the Federal Public Service for Policy and Support, 
+the [AID-FOG](https://iiw.kuleuven.be/onderzoek/emedia/projects/aid-fog) project by the Michael J. Fox Foundation for Parkinson’s Research under Grant No.: MJFF-024628,
+the strategic basic research project [RevalExo](https://iiw.kuleuven.be/onderzoek/emedia/projects/revalexo) (S001024N) funded by the Research Foundation Flanders, 
+and the Flemish Government under the [Flanders AI Research Program](https://www.flandersairesearch.be/en) (FAIR).
 
-HERMES is a "Ship of Theseus"[[1](https://en.wikipedia.org/wiki/Ship_of_Theseus)] of [ActionSense](https://github.com/delpreto/ActionNet) that started as a fork and became a complete architectural rewrite of the system from the ground up to bridge the fundamental gaps in the state-of-the-art, and to match our research group's needs in realtime deployments and reliable data acquisition.
+HERMES is a "Ship of Theseus"[^1] of [ActionSense](https://github.com/delpreto/ActionNet) that started as a fork and became a complete architectural rewrite of the system from the ground up to bridge the fundamental gaps in the state-of-the-art, and to match our research group's needs in realtime deployments and reliable data acquisition.
 Although there is no part of ActionSense in HERMES, we believe that its authors deserve recognition as inspiration for our system.
 
-Special thanks for contributions, usage, bug reports, good times, and feature requests to [Juha Carlon](https://www.linkedin.com/in/juha-carlon-8aa41122b) (KU Leuven), [Vayalet Stefanova](https://www.linkedin.com/in/vayalet-stefanova-9208b2174/) (KU Leuven), [Diwas Lamsal](https://www.linkedin.com/in/diwaslamsal123) (KU Leuven), [Stefano Nuzzo](https://www.linkedin.com/in/stefano-nuzzo-69648b20b) (VUB), [Léonore Foguenne](https://www.linkedin.com/in/l%C3%A9onore-foguenne-293243234/) (ULiège).
+Special thanks for early usage, contributions, bug reports, good times during experiments, and feature requests to [Juha Carlon](https://www.linkedin.com/in/juha-carlon-8aa41122b) (KU Leuven), [Vayalet Stefanova](https://www.linkedin.com/in/vayalet-stefanova-9208b2174/) (KU Leuven), [Diwas Lamsal](https://www.linkedin.com/in/diwaslamsal123) (KU Leuven), [Stefano Nuzzo](https://www.linkedin.com/in/stefano-nuzzo-69648b20b) (VUB), [Léonore Foguenne](https://www.linkedin.com/in/l%C3%A9onore-foguenne-293243234/) (ULiège). And for the support to [prof. Benjamin Filtjens](https://www.tudelft.nl/en/staff/b.filtjens/) (TU Delft) and [prof. Bart Vanrumste](https://linkedin.com/in/bart-vanrumste-1071744) (KU Leuven).
+
+[^1]: [The Ship of Theseus](https://en.wikipedia.org/wiki/Ship_of_Theseus) is a paradoxical thought experiment of identity and persistence from Greek mythology that questions whether a ship, all of whose original parts are replaced over time, remains the same ship.
