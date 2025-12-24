@@ -1,119 +1,119 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://maximyudayev.github.io/hermes/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/base/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/base/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/base/broker/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/base/broker/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/base/delay_estimator/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/base/delay_estimator/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/base/storage/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/base/storage/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/base/stream/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/base/stream/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/datastructures/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/datastructures/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/datastructures/cache/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/datastructures/cache/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/datastructures/fifo/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/datastructures/fifo/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/nodes/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/nodes/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/nodes/consumer/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/nodes/consumer/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/nodes/node/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/nodes/node/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/nodes/pipeline/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/nodes/pipeline/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/nodes/producer/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/nodes/producer/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/api/utils/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/api/utils/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/architecture/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/architecture/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/changelog/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/changelog/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/contributing/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/contributing/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/license/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/license/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/tutorials/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/tutorials/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/tutorials/acquisition/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/tutorials/acquisition/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/tutorials/ai-worker/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/tutorials/ai-worker/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/firststeps/tutorials/annotation/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/firststeps/tutorials/annotation/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/helpdesk/faq/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/helpdesk/faq/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/helpdesk/issues/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/helpdesk/issues/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/helpdesk/limitations/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/helpdesk/limitations/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
     <url>
-         <loc>https://maximyudayev.github.io/hermes/helpdesk/roadmap/</loc>
-         <lastmod>2025-12-23</lastmod>
+         <loc>https://yudayev.com/hermes/helpdesk/roadmap/</loc>
+         <lastmod>2025-12-24</lastmod>
     </url>
 </urlset>
