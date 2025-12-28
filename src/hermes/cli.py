@@ -1,6 +1,6 @@
 ############
 #
-# Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab
+# Copyright (c) 2024-2026 Maxim Yudayev and KU Leuven eMedia Lab
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,7 +59,7 @@ DESCRIPTION = (
     "for continual multimodal data acquisition and AI processing."
 )
 EPILOG = (
-    "Copyright (c) 2024-2025 Maxim Yudayev and KU Leuven eMedia Lab.\n"
+    "Copyright (c) 2024-2026 Maxim Yudayev and KU Leuven eMedia Lab.\n"
     "Created 2024-2025 at KU Leuven for the AidWear, AID-FOG, and RevalExo "
     "projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com]."
 )
