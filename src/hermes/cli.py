@@ -27,11 +27,13 @@
 
 from multiprocessing import Event, set_start_method
 from multiprocessing.synchronize import Event as _EventClass
+import subprocess
 import threading
 import os
 import yaml
 import json
 import argparse
+import platform
 
 from hermes.__version__ import __version__
 from hermes.base.broker.broker import Broker
@@ -407,9 +409,10 @@ def parse_stdin(
     is_done_event: _EventClass,
     is_quit_event: _EventClass
 ) -> None:
-    """
-    Blocking stdin capture loop as a daemon, that fans out
-    keyboard inputs to Broker's subprocesses and all the Nodes.
+    """Parse user keyboard inputs into a fanout queue for HERMES nodes.
+    
+    Blocking stdin capture loop as a daemon, that fans out keyboard inputs
+    to Broker's subprocesses and all the Nodes.
 
     Args:
         broker (Broker): Host's only HERMES instance. 
@@ -429,6 +432,66 @@ def parse_stdin(
             broker._fanout_user_input((get_time(), user_input))
 
 
+def launch_slave_hosts(
+    connections: list[dict], log_time_s: float, experiment: dict[str, str]
+) -> list[subprocess.Popen]:
+    """Launch slave HERMES hosts over SSH, each in a new interactive terminal window.
+
+    This function constructs SSH commands to connect to each slave host
+    specified in `connections` of the master's YAML config file.
+    It parses slave config YAML files of each listed host, constructs the corresponding command that
+    activates the remote host's Python virtual environment on each slave host,
+    and runs `hermes-cli` with appropriate arguments in an interactive shell to accept user keyboard inputs.
+
+    Args:
+        connections (list[dict]): List of connection specifications for
+            each slave host, including SSH credentials and paths.
+        log_time_s (float): Master logging start time to pass to slaves.
+        experiment (dict[str, str]): Experiment key-value pairs to pass to slaves.
+
+    Returns:
+        list[subprocess.Popen]: List of subprocess handles for the launched slave hosts.
+    """
+
+    experiment_str = ' '.join([f"{k}={v}" for k,v in experiment.items()])
+    cmds = []
+    for conn in connections:
+        with open(conn["config_filepath"], "r") as f:
+            try:
+                config_str = f.read()
+                config: dict = yaml.safe_load(config_str)
+                cmds.append([
+                    f"{conn['ssh_username']}@{conn['ssh_host_ip']}",
+                    f"cd {'/d' if conn['platform'] == 'Windows' else ''} {conn['project_dir']} &&",
+                    'call .venv\\Scripts\\activate.bat' if conn['platform'] == 'Windows' else '. .venv/bin/activate', " &&",
+                    f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j {json.dumps(config)} &&",
+                    "exit",
+                ])
+            except yaml.YAMLError as e:
+                print(e, flush=True)
+                exit("Error parsing slave YAML files.")
+
+    if platform.system() == "Windows":
+        prog = "cmd /k"
+    elif platform.system() == "Linux":
+        prog = "gnome-terminal --"
+    elif platform.system() == "Darwin":
+        prog = "open -a Terminal"
+
+    procs = []
+    for cmd in cmds:
+        procs.append(
+            subprocess.Popen([
+                prog,
+                "ssh", "-tt",
+                "-o", "TCPKeepAlive=no",
+                "-o", "ServerAliveInterval=30",
+                cmd
+            ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        )
+    return procs
+
+
 def app():
     """Main entry point for the HERMES CLI application.
 
@@ -444,6 +507,10 @@ def app():
     args, node_specs, ref_time_s = configure_specs(args, log_time_s, log_dir)
 
     set_start_method("spawn")
+
+    # Launch slave hosts over SSH if the current broker is master and any connections are specified.
+    if args.is_master_broker and args.connections:
+        slave_procs = launch_slave_hosts(args.connections, log_time_s, args.experiment)
 
     is_ready_event = Event()
     is_quit_event = Event()
@@ -489,6 +556,9 @@ def app():
         local_broker(args.duration_s)
     else:
         local_broker()
+
+    if args.is_master_broker and args.connections:
+        for proc in slave_procs: proc.wait()
 
 
 if __name__ == "__main__":
