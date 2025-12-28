@@ -32,7 +32,7 @@ import zmq
 
 from hermes.utils.time_utils import get_time
 from hermes.utils.msgpack_utils import deserialize
-from hermes.utils.node_utils import search_node_class
+from hermes.utils.di_utils import search_module_class
 from hermes.utils.zmq_utils import (
     CMD_END,
     CMD_EXIT,
@@ -93,7 +93,7 @@ class Consumer(ConsumerInterface, Node):
             class_name: str = stream_spec["class"]
             specs: dict = stream_spec["settings"]
             # Create the stream datastructure.
-            class_type: type[ProducerInterface] | type[PipelineInterface] = search_node_class(module_name, class_name)  # type: ignore
+            class_type: type[ProducerInterface] | type[PipelineInterface] = search_module_class(module_name, class_name)
             class_object: Stream = class_type.create_stream(specs)
             # Store the streamer object.
             self._streams.setdefault(class_type._log_source_tag(), class_object)

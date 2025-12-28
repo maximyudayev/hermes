@@ -30,6 +30,7 @@ from multiprocessing.synchronize import Event as _EventClass
 import threading
 import os
 import yaml
+import json
 import argparse
 
 from hermes.__version__ import __version__
@@ -129,6 +130,12 @@ def define_parser() -> argparse.ArgumentParser:
         help="path to the configuration file for the current host device, "
         "instead of the CLI arguments",
     )
+    parser.add_argument(
+        "--json",
+        "-j",
+        default=None,
+        help="serialized JSON configuration for slave host setup by master over SSH",
+    )
 
     return parser
 
@@ -136,24 +143,38 @@ def define_parser() -> argparse.ArgumentParser:
 def parse_args(parser: argparse.ArgumentParser) -> argparse.Namespace:
     """Parse CLI arguments and apply configuration file overrides.
 
-    This function wraps `parser.parse_args()` to allow optional overriding
-    of CLI defaults from a YAML config file (see `override_cli_args_with_config_file`)
+    This function wraps `parser.parse_args()` to allow optional provision
+    of configuration from a YAML config file (see `parse_config_file`)
+    or from a JSON string (see `parse_json_string`),
     and to load codec specifications if required (see `load_codec_spec`).
+    It also validates the parsed configuration for completeness of required fields.
 
     Args:
         parser (argparse.ArgumentParser): The parser created by `define_parser()`.
 
     Returns:
         argparse.Namespace: The fully-resolved CLI arguments namespace.
+
+    Raises:
+        Exception: If neither `--config_file` nor `--json` is provided.
     """
     args = parser.parse_args()
-    parser, args = override_cli_args_with_config_file(parser, args)
+
+    if args.config_file is not None:
+        parser, args = parse_config_file(parser, args)
+    elif args.json is not None:
+        parser, args = parse_json_string(parser, args)
+    else:
+        raise Exception("Either `--config_file` or `--json` must be provided.", "Got: \n", vars(args))
+
+    # TODO: use pydantic to validate args here
+
     args = load_codec_spec(args)
-    print(HERMES)
+    print(HERMES, flush=True)
     return args
 
 
-def override_cli_args_with_config_file(
+def parse_config_file(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Override parser defaults with values from a YAML config file.
@@ -176,20 +197,70 @@ def override_cli_args_with_config_file(
     Exits:
         Calls `exit()` with an error message if the YAML cannot be parsed.
     """
-    if args.config_file is not None:
-        with open(args.config_file, "r") as f:
-            try:
-                config_str = f.read()
-                # Replace ${VAR} with environment variable values
-                for key, value in os.environ.items():
-                    config_str = config_str.replace(f"${{{key}}}", value)
-                config: dict = yaml.safe_load(config_str)
-                parser.set_defaults(**config)
-            except yaml.YAMLError as e:
-                print(e)
-                exit("Error parsing CLI inputs.")
-        args = parser.parse_args()
+    with open(args.config_file, "r") as f:
+        try:
+            config_str = f.read()
+            config_str = inject_env_vars(config_str)
+            config: dict = yaml.safe_load(config_str)
+            parser.set_defaults(**config)
+        except yaml.YAMLError as e:
+            print(e, flush=True)
+            exit("Error parsing YAML file.")
+    args = parser.parse_args()
     return parser, args
+
+
+def parse_json_string(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
+    """Override parser defaults with values from a JSON config string.
+
+    If `args.json` is set, this function reads the JSON string, performs
+    environment variable substitution for patterns like `${VAR}`, and uses
+    the resulting JSON mapping to set default values on the provided
+    `parser`. After applying defaults the parser is re-parsed so the
+    returned `args` reflect any config-file-provided values.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to update.
+        args (argparse.Namespace): The namespace produced by the initial
+            `parse_args()` call.
+
+    Returns:
+        tuple[argparse.ArgumentParser, argparse.Namespace]: The parser (with
+            updated defaults) and the re-parsed args namespace.
+
+    Exits:
+        Calls `exit()` with an error message if the JSON cannot be parsed.
+    """
+    try:
+        config_str = args.json
+        config_str = inject_env_vars(config_str)
+        config: dict = json.loads(config_str)
+        parser.set_defaults(**config)
+    except json.JSONDecodeError as e:
+        print(e, flush=True)
+        exit("Error parsing JSON string.")
+    args = parser.parse_args()
+    return parser, args
+
+
+def inject_env_vars(config_str: str) -> str:
+    """Replace environment variable placeholders with corresponding values.
+
+    This function searches for patterns like `${VAR}` in the provided configuration
+    string and replaces them with the corresponding environment variable values.
+
+    Args:
+        config_str (str): The configuration string potentially containing
+            environment variable patterns.
+
+    Returns:
+        str: The same configuration string with environment variables injected in place of placeholders.
+    """
+    for key, value in os.environ.items():
+        config_str = config_str.replace(f"${{{key}}}", value)
+    return config_str
 
 
 def replace_video_format_nested(config: dict) -> dict:

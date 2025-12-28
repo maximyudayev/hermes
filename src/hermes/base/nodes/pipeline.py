@@ -31,7 +31,7 @@ import threading
 import zmq
 
 from hermes.utils.time_utils import get_time
-from hermes.utils.node_utils import search_node_class
+from hermes.utils.di_utils import search_module_class
 from hermes.utils.msgpack_utils import deserialize, serialize
 from hermes.utils.zmq_utils import (
     CMD_END,
@@ -102,7 +102,7 @@ class Pipeline(PipelineInterface, Node):
             class_name: str = stream_spec["class"]
             specs: dict = stream_spec["settings"]
             # Create the stream datastructure.
-            class_type: type[ProducerInterface] | type[PipelineInterface] = search_node_class(module_name, class_name)  # type: ignore
+            class_type: type[ProducerInterface] | type[PipelineInterface] = search_module_class(module_name, class_name)  # type: ignore
             class_object: Stream = class_type.create_stream(specs)
             self._in_streams.setdefault(class_type._log_source_tag(), class_object)
             self._is_producer_ended.setdefault(class_type._log_source_tag(), False)

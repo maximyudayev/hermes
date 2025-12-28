@@ -25,23 +25,34 @@
 #
 # ############
 
-from multiprocessing import Queue
-
-from hermes.base.nodes.node import Node
-from hermes.base.nodes.node_interface import NodeInterface
-from hermes.utils.di_utils import search_module_class
+import importlib
+from typing import Any
 
 
-def launch_node(spec: dict, input_queue: "Queue[tuple[float, str]]"):
-    """Launches callable `Node` objects using the user-provided specification.
+def search_module_class(module_name: str, class_name: str) -> type[Any]:
+    """Queries the current Python environment to match the requested `hermes.<module>`.
 
     Args:
-        spec (dict): Specification containing at least package and `Node` names, and constructor arguments specific to that `Node`.
-        input_queue (Queue[tuple[float, str]]): Multiprocessing queue to fan-in user keyboard inputs if the `Node` is interested to receive any.
+        module_name (str): Name of the Python module containing the requested HERMES supported class.
+        class_name (str): Name of the class in the provided module to retrieve for construction.
     """
-    module_name: str = spec["package"]
-    class_name: str = spec["class"]
-    class_args: dict = spec["settings"]
-    node_class: type[NodeInterface] = search_module_class(module_name, class_name)
-    node: Node = node_class(**class_args, input_queue=input_queue)
-    node()
+    module_path = "hermes.%s" % module_name
+
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ImportError(
+            "Could not import subpackage '%s'. "
+            "Ensure it is installed: pip install pysio-hermes-%s"
+            % (module_name, module_name)
+        ) from e
+
+    if not hasattr(module, class_name):
+        raise AttributeError(
+            "Class '%s' not found in module '%s'. "
+            "Check the spelling of the class name." % (class_name, module_name)
+        )
+
+    class_type = getattr(module, class_name)
+
+    return class_type

@@ -22,5 +22,23 @@
             "subProcess": true,
             "justMyCode": false
         },
+        {
+            "name": "Local Dummy JSON",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "src/hermes/cli.py",
+            "args": [
+                "-o", "examples/data",
+                "-j", "{\"host_ip\": \"127.0.0.1\", \"is_master_broker\": true, \"remote_subscriber_ips\": [], \"remote_publisher_ips\": [], \"is_remote_kill\": false, \"remote_kill_ip\": null, \"logging_spec\": {\"stream_period_s\": 30, \"stream_hdf5\": true, \"stream_csv\": false, \"stream_video\": false, \"stream_audio\": false, \"dump_csv\": false, \"dump_hdf5\": false, \"dump_video\": false, \"dump_audio\": false}, \"video_codec_config_filepath\": \"examples/video_codec.yml\", \"audio_codec_config_filepath\": \"examples/audio_codec.yml\", \"producer_specs\": [{\"package\": \"dummy\", \"class\": \"DummyProducer\", \"settings\": {\"sampling_rate_hz\": 1}}], \"consumer_specs\": [{\"package\": \"dummy\", \"class\": \"DummyConsumer\", \"settings\": {\"stream_in_specs\": [{\"package\": \"dummy\", \"class\": \"DummyProducer\", \"settings\": {\"sampling_rate_hz\": 1}}]}}], \"pipeline_specs\": []}",
+                "-e", "project=Test", "type=Dummy", "trial=0",
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "subProcess": true,
+            "justMyCode": false
+        },
     ]
 }
