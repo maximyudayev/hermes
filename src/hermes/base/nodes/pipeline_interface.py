@@ -63,6 +63,20 @@ class PipelineInterface(NodeInterface):
         pass
 
     @abstractmethod
+    def _keep_samples(self) -> None:
+        """Node-specific externally triggered function to start keeping in memory streamed data."""
+        pass
+
+    @abstractmethod
+    def _generate_data(self) -> None:
+        """Main iteration loop logic to process and distribute internal asynchronously generated data.
+        
+        Contained logic must deal with sending internally generated data packets until external termination
+        signal is received, in a non-deadlocking way to the rest of the Pipeline processing.
+        """
+        pass
+
+    @abstractmethod
     def _stop_new_data(self) -> None:
         """Stop sampling data, continue sending already captured until none is left."""
         pass

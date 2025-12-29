@@ -62,4 +62,59 @@ class DummyStream(Stream):
         )
 
     def get_fps(self) -> dict[str, float | None]:
-        return {self._device_name: super()._get_fps(self._device_name, "toa")}
+        return {self._device_name: super()._get_fps(self._device_name, "data")}
+
+
+class DummyPipeStream(Stream):
+    """A Stream structure to store Dummy Pipeline modality data."""
+
+    def __init__(
+        self, sampling_rate_hz: int = 1, incoming_payload_num_bytes: int = 100, **_,
+    ) -> None:
+        """Constructor of the DummyStream datastructure.
+
+        Args:
+            sampling_rate_hz (int, optional): Number of times per second, monotonically spaced, that new data becomes available. Defaults to `1`.
+        """
+        super().__init__()
+
+        self.add_stream(
+            device_name="sensor-emulator-processed",
+            stream_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+        )
+        self.add_stream(
+            device_name="sensor-emulator-processed",
+            stream_name="data",
+            data_type=f"S{incoming_payload_num_bytes}",
+            sample_size=[1],
+        )
+        self.add_stream(
+            device_name="sensor-emulator-processed",
+            stream_name="flag",
+            data_type="uint8",
+            sample_size=[1],
+        )
+
+        self.add_stream(
+            device_name="sensor-emulator-internal",
+            stream_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+        )
+        self.add_stream(
+            device_name="sensor-emulator-internal",
+            stream_name="data",
+            data_type="T",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+            is_measure_rate_hz=True,
+        )
+
+    def get_fps(self) -> dict[str, float | None]:
+        return {
+            "sensor-emulator-processed": super()._get_fps("sensor-emulator-processed", "data"),
+            "sensor-emulator-internal": super()._get_fps("sensor-emulator-internal", "data"),
+        }

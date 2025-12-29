@@ -124,7 +124,7 @@ class Node(NodeInterface):
         self._babykillsig.send_string(TOPIC_KILL)
 
     def _poll(self) -> tuple[list[zmq.SyncSocket], list[int]]:
-        return tuple(zip(*(self._poller.poll())))  # type: ignore
+        return tuple(zip(*(self._poller.poll())))
 
     @abstractmethod
     def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:

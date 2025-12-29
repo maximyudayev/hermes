@@ -31,13 +31,14 @@ is_master_broker: True
 
 remote_subscriber_ips: []
 remote_publisher_ips: []
+connections: []
 
 is_remote_kill: False
 remote_kill_ip: null
 
 
 logging_spec:
-  stream_period_s     : 30
+  stream_period_s     : 10
   
   stream_hdf5         : True
   stream_csv          : False
@@ -58,6 +59,7 @@ producer_specs:
     class: "DummyProducer"
     settings:
       sampling_rate_hz: 1
+      payload_num_bytes: 100
 
 
 consumer_specs:
@@ -69,6 +71,20 @@ consumer_specs:
           class: "DummyProducer"
           settings:
             sampling_rate_hz: 1
+            payload_num_bytes: 100
 
 
-pipeline_specs: []
+pipeline_specs:
+  - package: "dummy"
+    class: "DummyPipeline"
+    settings:
+      is_async_generate: true
+      stream_out_spec:
+        incoming_payload_num_bytes: 100
+        sampling_rate_hz: 10
+      stream_in_specs:
+        - package: "dummy"
+          class: "DummyProducer"
+          settings:
+            sampling_rate_hz: 1
+            payload_num_bytes: 100
