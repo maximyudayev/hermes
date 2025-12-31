@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## HERMES
 
+### 0.1.8 <small>December 31, 2025</small>
+- Feature: `Pipeline` split into synchronous processing of incoming data and asynchronous generation of internal outgoing data.
+
 ### 0.1.7 <small>December 04, 2025</small>
 - Bugfix: `Broker` doesn't fan-out stdin in multiprocessing -> threading instead.
 

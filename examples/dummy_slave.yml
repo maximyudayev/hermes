@@ -31,6 +31,7 @@ is_master_broker: False
 
 remote_subscriber_ips: []
 remote_publisher_ips: []
+connections: []
 
 is_remote_kill: False
 remote_kill_ip: null

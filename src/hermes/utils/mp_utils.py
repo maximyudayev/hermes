@@ -27,7 +27,7 @@
 
 from argparse import Namespace
 from multiprocessing import Queue
-from multiprocessing.synchronize import Event as _EventClass
+from multiprocessing.synchronize import Event as _Event
 from typing import Callable
 
 from hermes.base.broker.broker import Broker
@@ -37,9 +37,9 @@ def launch_broker(
     args: Namespace,
     node_specs: list[dict],
     input_queue: "Queue[tuple[float, str]]",
-    is_ready_event: _EventClass,
-    is_quit_event: _EventClass,
-    is_done_event: _EventClass,
+    is_ready_event: _Event,
+    is_quit_event: _Event,
+    is_done_event: _Event,
     ref_time_s: float,
 ) -> None:
     """Builds the `Broker` using provided configurations and manage all the components of the experiment.
@@ -93,3 +93,14 @@ def launch_callable(obj: Callable, *args, **kwargs) -> None:
         kwargs (dict): Named key-value inputs to provide to the callable object.
     """
     obj(*args, **kwargs)
+
+
+def launch_handler(module: type, *args, **kwargs) -> None:
+    """Used as a target to instantiate a runnable object as a subprocess.
+
+    Args:
+        args (list): Ordered unnamed arguments to instantiate the object with.
+        kwargs (dict): Named key-value arguments to instantiate the object with.
+    """
+    obj = module(*args, **kwargs)
+    obj()
