@@ -30,6 +30,7 @@ from multiprocessing.synchronize import Event as _EventClass
 import subprocess
 import threading
 import os
+import sys
 import yaml
 import json
 import argparse
@@ -413,6 +414,8 @@ def parse_stdin(
     
     Blocking stdin capture loop as a daemon, that fans out keyboard inputs
     to Broker's subprocesses and all the Nodes.
+    On Windows, daemon threads get cleaned up automatically on Python interpreter exit.
+    On Linux/Mac, uses select on the system stdin to avoid blocking indefinitely. 
 
     Args:
         broker (Broker): Host's only HERMES instance. 
@@ -423,13 +426,24 @@ def parse_stdin(
     """
     user_input = ""
     termination_char = "Q"
-    is_ready_event.wait()
-    while not is_done_event.is_set():
-        user_input = input(">> ")
-        if is_master and user_input == termination_char:
-            is_quit_event.set()
-        elif len(user_input):
-            broker._fanout_user_input((get_time(), user_input))
+    # is_ready_event.wait()  # NOTE: deadlocks if a Node requires user input during the bring-up process.
+    if platform.system() == 'Windows':
+        while not is_done_event.is_set():
+            user_input = input(">> ")
+            if is_master and user_input == termination_char:
+                is_quit_event.set()
+            elif len(user_input):
+                broker._fanout_user_input((get_time(), user_input))
+    else:
+        import select
+        while not is_done_event.is_set():
+            ready, _, _ = select.select([sys.stdin], [], [], 5.0)
+            if ready:
+                user_input = sys.stdin.readline().strip()
+                if is_master and user_input == termination_char:
+                    is_quit_event.set()
+                elif len(user_input):
+                    broker._fanout_user_input((get_time(), user_input))
 
 
 def launch_slave_hosts(

@@ -728,7 +728,7 @@ class Storage(StorageInterface):
                 if not (start_index + num_elements < len(dataset)):
                     dataset.resize(
                         (
-                            len(dataset) + self._hdf5_log_length_increment,
+                            len(dataset) + max(self._hdf5_log_length_increment, num_elements),
                             *dataset.shape[1:],
                         )
                     )
