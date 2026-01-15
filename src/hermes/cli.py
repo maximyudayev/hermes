@@ -239,6 +239,8 @@ def parse_json_string(
     try:
         config_str = args.json
         config_str = inject_env_vars(config_str)
+        if platform.system() == 'Windows':
+            config_str = config_str.replace("'", '"')
         config: dict = json.loads(config_str)
         parser.set_defaults(**config)
     except json.JSONDecodeError as e:
@@ -472,14 +474,16 @@ def launch_slave_hosts(
     for conn in connections:
         with open(conn["config_filepath"], "r") as f:
             try:
-                config_str = f.read()
-                config: dict = yaml.safe_load(config_str)
+                file_buf = f.read()
+                config: dict = yaml.safe_load(file_buf)
+                config_str = json.dumps(config)
 
                 if conn["platform"] == "Windows":
+                    escaped_config_str = config_str.replace('"', "'")
                     remote_cmd = (
-                        f"cd '/d' {conn['project_dir']} && "
+                        f"cd /d {conn['project_dir']} && "
                         f"call .venv\\Scripts\\activate.bat && "
-                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{json.dumps(config)}' && "
+                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j \"{escaped_config_str}\" && "
                         f"exit"
                     )
                 else:
@@ -488,7 +492,7 @@ def launch_slave_hosts(
                         f"cd {conn['project_dir']} && "
                         f"source .venv/bin/activate && "
                         f"export PYTHONPATH=\"$(pwd):$PYTHONPATH\" && "
-                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{json.dumps(config)}' && "
+                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' && "
                         f"exit"
                     )
 
@@ -501,7 +505,7 @@ def launch_slave_hosts(
                 exit("Error parsing slave YAML files.")
 
     if platform.system() == "Windows":
-        prog = ["cmd", "/k"]
+        prog = ["cmd", "/c"]
     elif platform.system() == "Linux":
         prog = ["gnome-terminal", "--"]
     elif platform.system() == "Darwin":
