@@ -41,6 +41,7 @@ def search_module_class(module_name: str, class_name: str) -> type[Any]:
     try:
         module = importlib.import_module(module_path)
     except ImportError as e:
+        print(e, flush=True)
         raise ImportError(
             "Could not import subpackage '%s'. "
             "Ensure it is installed: pip install pysio-hermes-%s"

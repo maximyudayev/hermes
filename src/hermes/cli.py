@@ -474,34 +474,50 @@ def launch_slave_hosts(
             try:
                 config_str = f.read()
                 config: dict = yaml.safe_load(config_str)
+
+                if conn["platform"] == "Windows":
+                    remote_cmd = (
+                        f"cd '/d' {conn['project_dir']} && "
+                        f"call .venv\\Scripts\\activate.bat && "
+                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{json.dumps(config)}' && "
+                        f"exit"
+                    )
+                else:
+                    remote_cmd = (
+                        f"source ~/.bash_profile 2>/dev/null || source ~/.profile 2>/dev/null; "
+                        f"cd {conn['project_dir']} && "
+                        f"source .venv/bin/activate && "
+                        f"export PYTHONPATH=\"$(pwd):$PYTHONPATH\" && "
+                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{json.dumps(config)}' && "
+                        f"exit"
+                    )
+
                 cmds.append([
                     f"{conn['ssh_username']}@{conn['ssh_host_ip']}",
-                    f"cd {'/d' if conn['platform'] == 'Windows' else ''} {conn['project_dir']} &&",
-                    'call .venv\\Scripts\\activate.bat' if conn['platform'] == 'Windows' else '. .venv/bin/activate', " &&",
-                    f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j {json.dumps(config)} &&",
-                    "exit",
+                    remote_cmd
                 ])
             except yaml.YAMLError as e:
                 print(e, flush=True)
                 exit("Error parsing slave YAML files.")
 
     if platform.system() == "Windows":
-        prog = "cmd /k"
+        prog = ["cmd", "/k"]
     elif platform.system() == "Linux":
-        prog = "gnome-terminal --"
+        prog = ["gnome-terminal", "--"]
     elif platform.system() == "Darwin":
-        prog = "open -a Terminal"
+        prog = ["open", "-a", "Terminal"]
 
     procs = []
     for cmd in cmds:
         procs.append(
             subprocess.Popen([
-                prog,
+                *prog,
                 "ssh", "-tt",
                 "-o", "TCPKeepAlive=no",
                 "-o", "ServerAliveInterval=30",
-                cmd
-            ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                cmd[0],
+                cmd[1],
+            ], creationflags=subprocess.CREATE_NEW_CONSOLE if platform.system() == "Windows" else 0)
         )
     return procs
 

@@ -31,7 +31,14 @@ is_master_broker: True
 
 remote_subscriber_ips: []
 remote_publisher_ips: []
+  # - "192.168.0.100"
 connections: []
+  # - ssh_username: "a"
+  #   ssh_host_ip: "192.168.0.100"
+  #   platform: "Windows"
+  #   config_filepath: "./cameras.yml"
+  #   project_dir: "~/Desktop/kdd2026"
+  #   output_dir: "./data"
 
 is_remote_kill: False
 remote_kill_ip: null
