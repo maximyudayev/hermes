@@ -413,7 +413,7 @@ def parse_stdin(
     is_quit_event: _EventClass
 ) -> None:
     """Parse user keyboard inputs into a fanout queue for HERMES nodes.
-    
+
     Blocking stdin capture loop as a daemon, that fans out keyboard inputs
     to Broker's subprocesses and all the Nodes.
     On Windows, daemon threads get cleaned up automatically on Python interpreter exit.
@@ -481,6 +481,7 @@ def launch_slave_hosts(
                 if conn["platform"] == "Windows":
                     escaped_config_str = config_str.replace('"', "'")
                     remote_cmd = (
+                        f"title HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']} && "
                         f"cd /d {conn['project_dir']} && "
                         f"call .venv\\Scripts\\activate.bat && "
                         f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j \"{escaped_config_str}\" && "
@@ -488,6 +489,7 @@ def launch_slave_hosts(
                     )
                 else:
                     remote_cmd = (
+                        f"echo -ne \"\033]0;HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']}\007\" && "
                         f"source ~/.bash_profile 2>/dev/null || source ~/.profile 2>/dev/null; "
                         f"cd {conn['project_dir']} && "
                         f"source .venv/bin/activate && "
@@ -537,6 +539,7 @@ def app():
     """
     parser = define_parser()
     args = parse_args(parser)
+
     log_time_s, log_dir, log_history_filepath = init_output_files(args)
     args, node_specs, ref_time_s = configure_specs(args, log_time_s, log_dir)
 
@@ -544,6 +547,10 @@ def app():
 
     # Launch slave hosts over SSH if the current broker is master and any connections are specified.
     if args.is_master_broker and args.connections:
+        if platform.system() == "Windows":
+            os.system(f"title HERMES - {args.host_ip}")
+        else:
+            os.system(f'echo -ne "\033]0;HERMES - {args.host_ip}\007"')
         slave_procs = launch_slave_hosts(args.connections, log_time_s, args.experiment)
 
     is_ready_event = Event()

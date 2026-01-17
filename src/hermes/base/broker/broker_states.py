@@ -148,7 +148,7 @@ class SyncBrokerBarrierState(AbstractBrokerState):
             address, _, broker_name, cmd = socket.recv_multipart()
             broker_name = broker_name.decode("utf-8")
             print(
-                "%s sent %s to %s response"
+                "%s sent %s to %s"
                 % (broker_name, cmd.decode("utf-8"), self._host_ip),
                 flush=True,
             )
@@ -211,7 +211,7 @@ class StartState(AbstractBrokerState):
         while (current_time_s := get_time()) < start_time_s:
             time.sleep(min(0.001, start_time_s - current_time_s))
 
-        # Trigget local Nodes to start logging.
+        # Trigger local Nodes to start logging.
         for name, address in list(nodes.items()):
             sync_host_socket.send_multipart(
                 [address, b"", host_ip.encode("utf-8"), CMD_GO.encode("utf-8")]
@@ -230,6 +230,7 @@ class RunningState(AbstractBrokerState):
     def __init__(self, context: BrokerInterface):
         super().__init__(context)
         context._set_broker_ready()
+        print("\n\n### %s ###\n\n" % (CMD_GO), flush=True)
         if (duration_s := self._context._get_duration()) is not None:
             self._is_continue_fn = lambda: get_time() < (
                 self._context._get_start_time() + duration_s
@@ -401,7 +402,7 @@ class JoinBrokerBarrierState(AbstractBrokerState):
                     ("%s:%s" % (ip, PORT_SYNC_REMOTE)).encode("utf-8"),
                     b"",
                     self._host_ip.encode("utf-8"),
-                    CMD_HELLO.encode("utf-8"),
+                    CMD_BYE.encode("utf-8"),
                 ]
             )
 
