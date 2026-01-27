@@ -164,17 +164,21 @@ The project's logo is distributed under the CC BY-NC-ND 4.0 license  - see the [
 # Citation
 When using in your project, research, or product, please cite the following and notify us so we can update the index of success stories enabled by HERMES.
 
-<!-- <a href="https://arxiv.org/abs/..." style="display:inline-block;">
-  <img src="http://img.shields.io/badge/paper-arxiv.x-B31B1B.svg" height="20" >
+<a href="https://arxiv.org/abs/2601.12610" style="display:inline-block;">
+  <img src="http://img.shields.io/badge/paper-arxiv-B31B1B.svg" height="20" >
 </a>
+
 ```bibtex
-@inproceedings{yudayev2025hermes,
-  title={HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications},
-  author={Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Stefanova, Vayalet and Vanrumste, Bart, and Filtjens, Benjamin},
-  booktitle={},
-  year={2025}
+@preprint{yudayev2026hermes,
+   title={HERMES: A Unified Open-Source Framework for Realtime Multimodal Physiological Sensing, Edge AI, and Intervention in Closed-Loop Smart Healthcare Applications}, 
+   author={Yudayev, Maxim and Carlon, Juha and Lamsal, Diwas and Stefanova, Vayalet and Filtjens, Benjamin},
+   year={2026},
+   eprint={2601.12610},
+   archivePrefix={arXiv},
+   primaryClass={eess.SY},
+   doi={10.48550/arXiv.2601.12610}, 
 }
-``` -->
+```
 
 # Acknowledgement
 This project was primarily written by [Maxim Yudayev](https://yudayev.com) while at the Department of Electrical Engineering, KU Leuven.
