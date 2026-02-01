@@ -36,6 +36,11 @@ import h5py
 import numpy as np
 from typing import Any, Iterator
 
+import gi
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst
+Gst.init(None)
+
 try:
     import ffmpeg
 except ImportError as e:
@@ -49,8 +54,8 @@ from hermes.base.stream import Stream
 from hermes.base.storage.storage_interface import StorageInterface
 from hermes.base.storage.storage_states import AbstractStorageState, StartState
 from hermes.utils.time_utils import init_time, get_time, get_time_str
-from hermes.utils.dict_utils import convert_dict_values_to_str
-from hermes.utils.types import LoggingSpec
+from hermes.utils.dict_utils import convert_dict_values_to_str, flatten_dict
+from hermes.utils.types import LoggingSpec, VideoWriter
 
 
 class Storage(StorageInterface):
@@ -89,7 +94,8 @@ class Storage(StorageInterface):
         # Initialize the logging writers.
         self._thread_pool: concurrent.futures.ThreadPoolExecutor
         self._hdf5_file: h5py.File | None = None
-        self._video_writers: list[tuple[Popen, str, str, str]] = []
+        self._video_writers: dict[str, dict[str, dict[str, VideoWriter]]] = {}
+        self._gstreamer_busses = []
         self._audio_writers: list[tuple[Popen, str, str, str]] = []
         self._csv_writers: list[tuple[TextIOWrapper, str, str, str]] = []
         self._csv_writer_metadata: TextIOWrapper | None = None
@@ -228,15 +234,15 @@ class Storage(StorageInterface):
         """Initialize the data indices to fetch for logging
 
         Will record the next data indices that should be fetched for each stream,
-        and the number of timesteps that each streamer needs before data is solidified.
+        and the number of timesteps that each need needs before data is solidified.
         """
-        for streamer_name, stream in self._streams.items():
+        for node_name, stream in self._streams.items():
             for device_name, device_info in stream.get_stream_info_all().items():
-                self._timesteps_before_solidified[streamer_name][
+                self._timesteps_before_solidified[node_name][
                     device_name
                 ] = OrderedDict()
                 for stream_name, stream_info in device_info.items():
-                    self._timesteps_before_solidified[streamer_name][device_name][
+                    self._timesteps_before_solidified[node_name][device_name][
                         stream_name
                     ] = stream_info["timesteps_before_solidified"]
 
@@ -244,14 +250,14 @@ class Storage(StorageInterface):
         """Create and initialize CSV files.
 
         Will have a separate file for each stream of each device.
-        Currently assumes that device names are unique across all streamers.
+        Currently assumes that device names are unique across all nodes.
 
         Returns:
             int: Number of initialized writers.
         """
         num_writers: int = 0
-        for streamer_name, streamer in self._streams.items():
-            for device_name, device_info in streamer.get_stream_info_all().items():
+        for node_name, node in self._streams.items():
+            for device_name, device_info in node.get_stream_info_all().items():
                 for stream_name, stream_info in device_info.items():
                     # Skip saving video or audio in a CSV.
                     if stream_info["is_video"] or stream_info["is_audio"]:
@@ -264,7 +270,7 @@ class Storage(StorageInterface):
                     filepath_csv = os.path.join(self._spec.log_dir, filename_csv)
                     csv_writer = open(filepath_csv, "w")
                     self._csv_writers.append(
-                        (csv_writer, streamer_name, device_name, stream_name)
+                        (csv_writer, node_name, device_name, stream_name)
                     )
                     num_writers += 1
 
@@ -274,9 +280,9 @@ class Storage(StorageInterface):
         self._csv_writer_metadata = open(filepath_csv, "w")
 
         # Write CSV headers.
-        for stream_writer, streamer_name, device_name, stream_name in self._csv_writers:
+        for stream_writer, node_name, device_name, stream_name in self._csv_writers:
             # First check if custom header titles have been specified.
-            stream_info = self._streams[streamer_name].get_stream_info_all()[
+            stream_info = self._streams[node_name].get_stream_info_all()[
                 device_name
             ][stream_name]
             sample_size = stream_info["sample_size"]
@@ -309,7 +315,7 @@ class Storage(StorageInterface):
         """Create and initialize a hierarchical HDF5 file.
 
         Will have a single file for all streams from all devices.
-        Currently assumes that device names are unique across all streamers.
+        Currently assumes that device names are unique across all nodes.
 
         Returns:
             int: Number of initialized writers.
@@ -323,16 +329,16 @@ class Storage(StorageInterface):
             filepath_hdf5 = os.path.join(self._spec.log_dir, filename_hdf5)
         self._hdf5_file = h5py.File(filepath_hdf5, "w")
         # Create a dataset for each data key of each stream of each device.
-        for streamer_name, stream in self._streams.items():
-            streamer_group = self._hdf5_file.create_group(streamer_name)
+        for node_name, stream in self._streams.items():
+            node_group = self._hdf5_file.create_group(node_name)
             for device_name, device_info in stream.get_stream_info_all().items():
-                device_group = streamer_group.create_group(device_name)
-                self._next_data_indices_hdf5[streamer_name][device_name] = OrderedDict()
+                device_group = node_group.create_group(device_name)
+                self._next_data_indices_hdf5[node_name][device_name] = OrderedDict()
                 for stream_name, stream_info in device_info.items():
                     # Skip saving video and audio in the HDF5.
                     if stream_info["is_video"] or stream_info["is_audio"]:
                         continue
-                    self._next_data_indices_hdf5[streamer_name][device_name][
+                    self._next_data_indices_hdf5[node_name][device_name][
                         stream_name
                     ] = 0
                     # The main data has specifications defined by stream_info.
@@ -365,8 +371,8 @@ class Storage(StorageInterface):
             )
 
         num_writers: int = 0
-        for streamer_name, streamer in self._streams.items():
-            for device_name, device_info in streamer.get_stream_info_all().items():
+        for node_name, node in self._streams.items():
+            for device_name, device_info in node.get_stream_info_all().items():
                 for stream_name, stream_info in device_info.items():
                     # Skip non-video streams.
                     if not stream_info["is_video"]:
@@ -385,60 +391,71 @@ class Storage(StorageInterface):
                     # Create a video writer.
                     frame_height = stream_info["sample_size"][0]
                     frame_width = stream_info["sample_size"][1]
-                    fps = stream_info["sampling_rate_hz"]
-                    input_stream_format: str = stream_info["format"]
-                    input_stream_pix_fmt: str = stream_info["color"]
-                    metadata_dict = {
-                        "metadata:g:%d" % i: "%s=%s" % (k, v)
-                        for i, (k, v) in enumerate(
-                            [
-                                ("title", "/".join(self._spec.experiment.values())),
-                                (
-                                    "date",
-                                    get_time_str(self._spec.log_time_s, "%Y-%m-%d"),
-                                ),
-                                (
-                                    "comment",
-                                    "HERMES multi-modal data acquisition system recording",
-                                ),
-                                *map(
-                                    lambda tup: ("X%s" % tup[0], tup[1]),
-                                    list(self._spec.experiment.items()),
-                                ),
-                                ("Xencoder", self._spec.video_codec.codec_name),
-                                ("Xencoded-by", "HERMES"),
-                            ]
-                        )
-                    }
-                    # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into a video.
-                    video_stream = ffmpeg.input(
-                        "pipe:",  # type: ignore
-                        format=input_stream_format,
-                        pix_fmt=input_stream_pix_fmt,  # color format of piped input frames.
-                        s="{}x{}".format(
-                            frame_width, frame_height
-                        ),  # size of frames from the sensor.
-                        framerate=fps,
-                        cpucount=self._spec.video_codec.num_cpu,
-                        **self._spec.video_codec.input_options,
+                    fps = float(stream_info["sampling_rate_hz"])
+                    bitrate:int = stream_info["bitrate"]
+                    input_format: str = stream_info["input_format"]
+                    output_format: str = stream_info["output_format"]
+
+                    # TODO: make suitable for other devices generically as well.
+                    pipeline = (
+                        f"appsrc name=src{num_writers} "
+                        "is-live=true block=true format=time do-timestamp=false "
+                        f"caps=video/x-raw,format={input_format},width={frame_width},height={frame_height},framerate={int(fps)}/1 "
+                        "! nvvidconv "
+                        f"! video/x-raw(memory:NVMM),format={output_format} "
+                        "! nvv4l2h264enc "
+                            f"bitrate={bitrate} "
+                            "control-rate=0 "
+                            f"iframeinterval={int(fps)} "
+                            "preset-level=1 "
+                            "maxperf-enable=1 "
+                            "insert-sps-pps=true "
+                            "profile=1 "
+                        "! h264parse "
+                        "! matroskamux "
+                        f"! filesink location={filepath_video} sync=false"
                     )
-                    # TODO: use this to stream encoded video into a local file, and also as RTSP stream to the GUI.
-                    # video_stream = ffmpeg.filter_multi_output
-                    video_stream = ffmpeg.output(
-                        video_stream,  # type: ignore
-                        filename=filepath_video,
-                        vcodec=self._spec.video_codec.codec_name,
-                        pix_fmt=self._spec.video_codec.pix_format,
-                        cpucount=self._spec.video_codec.num_cpu,  # prevent ffmpeg from suffocating the processor.
-                        **self._spec.video_codec.output_options,
-                        **metadata_dict,
-                    )
-                    video_stream = video_stream.global_args("-hide_banner")
-                    video_writer: Popen = ffmpeg.run_async(video_stream, quiet=self._spec.is_quiet, pipe_stdin=True)  # type: ignore
+
+                    pipeline = Gst.parse_launch(pipeline)
+                    appsrc = pipeline.get_by_name(f"src{num_writers}")
+
+                    # metadata_dict = {
+                    #     "title": "/".join(self._spec.experiment.values()),
+                    #     "date": get_time_str(self._spec.log_time_s, "%Y-%m-%d"),
+                    #     "comment": "HERMES multi-modal data acquisition system recording",
+                    #     **{f"X{k}": v for k, v in self._spec.experiment.items()},
+                    #     "Xencoder": self._spec.video_codec.codec_name,
+                    #     "Xencoded-by": "HERMES",
+                    # }
+                    # mux = pipeline.get_by_name("matroskamux0")
+                    # for k, v in metadata_dict.items():
+                    #     mux.set_property(k, v)
+
+                    assert pipeline.set_state(Gst.State.PLAYING) != Gst.StateChangeReturn.FAILURE
+
+                    def on_message(bus, message):
+                        t = message.type
+                        if t == Gst.MessageType.ERROR:
+                            err, dbg = message.parse_error()
+                            print("GStreamer ERROR:", err, dbg, flush=True)
+                        elif t == Gst.MessageType.WARNING:
+                            err, dbg = message.parse_warning()
+                            print("GStreamer WARNING:", err, dbg, flush=True)
+                        elif t == Gst.MessageType.EOS:
+                            print("GStreamer EOS", flush=True)
+
+                    bus = pipeline.get_bus()
+                    bus.add_signal_watch()
+                    bus.connect("message", on_message, pipeline)
+                    self._gstreamer_busses.append(bus)
+
                     # Store the writer.
-                    self._video_writers.append(
-                        (video_writer, streamer_name, device_name, stream_name)
-                    )
+                    if node_name not in self._video_writers:
+                        self._video_writers[node_name] = {}
+                    if device_name not in self._video_writers[node_name]:
+                        self._video_writers[node_name][device_name] = {}
+                    self._video_writers[node_name][device_name][stream_name] = VideoWriter(pipeline, appsrc, int(fps), node_name, device_name, stream_name)
+
                     num_writers += 1
         return num_writers
 
@@ -461,8 +478,8 @@ class Storage(StorageInterface):
             )
 
         num_writers: int = 0
-        for streamer_name, streamer in self._streams.items():
-            for device_name, device_info in streamer.get_stream_info_all().items():
+        for node_name, node in self._streams.items():
+            for device_name, device_info in node.get_stream_info_all().items():
                 for stream_name, stream_info in device_info.items():
                     # Skip non-audio streams.
                     if not stream_info["is_audio"]:
@@ -529,7 +546,7 @@ class Storage(StorageInterface):
                     audio_writer: Popen = ffmpeg.run_async(audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True)  # type: ignore
                     # Store the writer.
                     self._audio_writers.append(
-                        (audio_writer, streamer_name, device_name, stream_name)
+                        (audio_writer, node_name, device_name, stream_name)
                     )
                     num_writers += 1
         return num_writers
@@ -539,7 +556,7 @@ class Storage(StorageInterface):
 
         TODO: validate logic.
         """
-        for streamer_name, stream in self._streams.items():
+        for node_name, stream in self._streams.items():
             for device_name, device_info in stream.get_stream_info_all().items():
                 # Get data notes for each stream.
                 for stream_name, stream_info in device_info.items():
@@ -580,21 +597,21 @@ class Storage(StorageInterface):
             file_group.attrs.update(file_metadata)
             # Add metadata per stream.
             # Flatten and prune the dictionary to make it HDF5 compatible.
-            for streamer_name, stream in self._streams.items():
+            for node_name, stream in self._streams.items():
                 # Add the class name.
-                streamer_metadata = convert_dict_values_to_str(
+                node_metadata = convert_dict_values_to_str(
                     {Stream.metadata_class_name_key: type(stream).__name__},
                     preserve_nested_dicts=False,
                 )
-                streamer_group = self._hdf5_file["/".join([streamer_name])]
-                streamer_group.attrs.update(streamer_metadata)
+                node_group = self._hdf5_file["/".join([node_name])]
+                node_group.attrs.update(node_metadata)
                 for device_name, device_info in stream.get_stream_info_all().items():
                     # NOTE: no per-device metadata for now.
                     # Get data notes for each stream.
                     for stream_name, stream_info in device_info.items():
                         try:
                             stream_group = self._hdf5_file[
-                                "/".join([streamer_name, device_name, stream_name])
+                                "/".join([node_name, device_name, stream_name])
                             ]
                             data_notes = stream_info["data_notes"]
                             if isinstance(data_notes, dict):
@@ -638,14 +655,14 @@ class Storage(StorageInterface):
         Resizes datasets to remove extra empty rows.
         """
         if self._hdf5_file is not None:
-            for streamer_name, stream in self._streams.items():
+            for node_name, stream in self._streams.items():
                 for device_name, device_info in stream.get_stream_info_all().items():
                     for stream_name, stream_info in device_info.items():
                         try:
-                            dataset: h5py.Dataset = self._hdf5_file["/".join([streamer_name, device_name, stream_name])]  # type: ignore
+                            dataset: h5py.Dataset = self._hdf5_file["/".join([node_name, device_name, stream_name])]  # type: ignore
                         except KeyError:  # a dataset was not created for this stream
                             continue
-                        starting_index = self._next_data_indices_hdf5[streamer_name][
+                        starting_index = self._next_data_indices_hdf5[node_name][
                             device_name
                         ][stream_name]
                         ending_index = starting_index - 1
@@ -655,13 +672,18 @@ class Storage(StorageInterface):
 
     def _close_files_video(self) -> None:
         """Flush/close the video files writers."""
-        for (video_writer, *_) in self._video_writers:
-            video_writer.stdin.close()  # type: ignore
-            if self._spec.is_quiet:
-                video_writer.stderr.close()  # type: ignore
-                video_writer.stdout.close()  # type: ignore
-            video_writer.wait()
-        self._video_writers = []
+        for writer in flatten_dict(self._video_writers).values():
+            writer.appsrc.emit("end-of-stream")
+
+            bus = writer.pipeline.get_bus()
+            msg = bus.timed_pop_filtered(Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR)
+
+            if msg.type == Gst.MessageType.ERROR:
+                err, debug = msg.parse_error()
+                print(f"GStreamer pipeline of {writer.node_name}/{writer.device_name}/{writer.stream_name} error: {err}, {debug}", flush=True)
+            
+            writer.pipeline.set_state(Gst.State.NULL)
+        self._video_writers = {}
 
     def _close_files_csv(self) -> None:
         """Flush/close the CSV file writers."""
@@ -742,24 +764,27 @@ class Storage(StorageInterface):
             # Flush the file with the new data.
             self._hdf5_file.flush()
 
-    def _sync_write_video(
-        self, video_writer: Popen, node_name: str, device_name: str, stream_name: str
-    ):
+    def _sync_write_video(self, writer: VideoWriter):
         """Write provided data to the video files.
 
         Can be called during streaming (periodic writing) and post-experiment dumping.
 
         Args:
-            video_writer (Popen): FFmpeg writer corresponding to the video.
-            node_name (str): Valid unique tag of the Node owning the data.
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
+            writer (VideoWriter): .
         """
-        new_data: Iterator[tuple[bytes, bool, int]] = self._streams[node_name].pop_data(
-            device_name=device_name, stream_name=stream_name, is_flush=self._is_flush
+
+        new_data: Iterator[tuple[bytes, bool, int]] = self._streams[writer.node_name].pop_data(
+            device_name=writer.device_name, stream_name=writer.stream_name, is_flush=self._is_flush
         )
+
         for frame_buffer, is_keyframe, frame_index in new_data:
-            video_writer.stdin.write(frame_buffer)  # type: ignore
+            buf = Gst.Buffer.new_allocate(None, len(frame_buffer), None)
+            buf.fill(0, frame_buffer)
+            buf.pts = frame_index * Gst.SECOND // writer.fps
+            buf.dts = buf.pts
+            buf.duration = Gst.SECOND // writer.fps
+            writer.appsrc.emit("push-buffer", buf)
+
 
     def _sync_write_csv(
         self,
@@ -819,36 +844,26 @@ class Storage(StorageInterface):
 
         Writes all new text data to a single HDF5 file.
         """
-        for streamer_name, stream in self._streams.items():
+        for node_name, stream in self._streams.items():
             for device_name, device_info in stream.get_stream_info_all().items():
                 for stream_name, stream_info in device_info.items():
                     self._sync_write_hdf5(
-                        node_name=streamer_name,
+                        node_name=node_name,
                         device_name=device_name,
                         stream_name=stream_name,
                     )
 
-    async def _write_video(
-        self, video_writer: Popen, node_name: str, device_name: str, stream_name: str
-    ):
+    async def _write_video(self, writer: VideoWriter):
         """Coroutine asynchronous wrapper for multiple video streams.
 
         Wraps synchronous IO of each video file into an asynchronous pool of coroutines.
 
         Args:
-            video_writer (Popen): FFmpeg writer corresponding to the video.
-            node_name (str): Valid unique tag of the Node owning the data.
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
+            writer (VideoWriter): .
         """
         await asyncio.get_event_loop().run_in_executor(
             self._thread_pool,
-            lambda: self._sync_write_video(
-                video_writer=video_writer,
-                node_name=node_name,
-                device_name=device_name,
-                stream_name=stream_name,
-            ),
+            lambda: self._sync_write_video(writer=writer)
         )
 
     async def _write_csv(
@@ -916,19 +931,9 @@ class Storage(StorageInterface):
         Will launch coroutines concurrently with other IO writer types.
         """
         tasks = []
-        for (
-            video_writer,
-            streamer_name,
-            device_name,
-            stream_name,
-        ) in self._video_writers:
+        for writer in flatten_dict(self._video_writers).values():
             tasks.append(
-                self._write_video(
-                    video_writer=video_writer,
-                    node_name=streamer_name,
-                    device_name=device_name,
-                    stream_name=stream_name,
-                )
+                self._write_video(writer=writer)
             )
         await asyncio.gather(*tasks)
 
@@ -938,11 +943,11 @@ class Storage(StorageInterface):
         Will launch coroutine concurrently with other IO writer types.
         """
         tasks = []
-        for stream_writer, streamer_name, device_name, stream_name in self._csv_writers:
+        for stream_writer, node_name, device_name, stream_name in self._csv_writers:
             tasks.append(
                 self._write_csv(
                     csv_writer=stream_writer,
-                    node_name=streamer_name,
+                    node_name=node_name,
                     device_name=device_name,
                     stream_name=stream_name,
                 )
@@ -957,14 +962,14 @@ class Storage(StorageInterface):
         tasks = []
         for (
             audio_writer,
-            streamer_name,
+            node_name,
             device_name,
             stream_name,
         ) in self._audio_writers:
             tasks.append(
                 self._write_audio(
                     audio_writer=audio_writer,
-                    node_name=streamer_name,
+                    node_name=node_name,
                     device_name=device_name,
                     stream_name=stream_name,
                 )
@@ -993,7 +998,7 @@ class Storage(StorageInterface):
         """
         last_log_time_s = None
         # Set at the beginning of the iteration if _is_flush is externally modified to indicate cleanup and exit,
-        #   to catch case where external command to flush happened while some of streamers already saved part of available data.
+        #   to catch case where external command to flush happened while some of nodes already saved part of available data.
         is_flush_all_in_current_iteration = False
         while (self._is_streaming or self._is_flush) and not self._is_finished:
             # Wait until it is time to write new data, which is either:
@@ -1022,7 +1027,7 @@ class Storage(StorageInterface):
             #   This would compound over time, leading to longer delays and more data to write each time.
             #   This becomes more severe as the write duration increases (e.g. videos).
             last_log_time_s = get_time()
-            # If the log should be flushed, record that it is happening during this iteration for ALL streamers.
+            # If the log should be flushed, record that it is happening during this iteration for ALL nodes.
             if self._is_flush:
                 is_flush_all_in_current_iteration = True
             # Delegate file writing to each AsyncIO method that manages corresponding stream type writing.
@@ -1039,11 +1044,11 @@ class Storage(StorageInterface):
             await asyncio.gather(*tasks)
             # If stream-logging is disabled, but a final flush had been requested,
             #   record that the flush is complete so streaming can really stop now.
-            # Note that it also checks whether the flush was configured to happen for all streamers during this iteration.
+            # Note that it also checks whether the flush was configured to happen for all nodes during this iteration.
             #   Especially if a lot of data was being written (such as with video data),
             #   the self._is_flush flag may have been set sometime during the data writing.
-            #   In that case, all streamers would not have known to flush data and some data may be omitted.
-            # flushing_log set True when _is_flush was set before any streamer saved its data chunk, to make ure nothing is left behind.
+            #   In that case, all nodes would not have known to flush data and some data may be omitted.
+            # flushing_log set True when _is_flush was set before any node saved its data chunk, to make ure nothing is left behind.
             if (
                 (not self._is_streaming)
                 and self._is_flush

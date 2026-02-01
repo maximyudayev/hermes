@@ -103,6 +103,7 @@ class Stream(ABC):
         data_notes: Mapping[str, str] = {},
         is_video: bool = False,
         color_format: VideoFormatEnum | None = None,
+        video_bitrate: int | None = None,
         is_audio: bool = False,
         timesteps_before_solidified: int = 0,
         extra_data_info: ExtraDataInfoDict = {},
@@ -142,6 +143,7 @@ class Stream(ABC):
             data_notes=data_notes,
             is_video=is_video,
             color_format=color_format,
+            video_bitrate=video_bitrate,
             is_audio=is_audio,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
@@ -174,6 +176,7 @@ class Stream(ABC):
         data_notes: Mapping[str, str] = {},
         is_video: bool = False,
         color_format: VideoFormatEnum | None = None,
+        video_bitrate: int | None = None,
         is_audio: bool = False,
         timesteps_before_solidified: int = 0,
         extra_data_info: ExtraDataInfoDict = {},
@@ -205,18 +208,25 @@ class Stream(ABC):
             try:
                 if color_format is not None:
                     self._streams_info[device_name][stream_name][
-                        "format"
-                    ] = color_format.value.format
+                        "input_format"
+                    ] = color_format.value.input
                     self._streams_info[device_name][stream_name][
-                        "color"
-                    ] = color_format.value.color
+                        "output_format"
+                    ] = color_format.value.output
                 else:
                     raise KeyError
             except KeyError:
                 print(
                     "Color format %s is not supported when specifying video frame pixel color format on Stream."
-                    % color_format
+                    % color_format, flush=True
                 )
+            try:
+                if video_bitrate is not None:
+                    self._streams_info[device_name][stream_name]["bitrate"] = video_bitrate
+                else:
+                    raise KeyError
+            except KeyError:
+                print("Video bitrate must be set", flush=True)
         # Some metadata to keep track of during running to measure the actual frame rate.
         if is_measure_rate_hz:
             # Set at start actual rate equal to desired sample rate

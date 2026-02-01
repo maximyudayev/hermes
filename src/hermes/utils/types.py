@@ -39,9 +39,19 @@ DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
 StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
 DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
-VideoFormatTuple = namedtuple("VideoFormatTuple", ("format", "color"))
+VideoFormatTuple = namedtuple("VideoFormatTuple", ("input", "output"))
 AudioFormatTuple = namedtuple("AudioFormatTuple", ("format", "color"))
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
+
+
+@dataclass
+class VideoWriter:
+    pipeline: Any
+    appsrc: Any
+    fps: int
+    node_name: str
+    device_name: str
+    stream_name: str
 
 
 @dataclass
@@ -116,7 +126,7 @@ class VideoFormatEnum(Enum):
     """
 
     BGR = VideoFormatTuple("rawvideo", "bgr24")
-    YUV = VideoFormatTuple("rawvideo", "yuv420p")
+    YUV = VideoFormatTuple("I420", "I420")
     JPEG = VideoFormatTuple("image2pipe", "yuv420p")
     MJPEG = VideoFormatTuple("jpeg_pipe", "yuv420p")
     BAYER_RG8 = VideoFormatTuple("rawvideo", "bayer_rggb8")
