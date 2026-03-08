@@ -50,8 +50,8 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-video_codec_config_filepath : "examples/video_codec.yml" 
-audio_codec_config_filepath : "examples/audio_codec.yml" 
+video_codec_config_filepath : null
+audio_codec_config_filepath : null
 
 
 producer_specs:
