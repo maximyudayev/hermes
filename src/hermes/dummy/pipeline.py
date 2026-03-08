@@ -104,7 +104,9 @@ class DummyPipeline(Pipeline):
         tag: str = "%s.data" % self._log_source_tag()
         data = msg["data"]["sensor-emulator"]
         data["flag"] = 1
-        self._publish(tag, process_time_s=process_time_s, data={"sensor-emulator-processed": data})
+        self._publish(
+            tag, process_time_s=process_time_s, data={"sensor-emulator-processed": data}
+        )
 
     def _generate_data(self) -> None:
         if self._is_keep_samples and self._is_continue_generate:
@@ -112,10 +114,19 @@ class DummyPipeline(Pipeline):
             if self._next_period <= process_time_s:
                 tag: str = "%s.data" % self._log_source_tag()
                 data = {
-                    "data": ''.join([random.choice(string.printable) for _ in range(random.randint(1, 100))]).encode("ascii"),
+                    "data": "".join(
+                        [
+                            random.choice(string.printable)
+                            for _ in range(random.randint(1, 100))
+                        ]
+                    ).encode("ascii"),
                     "sequence": self._sequence,
                 }
-                self._publish(tag, process_time_s=process_time_s, data={"sensor-emulator-internal": data})
+                self._publish(
+                    tag,
+                    process_time_s=process_time_s,
+                    data={"sensor-emulator-internal": data},
+                )
                 self._sequence += 1
                 self._next_period += self._period
         elif self._is_keep_samples and not self._is_continue_generate:

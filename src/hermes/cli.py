@@ -168,7 +168,11 @@ def parse_args(parser: argparse.ArgumentParser) -> argparse.Namespace:
     elif args.json is not None:
         parser, args = parse_json_string(parser, args)
     else:
-        raise Exception("Either `--config_file` or `--json` must be provided.", "Got: \n", vars(args))
+        raise Exception(
+            "Either `--config_file` or `--json` must be provided.",
+            "Got: \n",
+            vars(args),
+        )
 
     # TODO: use pydantic to validate args here
 
@@ -239,7 +243,7 @@ def parse_json_string(
     try:
         config_str = args.json
         config_str = inject_env_vars(config_str)
-        if platform.system() == 'Windows':
+        if platform.system() == "Windows":
             config_str = config_str.replace("'", '"')
         config: dict = json.loads(config_str)
         parser.set_defaults(**config)
@@ -410,17 +414,17 @@ def parse_stdin(
     is_master: bool,
     is_ready_event: _EventClass,
     is_done_event: _EventClass,
-    is_quit_event: _EventClass
+    is_quit_event: _EventClass,
 ) -> None:
     """Parse user keyboard inputs into a fanout queue for HERMES nodes.
 
     Blocking stdin capture loop as a daemon, that fans out keyboard inputs
     to Broker's subprocesses and all the Nodes.
     On Windows, daemon threads get cleaned up automatically on Python interpreter exit.
-    On Linux/Mac, uses select on the system stdin to avoid blocking indefinitely. 
+    On Linux/Mac, uses select on the system stdin to avoid blocking indefinitely.
 
     Args:
-        broker (Broker): Host's only HERMES instance. 
+        broker (Broker): Host's only HERMES instance.
         is_master (bool): Whether the Broker is the master in the setup.
         is_ready_event (Event): Synchronization flag whether the Broker and its subprocesses finished setting up.
         is_done_event (Event): Synchronization flag whether the Broker is done and gracefully wrapped up.
@@ -429,7 +433,7 @@ def parse_stdin(
     user_input = ""
     termination_char = "Q"
     # is_ready_event.wait()  # NOTE: deadlocks if a Node requires user input during the bring-up process.
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         while not is_done_event.is_set():
             user_input = input(">> ")
             if is_master and user_input == termination_char:
@@ -438,6 +442,7 @@ def parse_stdin(
                 broker._fanout_user_input((get_time(), user_input))
     else:
         import select
+
         while not is_done_event.is_set():
             ready, _, _ = select.select([sys.stdin], [], [], 5.0)
             if ready:
@@ -469,7 +474,7 @@ def launch_slave_hosts(
         list[subprocess.Popen]: List of subprocess handles for the launched slave hosts.
     """
 
-    experiment_str = ' '.join([f"{k}={v}" for k,v in experiment.items()])
+    experiment_str = " ".join([f"{k}={v}" for k, v in experiment.items()])
     cmds = []
     for conn in connections:
         with open(conn["config_filepath"], "r") as f:
@@ -484,24 +489,23 @@ def launch_slave_hosts(
                         f"title HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']} && "
                         f"cd /d {conn['project_dir']} && "
                         f"call .venv\\Scripts\\activate.bat && "
-                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j \"{escaped_config_str}\" && "
+                        f'hermes-cli -o {conn["output_dir"]} -t {log_time_s} -e {experiment_str} -j "{escaped_config_str}" && '
                         f"exit"
                     )
                 else:
                     remote_cmd = (
-                        f"echo -ne \"\033]0;HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']}\007\" && "
+                        f'echo -ne "\033]0;HERMES - {conn["ssh_username"]}@{conn["ssh_host_ip"]}\007" && '
                         f"source ~/.bash_profile 2>/dev/null || source ~/.profile 2>/dev/null; "
                         f"cd {conn['project_dir']} && "
                         f"source .venv/bin/activate && "
-                        f"export PYTHONPATH=\"$(pwd):$PYTHONPATH\" && "
+                        f'export PYTHONPATH="$(pwd):$PYTHONPATH" && '
                         f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' && "
                         f"exit"
                     )
 
-                cmds.append([
-                    f"{conn['ssh_username']}@{conn['ssh_host_ip']}",
-                    remote_cmd
-                ])
+                cmds.append(
+                    [f"{conn['ssh_username']}@{conn['ssh_host_ip']}", remote_cmd]
+                )
             except yaml.YAMLError as e:
                 print(e, flush=True)
                 exit("Error parsing slave YAML files.")
@@ -516,14 +520,22 @@ def launch_slave_hosts(
     procs = []
     for cmd in cmds:
         procs.append(
-            subprocess.Popen([
-                *prog,
-                "ssh", "-tt",
-                "-o", "TCPKeepAlive=no",
-                "-o", "ServerAliveInterval=30",
-                cmd[0],
-                cmd[1],
-            ], creationflags=subprocess.CREATE_NEW_CONSOLE if platform.system() == "Windows" else 0)
+            subprocess.Popen(
+                [
+                    *prog,
+                    "ssh",
+                    "-tt",
+                    "-o",
+                    "TCPKeepAlive=no",
+                    "-o",
+                    "ServerAliveInterval=30",
+                    cmd[0],
+                    cmd[1],
+                ],
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+                if platform.system() == "Windows"
+                else 0,
+            )
         )
     return procs
 
@@ -588,7 +600,7 @@ def app():
             is_done_event,
             is_quit_event,
         ),
-        daemon=True
+        daemon=True,
     )
     stdin_thread.start()
 
@@ -599,7 +611,8 @@ def app():
         local_broker()
 
     if args.is_master_broker and args.connections:
-        for proc in slave_procs: proc.wait()
+        for proc in slave_procs:
+            proc.wait()
 
 
 if __name__ == "__main__":

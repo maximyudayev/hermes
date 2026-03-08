@@ -204,12 +204,12 @@ class Stream(ABC):
         if is_video:
             try:
                 if color_format is not None:
-                    self._streams_info[device_name][stream_name][
-                        "format"
-                    ] = color_format.value.format
-                    self._streams_info[device_name][stream_name][
-                        "color"
-                    ] = color_format.value.color
+                    self._streams_info[device_name][stream_name]["format"] = (
+                        color_format.value.format
+                    )
+                    self._streams_info[device_name][stream_name]["color"] = (
+                        color_format.value.color
+                    )
                 else:
                     raise KeyError
             except KeyError:
@@ -220,9 +220,9 @@ class Stream(ABC):
         # Some metadata to keep track of during running to measure the actual frame rate.
         if is_measure_rate_hz:
             # Set at start actual rate equal to desired sample rate
-            self._streams_info[device_name][stream_name][
-                "actual_rate_hz"
-            ] = sampling_rate_hz
+            self._streams_info[device_name][stream_name]["actual_rate_hz"] = (
+                sampling_rate_hz
+            )
             # Create a circular buffer of 1 second, w.r.t. desired sample rate
             circular_buffer_len: int = max(round(sampling_rate_hz), 1)
             self._streams_info[device_name][stream_name]["dt_circular_buffer"] = list(

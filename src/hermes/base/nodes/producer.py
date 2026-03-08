@@ -112,8 +112,9 @@ class Producer(ProducerInterface, Node):
                         tag="%s.connection" % self._log_source_tag(),
                         time_s=time_s,
                         data={
-                            "%s-connection"
-                            % self._log_source_tag(): {"transmission_delay": delay_s}
+                            "%s-connection" % self._log_source_tag(): {
+                                "transmission_delay": delay_s
+                            }
                         },
                     ),
                 },

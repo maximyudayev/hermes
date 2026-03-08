@@ -72,12 +72,12 @@ def validate_path(s: str) -> str:
 
 def parse_type(s: str) -> int | float | bool | str:
     """Parsing utility to convert data types to native Python objects.
-    
+
     Args:
         s (str): Text to convert to the corresponding data type.
 
     Returns:
-        int | float | bool | str: Parsed primitive data type. 
+        int | float | bool | str: Parsed primitive data type.
     """
     if s.isdigit():
         return int(s)
@@ -94,6 +94,7 @@ def parse_type(s: str) -> int | float | bool | str:
 
 class ParseExperimentKwargs(argparse.Action):
     """Parsing object for experiment details specification."""
+
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             setattr(namespace, self.dest, dict())
@@ -104,6 +105,7 @@ class ParseExperimentKwargs(argparse.Action):
 
 class ParseStorageKwargs(argparse.Action):
     """Parsing object for `Storage` specification."""
+
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             setattr(namespace, self.dest, dict())
@@ -117,6 +119,7 @@ class ParseStorageKwargs(argparse.Action):
 
 class ParseNodeKwargs(argparse.Action):
     """Parsing object for `Node` specifications."""
+
     def __call__(self, parser, namespace, values, option_string=None):
         if isinstance(values, (list, tuple)):
             new_items = list()

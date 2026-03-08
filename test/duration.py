@@ -79,5 +79,5 @@ if __name__ == "__main__":
         subjects=subjects,
     )
     d_tot = d1 + d2
-    print(f"Mean: {np.mean(d_tot)/30/60/60} | {np.std(d_tot)/30/60/60}")
-    print(f"Total: {np.array(d_tot).sum() /30/60/60}")
+    print(f"Mean: {np.mean(d_tot) / 30 / 60 / 60} | {np.std(d_tot) / 30 / 60 / 60}")
+    print(f"Total: {np.array(d_tot).sum() / 30 / 60 / 60}")

@@ -98,7 +98,9 @@ class Pipeline(PipelineInterface, Node):
         # Instantiate all desired Streams that the Pipeline will process.
         self._in_streams: OrderedDict[str, Stream] = OrderedDict()
         self._poll_data_fn = self._poll_data_packets
-        self._on_poll_fn = self._on_poll_in_out if self._is_async_generate else self._on_poll_in_only
+        self._on_poll_fn = (
+            self._on_poll_in_out if self._is_async_generate else self._on_poll_in_only
+        )
         self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
 
         for stream_spec in stream_in_specs:
@@ -106,7 +108,9 @@ class Pipeline(PipelineInterface, Node):
             class_name: str = stream_spec["class"]
             specs: dict = stream_spec["settings"]
             # Create the stream datastructure.
-            class_type: type[ProducerInterface] | type[PipelineInterface] = search_module_class(module_name, class_name)  # type: ignore
+            class_type: type[ProducerInterface] | type[PipelineInterface] = (
+                search_module_class(module_name, class_name)
+            )  # type: ignore
             class_object: Stream = class_type.create_stream(specs)
             self._in_streams.setdefault(class_type._log_source_tag(), class_object)
             self._is_producer_ended.setdefault(class_type._log_source_tag(), False)
@@ -159,7 +163,9 @@ class Pipeline(PipelineInterface, Node):
         if self._is_async_generate:
             self._poller.register(self._pub, zmq.POLLOUT)
 
-    def _on_poll_in_only(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:
+    def _on_poll_in_only(
+        self, poll_res: tuple[list[zmq.SyncSocket], list[int]]
+    ) -> None:
         """Callback to handle incoming data only.
 
         Args:
@@ -259,7 +265,10 @@ class Pipeline(PipelineInterface, Node):
 
     def _check_before_send_end_packet(self) -> None:
         """Check whether both input and output data streams have ended, and send 'END' packet if so."""
-        if not self._is_more_data_in and (not self._is_async_generate or (self._is_async_generate and not self._is_more_data_out)):
+        if not self._is_more_data_in and (
+            not self._is_async_generate
+            or (self._is_async_generate and not self._is_more_data_out)
+        ):
             self._send_end_packet()
 
     def _send_end_packet(self) -> None:

@@ -69,7 +69,10 @@ class DummyPipeStream(Stream):
     """A Stream structure to store Dummy Pipeline modality data."""
 
     def __init__(
-        self, sampling_rate_hz: int = 1, incoming_payload_num_bytes: int = 100, **_,
+        self,
+        sampling_rate_hz: int = 1,
+        incoming_payload_num_bytes: int = 100,
+        **_,
     ) -> None:
         """Constructor of the DummyStream datastructure.
 
@@ -115,6 +118,10 @@ class DummyPipeStream(Stream):
 
     def get_fps(self) -> dict[str, float | None]:
         return {
-            "sensor-emulator-processed": super()._get_fps("sensor-emulator-processed", "data"),
-            "sensor-emulator-internal": super()._get_fps("sensor-emulator-internal", "data"),
+            "sensor-emulator-processed": super()._get_fps(
+                "sensor-emulator-processed", "data"
+            ),
+            "sensor-emulator-internal": super()._get_fps(
+                "sensor-emulator-internal", "data"
+            ),
         }

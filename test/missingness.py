@@ -452,13 +452,13 @@ if __name__ == "__main__":
             )
 
         if annotations[i] < 1e-6:
-            text = f"{annotations[i]*1e9:.0f} ppb"
+            text = f"{annotations[i] * 1e9:.0f} ppb"
         elif annotations[i] < 1e-3:
-            text = f"{annotations[i]*1e6:.0f} ppm"
+            text = f"{annotations[i] * 1e6:.0f} ppm"
         elif annotations[i] < 1e0:
-            text = f"{annotations[i]*1e3:.0f} ppt"
+            text = f"{annotations[i] * 1e3:.0f} ppt"
         else:
-            text = f"{annotations[i]*1e3:.0f} pph"
+            text = f"{annotations[i] * 1e3:.0f} pph"
 
         new_annotations.append(
             dict(

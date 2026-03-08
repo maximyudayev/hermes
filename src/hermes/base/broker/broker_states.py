@@ -148,8 +148,7 @@ class SyncBrokerBarrierState(AbstractBrokerState):
             address, _, broker_name, cmd = socket.recv_multipart()
             broker_name = broker_name.decode("utf-8")
             print(
-                "%s sent %s to %s"
-                % (broker_name, cmd.decode("utf-8"), self._host_ip),
+                "%s sent %s to %s" % (broker_name, cmd.decode("utf-8"), self._host_ip),
                 flush=True,
             )
             if broker_name in self._brokers_left_to_acknowledge:

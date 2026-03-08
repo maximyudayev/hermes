@@ -225,7 +225,9 @@ class TimestampToCounterConverter:
         Returns:
             int | None: Converted counter value starting at 0 counter value.
         """
-        delta_ticks = (timestamp - self._previous_timestamps[key]) % self._timestamp_limit  # type: ignore
+        delta_ticks = (
+            timestamp - self._previous_timestamps[key]
+        ) % self._timestamp_limit  # type: ignore
         self._previous_timestamps[key] = timestamp
         delta_counter = round(delta_ticks / self._sampling_period)
         self._counters[key] += delta_counter  # type: ignore

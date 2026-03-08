@@ -230,7 +230,7 @@ class Broker(BrokerInterface):
             self._state.run()
         self._stop()
         print("Experiment ended, thank you for using our system <3", flush=True)
-        
+
     def _fanout_user_input(self, user_input: tuple[float, str]) -> None:
         """Forward user keyboard input from the main thread of the parent process, to all the subprocesses.
 

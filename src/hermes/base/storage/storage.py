@@ -232,9 +232,9 @@ class Storage(StorageInterface):
         """
         for streamer_name, stream in self._streams.items():
             for device_name, device_info in stream.get_stream_info_all().items():
-                self._timesteps_before_solidified[streamer_name][
-                    device_name
-                ] = OrderedDict()
+                self._timesteps_before_solidified[streamer_name][device_name] = (
+                    OrderedDict()
+                )
                 for stream_name, stream_info in device_info.items():
                     self._timesteps_before_solidified[streamer_name][device_name][
                         stream_name
@@ -434,7 +434,9 @@ class Storage(StorageInterface):
                         **metadata_dict,
                     )
                     video_stream = video_stream.global_args("-hide_banner")
-                    video_writer: Popen = ffmpeg.run_async(video_stream, quiet=self._spec.is_quiet, pipe_stdin=True)  # type: ignore
+                    video_writer: Popen = ffmpeg.run_async(
+                        video_stream, quiet=self._spec.is_quiet, pipe_stdin=True
+                    )  # type: ignore
                     # Store the writer.
                     self._video_writers.append(
                         (video_writer, streamer_name, device_name, stream_name)
@@ -526,7 +528,9 @@ class Storage(StorageInterface):
                         **metadata_dict,
                     )
                     audio_stream = audio_stream.global_args("-hide_banner")
-                    audio_writer: Popen = ffmpeg.run_async(audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True)  # type: ignore
+                    audio_writer: Popen = ffmpeg.run_async(
+                        audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True
+                    )  # type: ignore
                     # Store the writer.
                     self._audio_writers.append(
                         (audio_writer, streamer_name, device_name, stream_name)
@@ -642,7 +646,9 @@ class Storage(StorageInterface):
                 for device_name, device_info in stream.get_stream_info_all().items():
                     for stream_name, stream_info in device_info.items():
                         try:
-                            dataset: h5py.Dataset = self._hdf5_file["/".join([streamer_name, device_name, stream_name])]  # type: ignore
+                            dataset: h5py.Dataset = self._hdf5_file[
+                                "/".join([streamer_name, device_name, stream_name])
+                            ]  # type: ignore
                         except KeyError:  # a dataset was not created for this stream
                             continue
                         starting_index = self._next_data_indices_hdf5[streamer_name][
@@ -655,7 +661,7 @@ class Storage(StorageInterface):
 
     def _close_files_video(self) -> None:
         """Flush/close the video files writers."""
-        for (video_writer, *_) in self._video_writers:
+        for video_writer, *_ in self._video_writers:
             video_writer.stdin.close()  # type: ignore
             if self._spec.is_quiet:
                 video_writer.stderr.close()  # type: ignore
@@ -665,7 +671,7 @@ class Storage(StorageInterface):
 
     def _close_files_csv(self) -> None:
         """Flush/close the CSV file writers."""
-        for (stream_writer, *_) in self._csv_writers:
+        for stream_writer, *_ in self._csv_writers:
             stream_writer.close()
         self._csv_writers = []
         if self._csv_writer_metadata is not None:
@@ -674,7 +680,7 @@ class Storage(StorageInterface):
 
     def _close_files_audio(self) -> None:
         """Flush/close the audio file writers."""
-        for (audio_writer, *_) in self._audio_writers:
+        for audio_writer, *_ in self._audio_writers:
             audio_writer.stdin.close()  # type: ignore
             if self._spec.is_quiet:
                 audio_writer.stderr.close()  # type: ignore
@@ -703,7 +709,9 @@ class Storage(StorageInterface):
         """
         if self._hdf5_file is not None:
             try:
-                dataset: h5py.Dataset = self._hdf5_file["/".join([node_name, device_name, stream_name])]  # type: ignore
+                dataset: h5py.Dataset = self._hdf5_file[
+                    "/".join([node_name, device_name, stream_name])
+                ]  # type: ignore
             except KeyError:  # a dataset was not created for this stream
                 return
             new_data: Iterator[Any] = self._streams[node_name].pop_data(
@@ -728,7 +736,8 @@ class Storage(StorageInterface):
                 if not (start_index + num_elements < len(dataset)):
                     dataset.resize(
                         (
-                            len(dataset) + max(self._hdf5_log_length_increment, num_elements),
+                            len(dataset)
+                            + max(self._hdf5_log_length_increment, num_elements),
                             *dataset.shape[1:],
                         )
                     )
@@ -736,9 +745,9 @@ class Storage(StorageInterface):
                 # Write the new entries.
                 # Update the next starting index to use.
                 start_index += num_elements
-                self._next_data_indices_hdf5[node_name][device_name][
-                    stream_name
-                ] = start_index
+                self._next_data_indices_hdf5[node_name][device_name][stream_name] = (
+                    start_index
+                )
             # Flush the file with the new data.
             self._hdf5_file.flush()
 
