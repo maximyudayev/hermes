@@ -25,15 +25,16 @@
 #
 # ############
 
-host_ip : "127.0.0.1"
-is_master_broker: True
+host_ip : "10.220.25.101"
+is_master_broker: False
 
-remote_subscriber_ips: []
+remote_subscriber_ips:
+  - "10.220.25.103"
 remote_publisher_ips: []
 connections: []
 
-is_remote_kill: False
-remote_kill_ip: null
+is_remote_kill: True
+remote_kill_ip: "10.220.25.103"
 
 
 logging_spec:
@@ -61,16 +62,7 @@ producer_specs:
       payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
 
 
-consumer_specs:
-  - package: "dummy"
-    class: "DummyConsumer"
-    settings:
-      stream_in_specs:
-        - package: "dummy"
-          class: "DummyProducer"
-          settings:
-            sampling_rate_hz: ${HERMES_EXP_RATE}
-            payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
+consumer_specs: []
 
 
 pipeline_specs: []
