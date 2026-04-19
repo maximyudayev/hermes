@@ -2,4 +2,4 @@
 
 . ../.venv/bin/activate
 
-python performance.py
+python performance.py ./data/latency/localhost

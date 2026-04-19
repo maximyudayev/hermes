@@ -42,6 +42,7 @@ def read_hdf5_dataset(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("base_path", type=str)
     parser.add_argument("trial", type=int)
     parser.add_argument("val", type=int)
     parser.add_argument("is_freq", type=int)
@@ -51,16 +52,16 @@ if __name__ == "__main__":
     folder = os.path.dirname(os.path.realpath(__file__))
 
     if args.is_freq == 1:
-        with open(Path(folder, "data/latency/latency_vs_frequency.txt"), "a") as f:
+        with open(Path(folder, f"{args.base_path}/latency_vs_frequency.txt"), "a") as f:
             producer_times, producer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder, f"data/latency/run_latency_vs_frequency/trial_{args.trial}/dummy-producer.hdf5"
+                    folder, f"{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-producer.hdf5"
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
             consumer_times, consumer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder, f"data/latency/run_latency_vs_frequency/trial_{args.trial}/dummy-consumer.hdf5"
+                    folder, f"{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-consumer.hdf5"
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
@@ -79,17 +80,17 @@ if __name__ == "__main__":
                 print(f"Experiment couldnt generate packets at {args.val}Hz")
 
     elif args.is_freq == 0:
-        with open(Path(folder, "data/latency/latency_vs_msgsize.txt"), "a") as f:
+        with open(Path(folder, f"{args.base_path}/latency_vs_msgsize.txt"), "a") as f:
             rate = 100
             producer_times, producer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder, f"data/latency/run_latency_vs_msgsize/trial_{args.trial}/dummy-producer.hdf5"
+                    folder, f"{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-producer.hdf5"
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
             consumer_times, consumer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder, f"data/latency/run_latency_vs_msgsize/trial_{args.trial}/dummy-consumer.hdf5"
+                    folder, f"{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-consumer.hdf5"
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
