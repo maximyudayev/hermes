@@ -25,16 +25,16 @@
 #
 # ############
 
-host_ip : "<slave_ip_address>"
+host_ip : "10.220.25.100"
 is_master_broker: False
 
 remote_subscriber_ips:
-  - "<master_ip_address>"
+  - "10.220.25.103"
 remote_publisher_ips: []
 connections: []
 
 is_remote_kill: True
-remote_kill_ip: "<master_ip_address>"
+remote_kill_ip: "10.220.25.103"
 
 
 logging_spec:

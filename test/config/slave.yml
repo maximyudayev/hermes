@@ -25,29 +25,16 @@
 #
 # ############
 
-host_ip : "<master_ip_address>"
-is_master_broker: True
+host_ip : "10.220.25.100"
+is_master_broker: False
 
-remote_subscriber_ips: []
-remote_publisher_ips:
-  - "<slave_ip_address>"
-connections:
-  - ssh_username: "<slave_username>"
-    ssh_host_ip: "<slave_ip_address>"
-    platform: "Windows"
-    config_filepath: "./slave.yml"
-    project_dir: "C:\\Users\\<slave_username>\\<hermes_project_path>"
-    output_dir: ".\\data\\latency\\multi_device"
+remote_subscriber_ips:
+  - "10.220.25.103"
+remote_publisher_ips: []
+connections: []
 
-  # - ssh_username: "<slave_username>"
-  #   ssh_host_ip: "<slave_ip_address>"
-  #   platform: "Linux"
-  #   config_filepath: "./slave.yml"
-  #   project_dir: "~/<hermes_project_path>"
-  #   output_dir: "./data/latency/multi_device"
-
-is_remote_kill: False
-remote_kill_ip: null
+is_remote_kill: True
+remote_kill_ip: "10.220.25.103"
 
 
 logging_spec:
@@ -68,18 +55,14 @@ audio_codec_config_filepath : null
 
 
 producer_specs:
-
-
-consumer_specs:
   - package: "dummy"
-    class: "DummyConsumer"
+    class: "DummyProducer"
     settings:
-      stream_in_specs:
-        - package: "dummy"
-          class: "DummyProducer"
-          settings:
-            sampling_rate_hz: ${HERMES_EXP_RATE}
-            payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
+      sampling_rate_hz: 100
+      payload_num_bytes: 1000000
+
+
+consumer_specs: []
 
 
 pipeline_specs: []

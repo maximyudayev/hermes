@@ -20,7 +20,7 @@ for n in 1 2 5 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000; do
   LOCAL_PATH="./data/latency/multi_device/run_latency_vs_frequency/trial_$counter"
 
   echo "Injecting environment variables into slave device configuration..."
-  python dist_utils.py slave_src.yml slave.yml
+  python utils/inject_envs.py slave_src.yml slave.yml
 
   echo "Starting experiment $counter..."
   hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_frequency trial=$counter -f master.yml
@@ -29,7 +29,7 @@ for n in 1 2 5 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000; do
   scp "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/*" "$LOCAL_PATH/"
 
   echo "Calculating latency between devices..."
-  python latency.py ./data/latency/multi_device $counter $n 1
+  python utils/calc_latency.py ./data/latency/multi_device $counter $n 1
 
   ((counter++))
   echo "Completed experiment $counter"
@@ -55,7 +55,7 @@ for n in 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000 200000 500
   LOCAL_PATH="./data/latency/multi_device/run_latency_vs_msgsize/trial_$counter"
 
   echo "Injecting environment variables into slave device configuration..."
-  python dist_utils.py slave_src.yml slave.yml
+  python utils/inject_envs.py slave_src.yml slave.yml
 
   echo "Starting experiment $counter..."
   hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_msgsize trial=$counter -f master.yml
@@ -64,7 +64,7 @@ for n in 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000 200000 500
   scp "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/*" "$LOCAL_PATH/"
 
   echo "Calculating latency between devices..."
-  python latency.py ./data/latency/multi_device $counter $n 0
+  python utils/calc_latency.py ./data/latency/multi_device $counter $n 0
 
   ((counter++))
   echo "Completed experiment $counter"

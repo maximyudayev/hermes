@@ -13,6 +13,7 @@ def parse_config_file(
     with open(out_file, "w") as f:
         f.write(config_str)
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python dist_utils.py <input_file_path> <output_file_path>")

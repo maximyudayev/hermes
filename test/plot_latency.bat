@@ -1,4 +1,4 @@
 @echo on
 call ..\.venv\Scripts\activate
 
-python performance.py .\data\latency\localhost
+python utils\gen_plot_latency.py .\data\latency\multi_device
