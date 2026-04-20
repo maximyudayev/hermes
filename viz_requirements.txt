@@ -1,0 +1,3 @@
+# Install with `uv pip install -r viz_requirements.txt`
+matplotlib
+scipy

@@ -39,29 +39,31 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     folder_path = os.path.dirname(os.path.realpath(__file__))
-    folder = Path(folder_path, f"../{args.base_path}")
-    subfolders = folder.glob("*")
+    root_folder = Path(folder_path, f"../{args.base_path}")
+    folders = root_folder.glob("*")
 
-    latency_vs_freq = dict()
-    latency_vs_msg = dict()
+    latency = dict()
 
-    for subfolder in subfolders:
-        device = subfolder.name
-        if os.path.exists(Path(subfolder, "latency_vs_frequency.csv")):
-            with open(Path(subfolder, "latency_vs_frequency.csv"), "r") as f:
-                f.readline()  # Skip header
-                data = [
-                    line.strip().split(",") for line in f.readlines() if line.strip()
-                ]
-                latency_vs_freq[device] = np.array(data, dtype=float)[:, 1:]
-
-        if os.path.exists(Path(subfolder, "latency_vs_msgsize.csv")):
-            with open(Path(subfolder, "latency_vs_msgsize.csv"), "r") as f:
-                f.readline()  # Skip header
-                data = [
-                    line.strip().split(",") for line in f.readlines() if line.strip()
-                ]
-                latency_vs_msg[device] = np.array(data, dtype=float)[:, 1:]
+    for folder in folders:
+        subfolders = folder.glob("*")
+        for subfolder in subfolders:
+            device = subfolder.name
+            if os.path.exists(Path(subfolder, "latency_vs_frequency.csv")):
+                with open(Path(subfolder, "latency_vs_frequency.csv"), "r") as f:
+                    f.readline()  # Skip header
+                    data = [
+                        line.strip().split(",") for line in f.readlines() if line.strip()
+                    ]
+                    latency.setdefault(folder.name, dict())
+                    latency[folder.name][device] = np.array(data, dtype=float)[:, 1:]
+            if os.path.exists(Path(subfolder, "latency_vs_msgsize.csv")):
+                with open(Path(subfolder, "latency_vs_msgsize.csv"), "r") as f:
+                    f.readline()  # Skip header
+                    data = [
+                        line.strip().split(",") for line in f.readlines() if line.strip()
+                    ]
+                    latency.setdefault(folder.name, dict())
+                    latency[folder.name][device] = np.array(data, dtype=float)[:, 1:]
 
     x_freq = [
         1,
@@ -115,59 +117,41 @@ if __name__ == "__main__":
         }
     )
 
-    # --- Plot for latency vs frequency ---
-    fig_freq, ax_freq = plt.subplots()
-
     colors = plt.get_cmap("tab10").colors
 
-    for i, (name, data) in enumerate(latency_vs_freq.items()):
-        color = colors[i % len(colors)]
-        mean = data[:, 0] * 1e3  # to ms
-        p50 = data[:, 5] * 1e3  # to ms
-        p95 = data[:, 7] * 1e3  # to ms
-        current_x_freq = x_freq[: len(data)]
+    for f in ['bytes_100', 'bytes_1000', 'bytes_5000', 'bytes_10000', 'rate_1', 'rate_10', 'rate_100', 'rate_1000']:
+        fig, ax = plt.subplots()
 
-        ax_freq.plot(
-            current_x_freq, mean, marker="o", linestyle="-", label=name, color=color
-        )
-        ax_freq.fill_between(
-            current_x_freq, p50, p95, alpha=0.2, color=color, edgecolor=None
-        )
+        cond, val_str = f.split("_")
+        val_num = int(val_str)
 
-    ax_freq.set_xscale("log")
-    ax_freq.set_title("Inter-device Latency w.r.t. Frequency @1kB")
-    ax_freq.set_xlabel("Frequency (Hz)")
-    ax_freq.set_ylabel("Latency (ms)")
-    # ax_freq.set_ylim(0, 3.5)
-    ax_freq.legend()
-    ax_freq.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5)
-    fig_freq.tight_layout()
+        if val_num >= 1000:
+            val_formatted = f"{val_num // 1000}k"
+        else:
+            val_formatted = val_str
 
-    # --- Plot for latency vs message size ---
-    fig_msg, ax_msg = plt.subplots()
+        for i, (name, data) in enumerate(latency[f].items()):
+            color = colors[i % len(colors)]
+            mean = data[:, 0] * 1e3  # to ms
+            p50 = data[:, 5] * 1e3  # to ms
+            p95 = data[:, 7] * 1e3  # to ms
+            current_x = x_freq[: len(data)]
 
-    for i, (name, data) in enumerate(latency_vs_msg.items()):
-        color = colors[i % len(colors)]
-        mean = data[:, 0] * 1e3  # to ms
-        p50 = data[:, 5] * 1e3  # to ms
-        p95 = data[:, 7] * 1e3  # to ms
-        current_x_msg = x_msg[: len(data)]
+            ax.plot(
+                current_x, mean, marker="o", linestyle="-", label=name, color=color
+            )
+            ax.fill_between(
+                current_x, p50, p95, alpha=0.2, color=color, edgecolor=None
+            )
 
-        ax_msg.plot(
-            current_x_msg, mean, marker="o", linestyle="-", label=name, color=color
-        )
-        ax_msg.fill_between(
-            current_x_msg, p50, p95, alpha=0.2, color=color, edgecolor=None
-        )
-
-    ax_msg.set_xscale("log")
-    ax_msg.set_title("Inter-device Latency w.r.t. Message Size @100Hz")
-    ax_msg.set_xlabel("Message Size (bytes)")
-    ax_msg.set_ylabel("Latency (ms)")
-    ax_msg.set_ylim(0, 10)
-    ax_msg.legend()
-    ax_msg.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5)
-    fig_msg.tight_layout()
+        ax.set_xscale("log")
+        ax.set_title(f"Intra-device Latency w.r.t. {'Frequency' if cond == "bytes" else 'Message Size'} @{val_formatted}{'B' if cond == "bytes" else 'Hz'}")
+        ax.set_xlabel("Frequency (Hz)" if cond == "bytes" else "Message Size (bytes)")
+        ax.set_ylabel("Latency (ms)")
+        ax.set_ylim(0, 3.5)
+        ax.legend()
+        ax.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5)
+        fig.tight_layout()
 
     plt.show()
     print("Done.")

@@ -48,4 +48,8 @@
 `wmic process call create "cmd.exe /c w32tm /stripchart /computer:10.220.25.99 /samples:720 /period:5 /dataonly > C:\Path\To\Your\Directory\ntp_sync_1hr.log"`
 
 #### Bash (Linux)
+Launch over SSH a background process that persists even on tunnel disconnection.
 `nohup bash -c 'for i in {1..720}; do echo "=== $(date +"%Y-%m-%d %H:%M:%S") ===" >> ntp_sync_1hr.log; chronyc tracking >> ntp_sync_1hr.log; echo "" >> ntp_sync_1hr.log; sleep 5; done' > /dev/null 2>&1 &`
+
+Parse the log file for analysis and plotting.
+`echo "\n\n\n" > ntp_parsed.log; awk '/===/ { ts = $2 " " $3 } /System time/ { print ts ", " $4 "s" }' ntp_sync_1hr.log >> ntp_parsed.log`

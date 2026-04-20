@@ -101,31 +101,61 @@ Make a copy of the `examples/video_codec_<type>.yml`, that matches your video en
 The system runs based on YAML configuration files, where connection to other hosts, and local or remote [Producer](https://yudayev.com/hermes/api/nodes/producer/)'s, [Consumer](https://yudayev.com/hermes/api/nodes/consumer/)'s, [Pipeline](https://yudayev.com/hermes/api/nodes/pipeline/)'s.
 
 ## Benchmarking
-### Latency
-1. Install Plotly into the current virtual environment `pip install plotly`.
+### Communication Latency
+1. Install plotting libraries into the current virtual environment `uv pip install -r viz_requirements.txt`.
 1. On each host device, run the latency evaluation automated script under `test/`:
    ```bash
    cd test
    ```
-   as `test_latency.bat` for Windows or `. test_latency.sh` for Linux.
-1. Gather generated text files from all tested devices and place in `test/data/latency/<device_name>` subfolders in the following structure. The folder name will be used as the trace name of the corresponding series.
+   as `test_latency_localhost.bat` for Windows or `. test_latency_localhost.sh` for Linux.
+1. Gather generated CSV files from all tested devices and place in `test/data/latency/localhost/<device_name>` subfolders in the following structure. The folder name will be used as the trace name of the corresponding series on the generated plot.
    ```bash
    root/
-   └───test
-       └───data
-           └───latency
-               ├───laptop
-               │   ├───latency_vs_frequency.txt
-               │   └───latency_vs_msgsize.txt
-               ├───nuc
-               ├───pi
-               └───server
+   └───test/
+       └───data/
+           └───latency/
+               ├───localhost/
+               │   ├───laptop/
+               │   │   ├───byte_100/
+               │   │   │   └───latency_vs_frequency.csv
+               │   │   └───rate_10/
+               │   │       └───latency_vs_msgsize.csv
+               │   ├───nuc/
+               │   ├───pi/
+               │   └───server/
+               └───multi_device/
    ```
-1. Visualize latencies by running `plot_latency.bat` for Windows or `. plot_latency.sh` for Linux:
+1. Invert the directory structure for batch visualization by running `python utils\invert_latency_subfolders.py` for Windows or `python utils/invert_latency_subfolders.py` for Linux.
+1. Visualize latencies by running `plot_latency.bat .\data\latency\localhost_inverted` for Windows or `. plot_latency.sh ./data/latency/localhost_inverted` for Linux. It will generate latencies for each device ran on the shared set of experimental parameters:
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_freq.png" alt="Latency vs sampling frequency" width="45%" />
   <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_msgsize.png" alt="Latency vs message size" width="45%" />
+</p>
+
+### Synchronization Consistency
+1. Log the NTP offset over time on each device, under network and processing load by running (will spawn a background process):
+   - **Windows** *(Option #1)* - Command Prompt
+     ```cmd
+     wmic process call create "cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > ntp_sync_1hr.log"
+     ```
+   - **Windows** *(Option #2)* - PowerShell
+     ```powershell
+     Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine = 'cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > ntp_sync_1hr.log'}
+     ```
+   - **Linux** - bash
+     ```bash
+     nohup bash -c 'for i in {1..720}; do echo "=== $(date +"%Y-%m-%d %H:%M:%S") ===" >> ntp_sync_1hr.log; chronyc tracking >> ntp_sync_1hr.log; echo "" >> ntp_sync_1hr.log; sleep 5; done' > /dev/null 2>&1 &
+     ```
+     Then parse the log into a comma-separated file:
+     ```bash
+     echo "\n\n\n" > ntp_parsed.log; awk '/===/ { ts = $2 " " $3 } /System time/ { print ts ", " $4 "s" }' ntp_sync_1hr.log >> ntp_parsed.log
+     ```
+1. Gather generated log files from all tested devices and place in `test/data/ntp_sync`. The file name will be used as the trace name of the corresponding series on the generated plot. Ideally, use the same names as in [latency](#communication-latency), to match colors.
+1. Run the plot generator script `plot_sync_tail.bat .\data\ntp_sync` on Windows or `. plot_sync_tail.sh ./data/ntp_sync` on Linux.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/sync_ntp.png" alt="Synchronization time offset tail curve across connected wired and wireless devices" width="45%" />
 </p>
 
 # Documentation

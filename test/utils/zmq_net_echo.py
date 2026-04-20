@@ -18,11 +18,15 @@ def run_echo(ip_address: str, sub_port: int, pub_port: int):
 
     try:
         while True:
-            # Block until a message arrives
-            payload = sub.recv()
+            # Wait for a message with a 30-second timeout
+            if sub.poll(30000):  # 30 seconds in milliseconds
+                payload = sub.recv()
 
-            # Immediately dump it back onto the network
-            pub.send(payload)
+                # Immediately dump it back onto the network
+                pub.send(payload)
+            else:
+                print("No message received for 30 seconds. Exiting.")
+                break
 
     except KeyboardInterrupt:
         print("Echo stopped by user.")
