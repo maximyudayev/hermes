@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ../.venv/bin/activate
+source ../../.venv/bin/activate
 
 DURATION=60
 
@@ -14,9 +14,9 @@ for b in 100 1000 5000 10000; do
     export HERMES_EXP_RATE=$r
 
     echo "Starting experiment $counter of 14: HERMES_EXP_NUM_BYTES=$b, HERMES_EXP_RATE=$r..."
-    hermes-cli -o $OUTPUT_PATH -d $DURATION --experiment run=latency_vs_frequency trial=$counter --config_file config/localhost.yml
+    hermes-cli -o $OUTPUT_PATH -d $DURATION --experiment run=latency_vs_frequency trial=$counter --config_file ../config/localhost.yml
 
-    python utils/calc_latency_localhost.py $OUTPUT_PATH $counter $r $b 1
+    python utils/calc_latency.py $OUTPUT_PATH $counter $r $b 1
     rm -r "${OUTPUT_PATH}/run_latency_vs_frequency/trial_${counter}"
 
     echo "Completed experiment $counter of 14: HERMES_EXP_NUM_BYTES=$b, HERMES_EXP_RATE=$r..."
@@ -37,9 +37,9 @@ for r in 1 10 100 1000; do
     export HERMES_EXP_NUM_BYTES=$b
 
     echo "Starting experiment $counter of 15: HERMES_EXP_RATE=$r, HERMES_EXP_NUM_BYTES=$b..."
-    hermes-cli -o $OUTPUT_PATH -d $DURATION --experiment run=latency_vs_msgsize trial=$counter --config_file config/localhost.yml
+    hermes-cli -o $OUTPUT_PATH -d $DURATION --experiment run=latency_vs_msgsize trial=$counter --config_file ../config/localhost.yml
 
-    python utils/calc_latency_localhost.py $OUTPUT_PATH $counter $r $b 0
+    python utils/calc_latency.py $OUTPUT_PATH $counter $r $b 0
     rm -r "${OUTPUT_PATH}/run_latency_vs_msgsize/trial_${counter}"
 
     echo "Completed experiment $counter of 15: HERMES_EXP_RATE=$r, HERMES_EXP_NUM_BYTES=$b..."

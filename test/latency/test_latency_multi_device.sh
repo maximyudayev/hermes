@@ -1,9 +1,9 @@
 #!/bin/bash
 
-. ../.venv/bin/activate
+source ../../.venv/bin/activate
 
-rm -r ./data/latency/multi_device/run_latency_vs_frequency
-rm -r ./data/latency/multi_device/run_latency_vs_msgsize
+rm -r data/latency/multi_device/run_latency_vs_frequency
+rm -r data/latency/multi_device/run_latency_vs_msgsize
 
 # --- Configuration for remote slave device. Match with the values in master.yml ---
 REMOTE_USER=<slave_username>
@@ -17,19 +17,19 @@ counter=0
 for n in 1 2 5 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000; do
   export HERMES_EXP_RATE=$n
   REMOTE_PATH="$REMOTE_BASE_DIR/data/latency/multi_device/run_latency_vs_frequency/trial_$counter"
-  LOCAL_PATH="./data/latency/multi_device/run_latency_vs_frequency/trial_$counter"
+  LOCAL_PATH="data/latency/multi_device/run_latency_vs_frequency/trial_$counter"
 
   echo "Injecting environment variables into slave device configuration..."
-  python utils/inject_envs.py slave_src.yml slave.yml
+  python utils/inject_envs.py ../config/slave_src.yml ../config/slave.yml
 
   echo "Starting experiment $counter..."
-  hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_frequency trial=$counter -f master.yml
+  hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_frequency trial=$counter -f ../config/master.yml
 
   echo "Copying results from remote device..."
   scp "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/*" "$LOCAL_PATH/"
 
   echo "Calculating latency between devices..."
-  python utils/calc_latency.py ./data/latency/multi_device $counter $n 1
+  python utils/calc_latency.py data/latency/multi_device $counter $HERMES_EXP_RATE $HERMES_EXP_NUM_BYTES 1
 
   ((counter++))
   echo "Completed experiment $counter"
@@ -52,19 +52,19 @@ counter=0
 for n in 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000 100000 200000 500000 1000000; do
   export HERMES_EXP_NUM_BYTES=$n
   REMOTE_PATH="$REMOTE_BASE_DIR/data/latency/multi_device/run_latency_vs_msgsize/trial_$counter"
-  LOCAL_PATH="./data/latency/multi_device/run_latency_vs_msgsize/trial_$counter"
+  LOCAL_PATH="data/latency/multi_device/run_latency_vs_msgsize/trial_$counter"
 
   echo "Injecting environment variables into slave device configuration..."
-  python utils/inject_envs.py slave_src.yml slave.yml
+  python utils/inject_envs.py ../config/slave_src.yml ../config/slave.yml
 
   echo "Starting experiment $counter..."
-  hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_msgsize trial=$counter -f master.yml
+  hermes-cli -o data/latency/multi_device -d $DURATION --experiment run=latency_vs_msgsize trial=$counter -f ../config/master.yml
 
   echo "Copying results from remote device..."
   scp "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/*" "$LOCAL_PATH/"
 
   echo "Calculating latency between devices..."
-  python utils/calc_latency.py ./data/latency/multi_device $counter $n 0
+  python utils/calc_latency.py data/latency/multi_device $counter $HERMES_EXP_RATE $HERMES_EXP_NUM_BYTES 0
 
   ((counter++))
   echo "Completed experiment $counter"

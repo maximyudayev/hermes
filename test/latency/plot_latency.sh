@@ -1,5 +1,5 @@
 #!/bin/bash
 
-. ../.venv/bin/activate
+source ../../.venv/bin/activate
 
 python utils/gen_plot_latency.py $1

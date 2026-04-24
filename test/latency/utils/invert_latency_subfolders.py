@@ -1,4 +1,4 @@
-import os
+import argparse
 import shutil
 from pathlib import Path
 
@@ -52,19 +52,36 @@ def invert_directory_structure(source_root: str, dest_root: str, copy_files: boo
 
 
 if __name__ == "__main__":
-    current_file = os.path.dirname(os.path.realpath(__file__))
-    source_directory = f"{current_file}/../data/latency/localhost"
-    destination_directory = f"{current_file}/../data/latency/localhost_inverted"
+    parser = argparse.ArgumentParser(
+        description="Analyze and plot timestamp jitter from an HDF5 file.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        '--in_dir',
+        '-i',
+        type=str,
+        required=True,
+        help="Input folder path."
+    )
+    parser.add_argument(
+        '--out_dir',
+        '-o',
+        type=str,
+        required=True,
+        help="Output folder path. Doesn't have to exist."
+    )
+
+    args = parser.parse_args()
 
     invert_directory_structure(
-        source_root=source_directory, 
-        dest_root=destination_directory,
+        source_root=args.in_dir,
+        dest_root=args.out_dir,
         copy_files=True
     )
 
     # --- Verification (Optional) ---
-    print("\n--- New structure in", destination_directory, "---")
+    print("\n--- New structure in", args.out_dir, "---")
     # This will print the contents of the newly created directory
-    for path in sorted(Path(destination_directory).rglob('*')):
-        indent = "  " * (len(path.parts) - len(Path(destination_directory).parts))
+    for path in sorted(Path(args.out_dir).rglob('*')):
+        indent = "  " * (len(path.parts) - len(Path(args.out_dir).parts))
         print(f"{indent}{path.name}")

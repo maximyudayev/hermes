@@ -1,30 +1,3 @@
-############
-#
-# Copyright (c) 2024-2026 Maxim Yudayev and KU Leuven eMedia Lab
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# Created 2024-2025 for the KU Leuven AidWear, AidFOG, and RevalExo projects
-# by Maxim Yudayev [https://yudayev.com].
-#
-# ############
-
 import numpy as np
 import h5py
 from pathlib import Path
@@ -50,26 +23,23 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    folder = os.path.dirname(os.path.realpath(__file__))
 
     if args.is_freq == 1:
         with open(
-            Path(folder, f"../{args.base_path}/latency_vs_frequency.csv"), "a"
+            Path(f"{args.base_path}/latency_vs_frequency.csv"), "a"
         ) as f:
             if f.tell() == 0:
                 f.write("value,mean,std,min,max,med,p50,p90,p95,p99\n")
 
             producer_times, producer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder,
-                    f"../{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-producer.hdf5",
+                    f"{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-producer.hdf5",
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
             consumer_times, consumer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder,
-                    f"../{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-consumer.hdf5",
+                    f"{args.base_path}/run_latency_vs_frequency/trial_{args.trial}/dummy-consumer.hdf5",
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
@@ -99,22 +69,20 @@ if __name__ == "__main__":
 
     elif args.is_freq == 0:
         with open(
-            Path(folder, f"../{args.base_path}/latency_vs_msgsize.csv"), "a"
+            Path(f"{args.base_path}/latency_vs_msgsize.csv"), "a"
         ) as f:
             if f.tell() == 0:
                 f.write("value,mean,std,min,max,med,p50,p90,p95,p99\n")
 
             producer_times, producer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder,
-                    f"../{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-producer.hdf5",
+                    f"{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-producer.hdf5",
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )
             consumer_times, consumer_sequences = read_hdf5_dataset(
                 filename=Path(
-                    folder,
-                    f"../{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-consumer.hdf5",
+                    f"{args.base_path}/run_latency_vs_msgsize/trial_{args.trial}/dummy-consumer.hdf5",
                 ),
                 dataset_name="dummy-producer/sensor-emulator",
             )

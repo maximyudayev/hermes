@@ -1,5 +1,4 @@
 import argparse
-import os
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -16,8 +15,7 @@ def plot_latency_distribution(log_folder_path: str):
                 return np.nan
         return value_str
 
-    root_folder = os.path.dirname(os.path.realpath(__file__))
-    folder_path = Path(root_folder, f"../{log_folder_path}")
+    folder_path = Path(log_folder_path)
     files = folder_path.glob("*.log")
 
     plt.rcParams.update(

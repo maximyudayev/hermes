@@ -30,6 +30,7 @@ import numpy as np
 import h5py
 from pathlib import Path
 import argparse
+import matplotlib.pyplot as plt
 import os
 
 
@@ -125,6 +126,24 @@ if __name__ == "__main__":
                 corrected_data = apply_rolling_minimum_filter(
                     my_data, "timestamp", "raw_delay_ms", window_seconds, args.floor
                 )
+
+                plt.figure(figsize=(12, 6))
+                plt.plot(
+                    corrected_data["timestamp"],
+                    corrected_data["raw_delay_ms"],
+                    label="Raw Latency",
+                )
+                plt.plot(
+                    corrected_data["timestamp"],
+                    corrected_data["final_corrected_latency"],
+                    label="Corrected Latency",
+                )
+                plt.title(f"Raw vs Corrected Latency (Message Size: {args.val} bytes)")
+                plt.xlabel("Timestamp (s)")
+                plt.ylabel("Latency (ms)")
+                plt.legend()
+                plt.grid(True)
+                plt.show()
 
                 p50, p90, p95, p99 = np.percentile(
                     corrected_data["final_corrected_latency"], [50, 90, 95, 99]
