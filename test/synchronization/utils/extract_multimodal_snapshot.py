@@ -136,10 +136,10 @@ def connect_bbox(
 
     prop_patches2 = prop_patches.copy()
     prop_patches2["alpha"] = 0.1
-    prop_patches2["color"] = "tab:red"
+    prop_patches2["color"] = "tab:grey"
     bbox_patch1 = BboxPatch(bbox1, **prop_patches2)
 
-    prop_patches2["alpha"] = 0.8
+    prop_patches2["alpha"] = 0.7
     bbox_patch2 = BboxPatch(bbox2, **prop_patches2)
 
     p = BboxConnectorPatch(
@@ -304,8 +304,8 @@ if __name__ == "__main__":
     print(f'Total {len(combined_timestamps)} video frames in trial, for {end_trial_toa - start_trial_toa:.2f}s', flush=True)
 
     # Prompt user for two timestamps from the list to generate an overlaid plot
-    cam_frame_id_1 = 15980 #int(input(f'Enter start frame between 0 and {len(combined_timestamps)-1} (e.g. 15980): '))
-    cam_frame_id_2 = 85000 #int(input(f'Enter end frame between {cam_frame_id_1} and {len(combined_timestamps)-1} (e.g. 85000): '))
+    cam_frame_id_1 = int(input(f'Enter start frame between 0 and {len(combined_timestamps)-1} (e.g. 15980): '))
+    cam_frame_id_2 = int(input(f'Enter end frame between {cam_frame_id_1} and {len(combined_timestamps)-1} (e.g. 85000): '))
     assert 0 <= cam_frame_id_1 < cam_frame_id_2 < len(combined_timestamps), "Invalid frame indices."
 
     toa_1, toa_2 = cam.get_toa_at_frame(cam_frame_id_1), cam.get_toa_at_frame(cam_frame_id_2)
@@ -341,11 +341,12 @@ if __name__ == "__main__":
     )
 
     fig = plt.figure()
-    plt.suptitle("Snapshot of Longitudinal Synchronization in Raw HERMES Multimodal Data", fontsize=18)
+    plt.suptitle("Snapshot of Longitudinal Synchronization in Raw HERMES Multimodal Data", fontsize=16)
 
     gs1 = GridSpec(2, 5, width_ratios=[1, 1, 1, 1, 1], height_ratios=[1, 1], wspace=0.15, bottom=0.37)
     gs2 = GridSpec(1, 5, width_ratios=[1, 1, 1, 1, 1], top=0.35)
 
+    time_fmt_precise_fn = lambda s: time.strftime('%M:%S', time.gmtime(s)) + f"{(s%1):.3f}"[1:]
     time_fmt_fn = lambda s, _: time.strftime('%M:%S', time.gmtime(s))
     formatter = FuncFormatter(time_fmt_fn)
 
@@ -367,23 +368,26 @@ if __name__ == "__main__":
 
     # --- Main Plot ---
     # Plot the full time series on the main axes
-    ax_main.plot(motor_timestamps-start_trial_toa, motor_data, label="Motor", color="tab:blue")
+    ax_main.plot(motor_timestamps-start_trial_toa, motor_data, label="Right hip motor", color="tab:blue")
     ax_main.set_xlim(0, duration)
     ax_main.set_xlabel("Time since start (mm:ss)")
     ax_main.set_ylabel("Motor position (degrees)", color="tab:blue")
     ax_main.tick_params(axis='y', labelcolor="tab:blue")
     ax_main.set_xticks(np.arange(0, duration + 1, 300))
-    ax_main_2.plot(imu_timestamps-start_trial_toa, imu_data[:, 0], label="IMU", color="tab:orange")
+    ax_main_2.plot(imu_timestamps-start_trial_toa, imu_data[:, 0], label="Right thigh IMU", color="tab:orange")
     ax_main_2.set_ylabel("IMU angle (degrees)", color="tab:orange")
     ax_main_2.tick_params(axis='y', labelcolor="tab:orange")
+    lines, labels = ax_main.get_legend_handles_labels()
+    lines2, labels2 = ax_main_2.get_legend_handles_labels()
+    ax_main_2.legend(lines + lines2, labels + labels2)
 
     # --- Zoom 1 Plot ---
-    # ax_zoom2.set_title(f"Zoom around {(toa_2-start_trial_toa):.3f}s")
+    ax_zoom1.set_title(f"Zoom at {time_fmt_precise_fn(toa_1-start_trial_toa)}", fontsize=12)
     ax_zoom1.plot(motor_timestamps-start_trial_toa, motor_data, color="tab:blue")
     zoom1_xmin = (toa_1-start_trial_toa) - 3.5
     zoom1_xmax = (toa_1-start_trial_toa) + 3.5
     ax_zoom1.set_xlim(zoom1_xmin-1.5, zoom1_xmax+1.5)
-    ax_zoom1.axvline(x=toa_1-start_trial_toa, color='r', linestyle='--')
+    ax_zoom1.axvline(x=toa_1-start_trial_toa, color='r', linestyle='--', linewidth=1.0)
     ax_zoom1.tick_params(axis='y', labelcolor="tab:blue")
     ax_zoom1.set_ylabel("Motor position (degrees)", color="tab:blue")
     ax_zoom1.grid(True, axis="x", linestyle="--", linewidth=0.5)
@@ -392,12 +396,12 @@ if __name__ == "__main__":
     ax_zoom1_2.set_ylabel("IMU angle (degrees)", color="tab:orange")
 
     # --- Zoom 2 Plot ---
-    # ax_zoom2.set_title(f"Zoom around {(toa_2-start_trial_toa):.3f}s")
+    ax_zoom2.set_title(f"Zoom at {time_fmt_precise_fn(toa_2-start_trial_toa)}", fontsize=12)
     ax_zoom2.plot(motor_timestamps-start_trial_toa, motor_data, color="tab:blue")
     zoom2_xmin = (toa_2-start_trial_toa) - 3.5
     zoom2_xmax = (toa_2-start_trial_toa) + 3.5
     ax_zoom2.set_xlim(zoom2_xmin-1.5, zoom2_xmax+1.5)
-    ax_zoom2.axvline(x=toa_2-start_trial_toa, color='r', linestyle='--')
+    ax_zoom2.axvline(x=toa_2-start_trial_toa, color='r', linestyle='--', linewidth=1.0)
     ax_zoom2.tick_params(axis='y', labelcolor="tab:blue")
     ax_zoom2.set_ylabel("Motor position (degrees)", color="tab:blue")
     ax_zoom2.grid(True, axis="x", linestyle="--", linewidth=0.5)
@@ -414,7 +418,6 @@ if __name__ == "__main__":
     plot_skeleton(ax_pose2, pose_frame_2, XSENS_SKELETON_CONNECTIONS)
 
     # --- Image Plots ---
-    # TODO: verify alignment between images and other sensors data. Skeleton looks off.
     ax_cam1.imshow(bytes_to_jpeg(cam_frame_1))
     # ax_cam1.set_title(f"Ref Cam @ {toa_1-start_trial_toa:.2f}s")
     ax_cam1.axis('off')
