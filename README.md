@@ -1,9 +1,9 @@
 <h1 align="center">
   <picture>
     <!-- Source for dark mode -->
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo_dark.png" media="(width = 60%)">
+    <source media="(prefers-color-scheme: dark)" srcset="images/logo_dark.png" media="(width = 60%)">
     <!-- Fallback image for light mode and other clients -->
-    <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/logo.png" alt="HERMES: Heterogeneous Edge Realtime Measurement and Execution System" width="60%">
+    <img src="images/logo.png" alt="HERMES: Heterogeneous Edge Realtime Measurement and Execution System" width="60%">
   </picture>
 
   <br>
@@ -33,7 +33,7 @@
 HERMES for the Greek mythology analogy of the god of communication and speed, protector of information, the gods' herald. He embodies the nature of smooth and reliable communication. His role accurately resonates with the vision of this framework: facilitate reliable and fast exchange of continuously generated multimodal physiological and external data across distributed wireless and wired multi-sensor hosts for synchronized realtime data collection, in-the-loop AI stream processing, and analysis, in intelligent med- and health-tech (wearable) applications.
 
 <br>
-<div align="center"><img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/overview.png" alt="Overview of the system architecture on one of the distributed hosts" width="80%"></div>
+<div align="center"><img src="images/overview.png" alt="Overview of the system architecture on one of the distributed hosts" width="80%"></div>
 <br>
 
 HERMES offers out-of-the-box streaming integrations to a number of commercial sensor devices and systems, high resolution cameras, templates for extension with custom user devices, and a ready-made wrapper for easy PyTorch AI model insertion. It reliably and synchronously captures heterogeneous data across distributed interconnected devices on a local network in a continuous manner, and enables realtime AI processing at the edge toward personalized intelligent closed-loop interventions of the user. All continuously acquired data is periodically flushed to disk for as long as the system has disk space, as MKV/MP4 and HDF5 files, for video and sensor data, respectively.
@@ -129,19 +129,23 @@ The system runs based on YAML configuration files, where connection to other hos
 1. Visualize latencies by running `plot_latency.bat .\data\latency\localhost_inverted` for Windows or `. plot_latency.sh ./data/latency/localhost_inverted` for Linux. It will generate latencies for each device ran on the shared set of experimental parameters:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_freq.png" alt="Latency vs sampling frequency" width="45%" />
-  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/latency_msgsize.png" alt="Latency vs message size" width="45%" />
+  <img src="images/latency_intra_freq.png" alt="Intra-device latency vs sampling frequency for 1kB messages" width="45%" />
+  <img src="images/latency_intra_msgsize.png" alt="Intra-device latency vs message size at 100Hz" width="45%" />
+</p>
+<p align="center">
+  <img src="images/latency_inter_freq.png" alt="Inter-device latency vs sampling frequency for 1kB messages" width="45%" />
+  <img src="images/latency_inter_msgsize.png" alt="Inter-device latency vs message size at 100Hz" width="45%" />
 </p>
 
 ### Synchronization Consistency
 1. Log the NTP offset over time on each device, under network and processing load by running (will spawn a background process):
    - **Windows** *(Option #1)* - Command Prompt
      ```cmd
-     wmic process call create "cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > ntp_sync_1hr.log"
+     wmic process call create "cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > %USERPROFILE%\Desktop\ntp_sync_1hr.log"
      ```
    - **Windows** *(Option #2)* - PowerShell
      ```powershell
-     Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine = 'cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > ntp_sync_1hr.log'}
+     Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine = 'cmd.exe /c w32tm /stripchart /computer:<local_ntp_server_ip> /samples:720 /period:5 /dataonly > %USERPROFILE%\Desktop\ntp_sync_1hr.log'}
      ```
    - **Linux** - bash
      ```bash
@@ -155,7 +159,22 @@ The system runs based on YAML configuration files, where connection to other hos
 1. Run the plot generator script `plot_sync_tail.bat .\data\ntp_sync` on Windows or `. plot_sync_tail.sh ./data/ntp_sync` on Linux.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/sync_ntp.png" alt="Synchronization time offset tail curve across connected wired and wireless devices" width="45%" />
+  <img src="images/sync_ntp.png" alt="Synchronization time offset tail curve across connected wired and wireless devices" width="45%" />
+</p>
+
+### Longitudinal Data Alignment
+1. Download [demo HERMES data](#longitudinal-data-alignment) [TBA] from a 4 device sensing setup:
+    * Raspberry Pi 5 exoskeleton controller
+    * LattePanda 3 Delta wearable companion (FPOV + gaze tracking)
+    * Xsens MoCap system connected to a laptop
+    * Camera PC with 4 high-resolution cameras
+1. Update the `DATA_PATH` in the appropriate [Windows](test/synchronization/plot_sync_experiment.bat#L4) or [Linux](test/synchronization/plot_sync_experiment.sh#L5) CLI script to point to the downloaded data folder.
+1. Run the plotting script and select the 2 points when prompted, to zoom-in on to visually validate synchronization in the raw longitudinal data:
+   - **Windows** -> `test\synchronization\plot_sync_experiment.bat`
+   - **Linux** -> `. test/synchronization/plot_sync_experiment.sh`
+
+<p align="center">
+  <img src="images/data_snapshot.png" alt="Snapshot of longitudinal synchronization in heterogenous multimodal data captured with HERMES from a real exoskeleton experiment with four separate host devices - Raspberry Pi 5 exoskeleton controller, LattePanda 3 Delta wearable companion, Xsens MoCap system connected to a laptop, and a camera PC with 4 high-resolution cameras" />
 </p>
 
 # Documentation
@@ -163,7 +182,7 @@ Check out the [full documentation site](https://yudayev.com/hermes) for more usa
 
 # Data Annotation
 <br>
-<div align="center"><img src="https://raw.githubusercontent.com/maximyudayev/hermes/refs/heads/main/images/gui.png" alt="Pysioviz: A dashboard for visualization and annotation of collected multimodal data for AI workflows" width="80%"></div>
+<div align="center"><img src="images/gui.png" alt="Pysioviz: A dashboard for visualization and annotation of collected multimodal data for AI workflows" width="80%"></div>
 <br>
 
 We developed [PysioViz](https://github.com/maximyudayev/pysioviz) a complementary dashboard based on [Dash Plotly](https://dash.plotly.com/) for analysis and annotation of the collected multimodal data. We use it ourselves to generate ground truth labels for the AI training workflows. Check it out and leave feedback!
