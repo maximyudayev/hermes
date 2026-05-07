@@ -26,7 +26,7 @@
 # ############
 
 
-host_ip : "10.220.25.99"
+host_ip: "10.220.25.99"
 is_master_broker: False
 
 remote_subscriber_ips:
@@ -41,7 +41,7 @@ remote_kill_ip: "10.220.25.162"
 
 logging_spec:
   stream_period_s     : 10
-  
+
   stream_hdf5         : True
   stream_csv          : False
   stream_video        : False
@@ -52,8 +52,8 @@ logging_spec:
   dump_video          : False
   dump_audio          : False
 
-video_codec_config_filepath : null
-audio_codec_config_filepath : null
+video_codec_config_filepath: null
+audio_codec_config_filepath: null
 
 
 producer_specs:
