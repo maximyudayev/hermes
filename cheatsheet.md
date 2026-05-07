@@ -54,9 +54,11 @@ Launch over SSH a background process that persists even on tunnel disconnection.
 Parse the log file for analysis and plotting.
 `echo "\n\n\n" > ntp_parsed.log; awk '/===/ { ts = $2 " " $3 } /System time/ { print ts ", " $4 "s" }' ntp_sync_1hr.log >> ntp_parsed.log`
 
-
-## Packaging
+## Python Packaging
+Update the changelog
 `git-changelog --bump <new_pypi_version> --filter-commits <previous_tag>..`
-`uv version --bump <[major,minor,patch]>`
+`git-changelog --bump <new_pypi_version> --filter-commits <previous_tag>.. -c angular -s :all:`
+`git-changelog --bump <new_pypi_version> -c angular -s :all:`
+`uv version --bump <[major,minor,patch]> [--dry-run] [--no-sync]`
 `uv build`
 `uv publish --token <pypi_token>`

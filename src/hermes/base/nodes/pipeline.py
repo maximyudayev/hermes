@@ -280,7 +280,6 @@ class Pipeline(PipelineInterface, Node):
         self._pub.send_multipart(
             [
                 ("%s.data" % self.topic).encode("utf-8"),
-                b"",
                 CMD_END.encode("utf-8"),
             ]
         )
