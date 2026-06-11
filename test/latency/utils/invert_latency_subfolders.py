@@ -2,7 +2,10 @@ import argparse
 import shutil
 from pathlib import Path
 
-def invert_directory_structure(source_root: str, dest_root: str, copy_files: bool = False):
+
+def invert_directory_structure(
+    source_root: str, dest_root: str, copy_files: bool = False
+):
     source_path = Path(source_root)
     dest_path = Path(dest_root)
 
@@ -29,15 +32,15 @@ def invert_directory_structure(source_root: str, dest_root: str, copy_files: boo
             # Construct the new destination directory path
             # e.g., dest_root / 'bytes_1' / 'A'
             new_dest_dir = dest_path / common_folder.name / unique_folder.name
-            
+
             # Create the new directory structure
             new_dest_dir.mkdir(parents=True, exist_ok=True)
 
             # Process each file within the common folder
-            for file_path in common_folder.glob('*'):
+            for file_path in common_folder.glob("*"):
                 if file_path.is_file():
                     dest_file = new_dest_dir / file_path.name
-                    
+
                     try:
                         if copy_files:
                             shutil.copy2(file_path, dest_file)
@@ -54,34 +57,32 @@ def invert_directory_structure(source_root: str, dest_root: str, copy_files: boo
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Analyze and plot timestamp jitter from an HDF5 file.",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        '--in_dir',
-        '-i',
+        "--in_dir",
+        "-i",
         type=str,
         required=True,
-        help="Input folder path."
+        help="Input folder path.",
     )
     parser.add_argument(
-        '--out_dir',
-        '-o',
+        "--out_dir",
+        "-o",
         type=str,
         required=True,
-        help="Output folder path. Doesn't have to exist."
+        help="Output folder path. Doesn't have to exist.",
     )
 
     args = parser.parse_args()
 
     invert_directory_structure(
-        source_root=args.in_dir,
-        dest_root=args.out_dir,
-        copy_files=True
+        source_root=args.in_dir, dest_root=args.out_dir, copy_files=True
     )
 
     # --- Verification (Optional) ---
     print("\n--- New structure in", args.out_dir, "---")
     # This will print the contents of the newly created directory
-    for path in sorted(Path(args.out_dir).rglob('*')):
+    for path in sorted(Path(args.out_dir).rglob("*")):
         indent = "  " * (len(path.parts) - len(Path(args.out_dir).parts))
         print(f"{indent}{path.name}")

@@ -3,6 +3,7 @@ import h5py
 
 from . import DataComponent
 
+
 class ExoImuComponent(DataComponent):
     def __init__(
         self,
@@ -18,18 +19,15 @@ class ExoImuComponent(DataComponent):
         self._offset = offset
         self._data: np.ndarray
         self._dimensions = [
+            {"label": "X", "value": 0},
             {
-                'label': 'X',
-                'value': 0
-            }, 
+                "label": "Y",
+                "value": 1,
+            },
             {
-                'label': 'Y',
-                'value': 1,
-            }, 
-            {
-                'label': 'Z',
-                'value': 2,
-            }, 
+                "label": "Z",
+                "value": 2,
+            },
         ]
 
         super().__init__(unique_id=unique_id)
@@ -39,21 +37,21 @@ class ExoImuComponent(DataComponent):
         self._read_data()
 
     def _read_timestamps(self):
-        with h5py.File(self._hdf5_path, 'r') as hdf5:
-            self._toa_s = hdf5[f'{self._data_path}/toa_s'][:, 0] - self._offset
+        with h5py.File(self._hdf5_path, "r") as hdf5:
+            self._toa_s = hdf5[f"{self._data_path}/toa_s"][:, 0] - self._offset
             if self._toa_s.ndim > 1:
                 self._toa_s = self._toa_s.flatten()
             self._first_timestamp = float(self._toa_s[0])
             self._last_timestamp = float(self._toa_s[-1])
 
     def _read_data(self):
-        with h5py.File(self._hdf5_path, 'r') as hdf5:
-            self._data = hdf5[f'{self._data_path}/euler'][:]
+        with h5py.File(self._hdf5_path, "r") as hdf5:
+            self._data = hdf5[f"{self._data_path}/euler"][:]
 
     def get_sync_info(self):
         return {
-            'first_timestamp': self._first_timestamp,
-            'last_timestamp': self._last_timestamp,
-            'timestamps': self._toa_s,
-            'data': self._data,
+            "first_timestamp": self._first_timestamp,
+            "last_timestamp": self._last_timestamp,
+            "timestamps": self._toa_s,
+            "data": self._data,
         }

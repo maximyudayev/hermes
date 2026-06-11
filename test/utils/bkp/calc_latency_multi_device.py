@@ -49,15 +49,17 @@ def apply_rolling_minimum_filter(
     window_seconds: int,
     physical_floor_ms: float,
 ) -> pd.DataFrame:
-    df['timestamp_dt'] = pd.to_datetime(df[time_col], unit='s')
+    df["timestamp_dt"] = pd.to_datetime(df[time_col], unit="s")
 
     # Set it as the index
-    df = df.set_index('timestamp_dt')
+    df = df.set_index("timestamp_dt")
 
     # 1. Calculate the rolling minimum (The 'Envelope')
     # We center the window so the offset correction is symmetric around the data point
-    window_str = f'{window_seconds}s'
-    rolling_min = df[latency_col].rolling(window=window_str, center=True, min_periods=1).min()
+    window_str = f"{window_seconds}s"
+    rolling_min = (
+        df[latency_col].rolling(window=window_str, center=True, min_periods=1).min()
+    )
 
     # 2. Subtract the wandering baseline
     # If the rolling min is -4ms, we subtract -4ms (which adds 4ms to the raw value)
@@ -121,7 +123,7 @@ if __name__ == "__main__":
                 )
 
                 # Dynamic windowing
-                window_seconds = max(0.5, min(10, 200/args.val))
+                window_seconds = max(0.5, min(10, 200 / args.val))
 
                 corrected_data = apply_rolling_minimum_filter(
                     my_data, "timestamp", "raw_delay_ms", window_seconds, args.floor
@@ -207,7 +209,7 @@ if __name__ == "__main__":
                 )
 
                 # Dynamic windowing
-                window_seconds = max(0.5, min(10, 200/rate))
+                window_seconds = max(0.5, min(10, 200 / rate))
 
                 corrected_data = apply_rolling_minimum_filter(
                     my_data, "timestamp", "raw_delay_ms", window_seconds, args.floor

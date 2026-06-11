@@ -23,11 +23,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-
     if args.is_freq == 1:
-        with open(
-            Path(f"{args.base_path}/latency_vs_frequency.csv"), "a"
-        ) as f:
+        with open(Path(f"{args.base_path}/latency_vs_frequency.csv"), "a") as f:
             if f.tell() == 0:
                 f.write("value,mean,std,min,max,med,p50,p90,p95,p99\n")
 
@@ -68,9 +65,7 @@ if __name__ == "__main__":
                 print(f"Experiment couldnt generate packets at {args.freq}Hz")
 
     elif args.is_freq == 0:
-        with open(
-            Path(f"{args.base_path}/latency_vs_msgsize.csv"), "a"
-        ) as f:
+        with open(Path(f"{args.base_path}/latency_vs_msgsize.csv"), "a") as f:
             if f.tell() == 0:
                 f.write("value,mean,std,min,max,med,p50,p90,p95,p99\n")
 
@@ -87,7 +82,10 @@ if __name__ == "__main__":
                 dataset_name="dummy-producer/sensor-emulator",
             )
             mean_gen_rate = np.mean(np.diff(producer_times, axis=0))
-            if mean_gen_rate < 1 / args.freq * 1.05 and mean_gen_rate > 1 / args.freq * 0.95:
+            if (
+                mean_gen_rate < 1 / args.freq * 1.05
+                and mean_gen_rate > 1 / args.freq * 0.95
+            ):
                 diff = (
                     consumer_times[:, 0]
                     - producer_times[:, 0][consumer_sequences[:, 0]]

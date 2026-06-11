@@ -6,10 +6,10 @@ from .ExoImuComponent import ExoImuComponent
 from .MotorComponent import MotorComponent
 
 __all__ = [
-    'DataComponent',
-    'VideoComponent',
-    'ReferenceVideoComponent',
-    'SkeletonComponent',
-    'ExoImuComponent',
-    'MotorComponent',
+    "DataComponent",
+    "VideoComponent",
+    "ReferenceVideoComponent",
+    "SkeletonComponent",
+    "ExoImuComponent",
+    "MotorComponent",
 ]

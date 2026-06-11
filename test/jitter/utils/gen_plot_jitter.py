@@ -7,7 +7,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 
-def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, file_path: str, dataset_path: str, sequence_path: str):
+def analyze_jitter(
+    log_file: TextIOWrapper,
+    group_name: str,
+    series_name: str,
+    file_path: str,
+    dataset_path: str,
+    sequence_path: str,
+):
     """
     Reads timestamp data from an HDF5 file, performs a linear fit,
     and returns the jitter and related statistics.
@@ -22,12 +29,14 @@ def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, f
         sequence_path (str): Path to the sequence number dataset.
     """
     try:
-        with h5py.File(file_path, 'r') as f:
+        with h5py.File(file_path, "r") as f:
             if dataset_path not in f:
                 print(f"Error: Dataset '{dataset_path}' not found in '{file_path}'.")
                 print("Available datasets:")
+
                 def print_name(name):
                     print(name)
+
                 f.visit(print_name)
                 return None
 
@@ -53,7 +62,9 @@ def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, f
         indices = indices.flatten()
 
     if len(indices) != num_samples:
-        print(f"Warning: Timestamp and counter datasets have different lengths ({num_samples} vs {len(indices)}).")
+        print(
+            f"Warning: Timestamp and counter datasets have different lengths ({num_samples} vs {len(indices)})."
+        )
         print("Falling back to sequential indices.")
         indices = np.arange(num_samples)
 
@@ -68,7 +79,9 @@ def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, f
     residuals_ms = residuals * 1000
 
     # Calculate statistics
-    p50_jitter_ms, p90_jitter_ms, p95_jitter_ms, p99_jitter_ms = np.percentile(residuals_ms, [50, 90, 95, 99])
+    p50_jitter_ms, p90_jitter_ms, p95_jitter_ms, p99_jitter_ms = np.percentile(
+        residuals_ms, [50, 90, 95, 99]
+    )
     mean_jitter_ms = np.mean(residuals_ms)
     std_jitter_ms = np.std(residuals_ms)
     sampling_rate_hz = 1 / slope
@@ -78,7 +91,7 @@ def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, f
     print(f"Dataset: {dataset_path}")
     print(f"Number of samples: {num_samples}")
     print(f"Estimated sampling rate: {sampling_rate_hz:.4f} Hz")
-    print(f"Sampling period (slope): {slope*1000:.4f} ms")
+    print(f"Sampling period (slope): {slope * 1000:.4f} ms")
     print(f"Mean jitter: {mean_jitter_ms:.4f} ms")
     print(f"Jitter (std dev): {std_jitter_ms:.4f} ms")
     print(f"Median jitter: {p50_jitter_ms:.4f} ms")
@@ -86,7 +99,7 @@ def analyze_jitter(log_file: TextIOWrapper, group_name: str, series_name: str, f
     print(f"Jitter (P99): {p99_jitter_ms:.4f} ms")
     print("------------------------------")
     log_file.write(
-        f"{group_name},{series_name},{sampling_rate_hz},{slope*1000},{num_samples},"
+        f"{group_name},{series_name},{sampling_rate_hz},{slope * 1000},{num_samples},"
         f"{mean_jitter_ms},{std_jitter_ms},{np.min(residuals_ms)},{np.max(residuals_ms)},"
         f"{p50_jitter_ms},{p90_jitter_ms},{p95_jitter_ms},{p99_jitter_ms}\n"
     )
@@ -120,14 +133,14 @@ def plot_multiple_jitters(jitter_data_list: list[dict]):
     fig_width = max(7, 2.5 * len(jitter_data_list))
     fig, ax = plt.subplots(figsize=(fig_width, 8))
 
-    labels = [d['label'] for d in jitter_data_list]
-    group_xloc = {group: [] for group in set([d['group'] for d in jitter_data_list])}
+    labels = [d["label"] for d in jitter_data_list]
+    group_xloc = {group: [] for group in set([d["group"] for d in jitter_data_list])}
     scatter_artist = None
 
     for i, data in enumerate(jitter_data_list):
-        residuals_ms = data['residuals_ms']
-        indices = data['indices']
-        group_xloc[data['group']].append(i)
+        residuals_ms = data["residuals_ms"]
+        indices = data["indices"]
+        group_xloc[data["group"]].append(i)
 
         max_index = indices.max() if indices.size > 0 else 1
 
@@ -171,7 +184,9 @@ def plot_multiple_jitters(jitter_data_list: list[dict]):
         shifted_x = [(x / max_abs_x * (violin_body_width / 2)) + i for x in all_x]
 
         # 4. Create the scatter plot
-        scatter_artist = ax.scatter(shifted_x, all_y, c=all_colors, cmap='copper', s=2, alpha=0.8, zorder=1)
+        scatter_artist = ax.scatter(
+            shifted_x, all_y, c=all_colors, cmap="copper", s=2, alpha=0.8, zorder=1
+        )
 
         # 5. Add a box plot inside the violin
         ax.boxplot(
@@ -181,25 +196,24 @@ def plot_multiple_jitters(jitter_data_list: list[dict]):
             patch_artist=True,
             showmeans=True,
             showfliers=False,
-            widths=0.1, # A fixed width that looks good inside the violin
+            widths=0.1,  # A fixed width that looks good inside the violin
             meanprops={"visible": False},
-            boxprops={
-                "facecolor": "limegreen",
-                "edgecolor": "limegreen",
-                "alpha": 0.8
-            },
+            boxprops={"facecolor": "limegreen", "edgecolor": "limegreen", "alpha": 0.8},
             whiskerprops={"color": "limegreen", "linewidth": 1.5},
             capprops={"visible": False},
             medianprops={"color": "white", "linewidth": 1.5},
-            zorder=2
+            zorder=2,
         )
 
     # Customize the plot aesthetics
-    ax.set_title('Temporal Evolution of Time-of-Arrival Jitter Distribution Across Heterogeneous Modalities', fontsize=14)
-    ax.set_ylabel('Time-of-Arrival Jitter (ms)', fontsize=14)
+    ax.set_title(
+        "Temporal Evolution of Time-of-Arrival Jitter Distribution Across Heterogeneous Modalities",
+        fontsize=14,
+    )
+    ax.set_ylabel("Time-of-Arrival Jitter (ms)", fontsize=14)
     # To position the x-axis label below the secondary ticks, add `labelpad`.
     # You can also set the font size for the label here.
-    ax.set_xlabel('Modality', labelpad=32, fontsize=14)
+    ax.set_xlabel("Modality", labelpad=32, fontsize=14)
     ax.set_xticks(np.arange(len(jitter_data_list)))
     ax.set_xticklabels(labels)
     # To change the font size of the primary (top) tick labels:
@@ -207,19 +221,21 @@ def plot_multiple_jitters(jitter_data_list: list[dict]):
     ax.grid(True, which="both", axis="y", linestyle="--", linewidth=0.5)
     sec = ax.secondary_xaxis(location=0)
     sec.set_xticks(
-        ticks=list(map(lambda vals: sum(vals)/len(vals), group_xloc.values())),
+        ticks=list(map(lambda vals: sum(vals) / len(vals), group_xloc.values())),
         labels=map(lambda k: f"\n\n{k}", group_xloc.keys()),
     )
     # To change the font size of the secondary (group) tick labels and remove the tick marks:
     # sec.tick_params(axis='x', labelsize=10, length=0)
     sec2 = ax.secondary_xaxis(location=0)
-    sec2.set_xticks([-0.5, *[vals[-1]+0.5 for vals in group_xloc.values()]], labels=[])
-    sec2.tick_params('x', length=40, width=1.0)
+    sec2.set_xticks(
+        [-0.5, *[vals[-1] + 0.5 for vals in group_xloc.values()]], labels=[]
+    )
+    sec2.tick_params("x", length=40, width=1.0)
 
     # Add a color bar to show the mapping from color to time (sample index)
     if scatter_artist:
         cbar = fig.colorbar(scatter_artist, ax=ax)
-        cbar.set_label('Temporal Evolution of the Recording (%)', fontsize=14)
+        cbar.set_label("Temporal Evolution of the Recording (%)", fontsize=14)
 
     fig.tight_layout()
 
@@ -227,80 +243,88 @@ def plot_multiple_jitters(jitter_data_list: list[dict]):
     print("Done.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Analyze and plot timestamp jitter from an HDF5 file.",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        '--out',
-        '-o',
+        "--out",
+        "-o",
         type=str,
         required=True,
-        help="Output folder path. Doesn't have to exist."
+        help="Output folder path. Doesn't have to exist.",
     )
     parser.add_argument(
-        '--group',
-        '-g',
-        action='append',
+        "--group",
+        "-g",
+        action="append",
         type=str,
         required=True,
-        help="Grouping by host device name. Can be specified multiple times."
+        help="Grouping by host device name. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--name',
-        '-n',
-        action='append',
+        "--name",
+        "-n",
+        action="append",
         type=str,
         required=True,
-        help="Name for the dataset. Can be specified multiple times."
+        help="Name for the dataset. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--file',
-        '-f',
-        action='append',
+        "--file",
+        "-f",
+        action="append",
         type=str,
         required=True,
-        help="Path to the HDF5 file. Can be specified multiple times."
+        help="Path to the HDF5 file. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--dataset',
-        '-d',
-        action='append',
+        "--dataset",
+        "-d",
+        action="append",
         type=str,
         required=True,
         help="Path to the timestamp dataset. Must be specified for each file.\n"
-             "Example: '/MyProducer/MyDevice/toa_s'. Can be specified multiple times."
+        "Example: '/MyProducer/MyDevice/toa_s'. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--sequence',
-        '-s',
-        action='append',
+        "--sequence",
+        "-s",
+        action="append",
         type=str,
         required=True,
         help="Path to the sequence dataset. Can be specified multiple times.\n"
-             "Example: '/MyProducer/MyDevice/counter'."
+        "Example: '/MyProducer/MyDevice/counter'.",
     )
 
     args = parser.parse_args()
 
-    if (len(args.sequence) != len(args.file) or 
-        len(args.dataset) != len(args.file) or
-        len(args.name) != len(args.file) or
-        len(args.group) != len(args.file)
+    if (
+        len(args.sequence) != len(args.file)
+        or len(args.dataset) != len(args.file)
+        or len(args.name) != len(args.file)
+        or len(args.group) != len(args.file)
     ):
-        sys.exit("Error: The number of --group, --name, --file, and --dataset arguments must match.")
+        sys.exit(
+            "Error: The number of --group, --name, --file, and --dataset arguments must match."
+        )
 
     jitter_data_list = []
     out_folder = Path(args.out)
     out_folder.mkdir(parents=True, exist_ok=True)
 
-    with open(
-        Path(out_folder, "stats.csv"), "w"
-    ) as f:
+    with open(Path(out_folder, "stats.csv"), "w") as f:
         f.write("group,name,rate,period,num_samples,mean,std,min,max,p50,p90,p95,p99\n")
         for i in range(len(args.file)):
-            data = analyze_jitter(f, args.group[i], args.name[i], args.file[i], args.dataset[i], args.sequence[i])
+            data = analyze_jitter(
+                f,
+                args.group[i],
+                args.name[i],
+                args.file[i],
+                args.dataset[i],
+                args.sequence[i],
+            )
             if data:
                 jitter_data_list.append(data)
 

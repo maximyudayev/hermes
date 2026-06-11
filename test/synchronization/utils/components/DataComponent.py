@@ -3,6 +3,7 @@ import numpy as np
 
 from .types import AlignmentInfo
 
+
 class DataComponent(ABC):
     def __init__(self, unique_id: str):
         self._unique_id = unique_id
@@ -24,7 +25,7 @@ class DataComponent(ABC):
         """Find the sample index closest but not later than a given timestamp."""
         time_diffs = (self._toa_s - sync_timestamp) <= 0
         return max(np.sum(time_diffs).item() - 1, 0)
-    
+
     def set_align_info(self, alignment_info: AlignmentInfo) -> None:
         """Set alignment info for the component."""
         self._align_info = alignment_info

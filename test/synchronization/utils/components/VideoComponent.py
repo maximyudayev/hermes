@@ -6,6 +6,7 @@ import h5py
 from components import DataComponent
 from components.types import VideoComponentInfo
 
+
 class VideoComponent(DataComponent):
     def __init__(
         self,
@@ -23,7 +24,9 @@ class VideoComponent(DataComponent):
         self._offset = offset
 
         # Get video properties
-        self._width, self._height, self._fps, self._total_frames = self._get_video_properties()
+        self._width, self._height, self._fps, self._total_frames = (
+            self._get_video_properties()
+        )
         self._empty_frame = np.zeros([self._height, self._width, 3], np.uint8)
         self._current_frame_id = 0
 
@@ -32,7 +35,6 @@ class VideoComponent(DataComponent):
     @property
     def current_frame_id(self) -> int:
         return self._current_frame_id
-
 
     def _decode(self, frame_id: int) -> bytes:
         # Seek to the timestamp because it is much faster than using frame index
@@ -44,24 +46,23 @@ class VideoComponent(DataComponent):
                 ss=timestamp_start,
             )
             .output(
-                'pipe:',
+                "pipe:",
                 vframes=1,
-                format='image2',
-                vcodec='mjpeg',
+                format="image2",
+                vcodec="mjpeg",
             )
             .run(capture_stdout=True, quiet=True)
         )
         return buf
 
-
     def read_data(self):
-        with h5py.File(self._hdf5_path, 'r') as hdf5:
+        with h5py.File(self._hdf5_path, "r") as hdf5:
             try:
-                self._toa_s = hdf5[f'{self._data_path}/toa_s'][:, 0] - self._offset
-                self._sequence = hdf5[f'{self._data_path}/frame_index'][:, 0]
-                self._timestamp = hdf5[f'{self._data_path}/frame_timestamp'][:, 0]
+                self._toa_s = hdf5[f"{self._data_path}/toa_s"][:, 0] - self._offset
+                self._sequence = hdf5[f"{self._data_path}/frame_index"][:, 0]
+                self._timestamp = hdf5[f"{self._data_path}/frame_timestamp"][:, 0]
             except Exception as e:
-                print(f'Error reading timestamps for cameras: {e}', flush=True)
+                print(f"Error reading timestamps for cameras: {e}", flush=True)
 
     def get_frame(self, frame_id: int) -> bytes:
         """Get video frame at a specific index."""
@@ -75,18 +76,22 @@ class VideoComponent(DataComponent):
         try:
             return self._decode(frame_id)
         except Exception as e:
-            print(f'Error getting frame {frame_id}: {e}')
+            print(f"Error getting frame {frame_id}: {e}")
             return self._empty_frame.tobytes()
 
     def _get_video_properties(self) -> Tuple[int, int, float, int]:
         """Get video width, height, fps, and total frames using `ffprobe`."""
         probe = ffmpeg.probe(self._video_path)
-        video_stream = next(stream for stream in probe['streams'] if stream['codec_type'] == 'video')
-        width = int(video_stream['width'])
-        height = int(video_stream['height'])
-        fps_num, fps_denum = map(lambda x: float(x), video_stream['r_frame_rate'].split('/'))
+        video_stream = next(
+            stream for stream in probe["streams"] if stream["codec_type"] == "video"
+        )
+        width = int(video_stream["width"])
+        height = int(video_stream["height"])
+        fps_num, fps_denum = map(
+            lambda x: float(x), video_stream["r_frame_rate"].split("/")
+        )
         fps = fps_num / fps_denum
-        num_frames = round(float(probe['format']['duration']) * fps)
+        num_frames = round(float(probe["format"]["duration"]) * fps)
 
         return width, height, fps, num_frames
 
@@ -105,7 +110,9 @@ class VideoComponent(DataComponent):
 
     def get_sequence_at_frame(self, frame_id: int) -> int:
         """Get the aligned sequence id for a given frame."""
-        return (self._sequence[frame_id] - self._sequence[self._align_info.start_id]).item()
+        return (
+            self._sequence[frame_id] - self._sequence[self._align_info.start_id]
+        ).item()
 
     def get_sync_info(self):
         return VideoComponentInfo(

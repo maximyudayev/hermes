@@ -10,7 +10,7 @@ def plot_latency_distribution(log_folder_path: str):
     def to_seconds_float(value_str):
         if isinstance(value_str, str):
             try:
-                return float(value_str.strip().rstrip('s'))
+                return float(value_str.strip().rstrip("s"))
             except ValueError:
                 return np.nan
         return value_str
@@ -34,7 +34,7 @@ def plot_latency_distribution(log_folder_path: str):
     )
     colors = plt.get_cmap("tab10").colors
     bin_width = 0.050  # 50 us in ms
-    marks = ['o', 'X', 'd', '*']  # Different markers for each statistic
+    marks = ["o", "X", "d", "*"]  # Different markers for each statistic
     max_lim = 0
     legend_handles = []
 
@@ -42,11 +42,11 @@ def plot_latency_distribution(log_folder_path: str):
         data = pd.read_csv(
             file,
             skiprows=3,
-            delimiter=',',
+            delimiter=",",
             header=None,
             usecols=[1],
             converters={1: to_seconds_float},
-            engine='python'
+            engine="python",
         )
         latencies = data[1].dropna().abs() * 1e3
         latencies = latencies[latencies > 0]  # Filter out zeros values
@@ -56,8 +56,10 @@ def plot_latency_distribution(log_folder_path: str):
             print("No positive latency data found to plot.")
             continue
 
-        device_name = file.name.split('.')[0]
-        legend_handles.append(plt.Line2D([0], [0], color=colors[i], lw=4, label=device_name))
+        device_name = file.name.split(".")[0]
+        legend_handles.append(
+            plt.Line2D([0], [0], color=colors[i], lw=4, label=device_name)
+        )
 
         # Calculate statistics
         mean_val = latencies.mean()
@@ -90,14 +92,16 @@ def plot_latency_distribution(log_folder_path: str):
 
         # Plot the PDF line
         plt.plot(x, pdf, lw=1, color=colors[i])
-        print(f"Fitted Log-Normal Parameters: shape={shape:.4f}, loc={loc:.4f}, scale={scale:.4f}")
+        print(
+            f"Fitted Log-Normal Parameters: shape={shape:.4f}, loc={loc:.4f}, scale={scale:.4f}"
+        )
 
         # Annotate the plot with vertical lines for the calculated statistics
         stats_to_plot = {
-            'Mean time offset': mean_val,
-            '50th percentile': p50_val,
-            '90th percentile': p90_val,
-            '95th percentile': p95_val,
+            "Mean time offset": mean_val,
+            "50th percentile": p50_val,
+            "90th percentile": p90_val,
+            "95th percentile": p95_val,
         }
 
         for k, (name, val) in enumerate(stats_to_plot.items()):
@@ -107,18 +111,32 @@ def plot_latency_distribution(log_folder_path: str):
             plt.plot(val, y_val_on_pdf, marks[k], color=colors[i], markersize=6)
 
     # Create proxy artists for the legend
-    legend_handles.append(plt.Rectangle((0, 0), 1, 1, color='grey', alpha=0.2, label='Time offset distribution'))
-    legend_handles.append(plt.Line2D([0], [0], color='grey', lw=1, label='Log normal PDF'))
+    legend_handles.append(
+        plt.Rectangle(
+            (0, 0), 1, 1, color="grey", alpha=0.2, label="Time offset distribution"
+        )
+    )
+    legend_handles.append(
+        plt.Line2D([0], [0], color="grey", lw=1, label="Log normal PDF")
+    )
 
     for k, name in enumerate(stats_to_plot.keys()):
         legend_handles.append(
-            plt.Line2D([0], [0], marker=marks[k], color='grey', label=name, linestyle='None', markersize=6)
+            plt.Line2D(
+                [0],
+                [0],
+                marker=marks[k],
+                color="grey",
+                label=name,
+                linestyle="None",
+                markersize=6,
+            )
         )
 
     # Finalize the plot with titles, labels, and a legend
-    plt.title(f'Synchronization Tail Analysis')
-    plt.xlabel('| Offset (ms) |')
-    plt.ylabel('Probability')
+    plt.title(f"Synchronization Tail Analysis")
+    plt.xlabel("| Offset (ms) |")
+    plt.ylabel("Probability")
     plt.xlim(0, max_lim * 1.1)
     plt.ylim(0, 2.5)
     plt.legend(handles=legend_handles)
@@ -133,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "log_folder",
         type=str,
-        help="Path to the log folder containing files to be parsed."
+        help="Path to the log folder containing files to be parsed.",
     )
     args = parser.parse_args()
 

@@ -127,7 +127,8 @@ class DummyProducer(Producer):
                 self._tag,
                 process_time_s=process_time_s,
                 data={
-                    "sensor-emulator": {"data": self._data, "sequence": self._sequence}
+                    "sensor-emulator1": {"data": self._data, "sequence": self._sequence},
+                    "sensor-emulator2": {"data": self._data, "sequence": self._sequence},
                 },
             )
             self._sequence += 1

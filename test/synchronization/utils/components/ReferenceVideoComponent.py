@@ -1,5 +1,6 @@
 from . import VideoComponent
 
+
 class ReferenceVideoComponent(VideoComponent):
     def update_camera(self, ref_timestamp):
         # Reference cameras override camera callback to match frame

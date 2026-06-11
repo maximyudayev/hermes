@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         ax.set_xscale("log")
         ax.set_title(
-            f"{'Intra' if args.base_path.split('/')[-1] == 'localhost' else 'Inter'}-device Latency w.r.t. {'Frequency' if cond == 'bytes' else 'Message Size'} @{val_formatted}{'B' if cond == 'bytes' else 'Hz'}"
+            f"{'Intra' if args.base_path.split('/')[-1] == 'localhost' else 'Inter'}-peer Latency w.r.t. {'Frequency' if cond == 'bytes' else 'Message Size'} @{val_formatted}{'B' if cond == 'bytes' else 'Hz'}"
         )
         ax.set_xlabel("Frequency (Hz)" if cond == "bytes" else "Message Size (bytes)")
         ax.set_ylabel("Latency (ms)")

@@ -18,13 +18,15 @@ def extract_refticks_from_cameras(
           videos alignment info, experiment start UNIX time, experiment end UNIX time.
     """
     if not camera_components:
-        raise ValueError('Camera components are required for synchronization.')
+        raise ValueError("Camera components are required for synchronization.")
 
     # ========================================
     # Get initial metadata from all components
     # ========================================
     camera_infos = [cam.get_sync_info() for cam in camera_components]
-    time_fmt_fn = lambda s: time.strftime('%H:%M:%S', time.gmtime(s)) + f'{(s%1):.6f}'[1:]
+    time_fmt_fn = lambda s: (
+        time.strftime("%H:%M:%S", time.gmtime(s)) + f"{(s % 1):.6f}"[1:]
+    )
 
     # =====================================================
     # Set range for the future slider, based on the cameras
@@ -54,15 +56,19 @@ def extract_refticks_from_cameras(
         camera_end_toas.append(cam_info.toa_s[end_id].squeeze())
 
         # Record sequence ids w.r.t. to aligned starting frame of each camera. (starts ids from 0 for easier gaps finding).
-        camera_sequences.append((cam_info.sequence[start_id:end_id] - cam_info.sequence[start_id]).squeeze())
+        camera_sequences.append(
+            (cam_info.sequence[start_id:end_id] - cam_info.sequence[start_id]).squeeze()
+        )
 
         # Use aligned indices (based on `frame_timestamp`) for truncation of each camera stream.
-        camera_align_info[cam._unique_id] = AlignmentInfo(start_id=start_id, end_id=end_id)
+        camera_align_info[cam._unique_id] = AlignmentInfo(
+            start_id=start_id, end_id=end_id
+        )
 
         print(
-            f'Camera {cam._unique_id}: '
-            f'start {start_id}, timestamp {timestamp[start_id].item()}, diff {(timestamp[start_id]-start_timestamp).item()/1e9}s, at {time_fmt_fn(camera_start_toas[-1].item())}s',
-            f'end {end_id}, timestamp {timestamp[end_id].item()}, diff {(timestamp[end_id]-end_timestamp).item()/1e9}s, at {time_fmt_fn(camera_end_toas[-1].item())}s',
+            f"Camera {cam._unique_id}: "
+            f"start {start_id}, timestamp {timestamp[start_id].item()}, diff {(timestamp[start_id] - start_timestamp).item() / 1e9}s, at {time_fmt_fn(camera_start_toas[-1].item())}s",
+            f"end {end_id}, timestamp {timestamp[end_id].item()}, diff {(timestamp[end_id] - end_timestamp).item() / 1e9}s, at {time_fmt_fn(camera_end_toas[-1].item())}s",
             flush=True,
         )
 
@@ -74,7 +80,9 @@ def extract_refticks_from_cameras(
     result_indices = []
     for arr in camera_sequences:
         idx_in_combined = np.searchsorted(combined_sequences, arr)
-        valid = (idx_in_combined < len(combined_sequences)) & (combined_sequences[idx_in_combined] == arr)
+        valid = (idx_in_combined < len(combined_sequences)) & (
+            combined_sequences[idx_in_combined] == arr
+        )
         contributes = valid & ~claimed[idx_in_combined]
         result_indices.append(np.where(contributes)[0])
         claimed[idx_in_combined[contributes]] = True
@@ -100,9 +108,17 @@ def extract_refticks_from_cameras(
     start_trial_toa = np.min(camera_start_toas)
     end_trial_toa = np.min(camera_end_toas)
 
-    return combined_timestamps, combined_toas, camera_align_info, start_trial_toa, end_trial_toa
+    return (
+        combined_timestamps,
+        combined_toas,
+        camera_align_info,
+        start_trial_toa,
+        end_trial_toa,
+    )
 
 
-def add_alignment_info(components: list[DataComponent], alignment_info: dict[str, AlignmentInfo]) -> None:
+def add_alignment_info(
+    components: list[DataComponent], alignment_info: dict[str, AlignmentInfo]
+) -> None:
     for component in components:
         component.set_align_info(alignment_info[component._unique_id])

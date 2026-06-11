@@ -17,9 +17,7 @@ def launch_echo_node(
 ) -> list[subprocess.Popen]:
     if ssh_os == "windows":
         remote_cmd = (
-            f"cd /d {launch_dir} && "
-            f"python utils\zmq_net_echo.py {master_ip} && "
-            f"exit"
+            f"cd /d {launch_dir} && python utils\zmq_net_echo.py {master_ip} && exit"
         )
     else:
         remote_cmd = (
@@ -66,7 +64,9 @@ def run_profiler(
     duration: int,
     freq: int,
 ):
-    ssh_echo_proc = launch_echo_node(echo_os, echo_username, echo_ip, echo_dir, profiler_ip)
+    ssh_echo_proc = launch_echo_node(
+        echo_os, echo_username, echo_ip, echo_dir, profiler_ip
+    )
 
     ctx = zmq.Context()
 
@@ -126,7 +126,7 @@ def run_profiler(
     physical_floor = absolute_min_rtt / 2.0
 
     current_folder = os.path.dirname(os.path.realpath(__file__))
-    with open(Path(current_folder, '../net_floor.txt'), 'w') as f:
+    with open(Path(current_folder, "../net_floor.txt"), "w") as f:
         f.write(f"{physical_floor:.9f}")
 
     print("\n--- Network Floor Profile Complete ---")

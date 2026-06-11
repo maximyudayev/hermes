@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import FuncFormatter
 from matplotlib.transforms import (
-    Bbox, 
+    Bbox,
     TransformedBbox,
     blended_transform_factory,
 )
@@ -30,7 +30,7 @@ from components import (
     MotorComponent,
     ReferenceVideoComponent,
     SkeletonComponent,
-    VideoComponent
+    VideoComponent,
 )
 
 # Define Xsens skeleton connections (assuming a 23-joint model).
@@ -38,16 +38,34 @@ from components import (
 # if your skeleton structure is different.
 XSENS_SKELETON_CONNECTIONS = [
     # Spine and Head
-    (0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6),
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (4, 5),
+    (5, 6),
     # Right Arm
-    (4, 7), (7, 8), (8, 9), (9, 10),
+    (4, 7),
+    (7, 8),
+    (8, 9),
+    (9, 10),
     # Left Arm
-    (4, 11), (11, 12), (12, 13), (13, 14),
+    (4, 11),
+    (11, 12),
+    (12, 13),
+    (13, 14),
     # Right Leg
-    (0, 15), (15, 16), (16, 17), (17, 18),
+    (0, 15),
+    (15, 16),
+    (16, 17),
+    (17, 18),
     # Left Leg
-    (0, 19), (19, 20), (20, 21), (21, 22),
+    (0, 19),
+    (19, 20),
+    (20, 21),
+    (21, 22),
 ]
+
 
 def create_components(modalities: dict) -> tuple[DataComponent, ...]:
     camera = ReferenceVideoComponent(
@@ -92,23 +110,11 @@ def create_components(modalities: dict) -> tuple[DataComponent, ...]:
         offset=modalities["pose"]["offset"],
     )
 
-    return (
-        camera,
-        ego,
-        motor,
-        imu,
-        skeleton
-    )
+    return (camera, ego, motor, imu, skeleton)
+
 
 def connect_bbox(
-    bbox1,
-    bbox2,
-    loc1a,
-    loc2a,
-    loc1b,
-    loc2b,
-    prop_lines,
-    prop_patches=None
+    bbox1, bbox2, loc1a, loc2a, loc1b, loc2b, prop_lines, prop_patches=None
 ):
     if prop_patches is None:
         prop_patches = {
@@ -118,20 +124,10 @@ def connect_bbox(
         }
 
     c1 = BboxConnector(
-        bbox1,
-        bbox2,
-        loc1=loc1a,
-        loc2=loc2a,
-        clip_on=False,
-        **prop_lines
+        bbox1, bbox2, loc1=loc1a, loc2=loc2a, clip_on=False, **prop_lines
     )
     c2 = BboxConnector(
-        bbox1,
-        bbox2,
-        loc1=loc1b,
-        loc2=loc2b,
-        clip_on=False,
-        **prop_lines
+        bbox1, bbox2, loc1=loc1b, loc2=loc2b, clip_on=False, **prop_lines
     )
 
     prop_patches2 = prop_patches.copy()
@@ -150,10 +146,11 @@ def connect_bbox(
         loc1b=loc1b,
         loc2b=loc2b,
         clip_on=False,
-        **prop_patches
+        **prop_patches,
     )
 
     return c1, c2, bbox_patch1, bbox_patch2, p
+
 
 def zoom_series(ax1, ax2, xmin, xmax, **kwargs):
     bbox = Bbox.from_extents(xmin, 0, xmax, 1)
@@ -171,7 +168,7 @@ def zoom_series(ax1, ax2, xmin, xmax, **kwargs):
         loc1b=4,
         loc2b=1,
         prop_lines=kwargs,
-        prop_patches=prop_patches
+        prop_patches=prop_patches,
     )
 
     ax1.add_patch(bbox_patch1)
@@ -182,9 +179,18 @@ def zoom_series(ax1, ax2, xmin, xmax, **kwargs):
 
     return c1, c2, bbox_patch1, bbox_patch2, p
 
+
 def plot_skeleton(ax, pose_data, connections):
     # Plot joints
-    ax.scatter(pose_data[:, 0], pose_data[:, 1], pose_data[:, 2], marker='o', color='tab:red', s=14, depthshade=True)
+    ax.scatter(
+        pose_data[:, 0],
+        pose_data[:, 1],
+        pose_data[:, 2],
+        marker="o",
+        color="tab:red",
+        s=14,
+        depthshade=True,
+    )
 
     # Plot bones
     for i, j in connections:
@@ -193,12 +199,12 @@ def plot_skeleton(ax, pose_data, connections):
                 [pose_data[i, 0], pose_data[j, 0]],
                 [pose_data[i, 1], pose_data[j, 1]],
                 [pose_data[i, 2], pose_data[j, 2]],
-                color='tab:blue',
-                linewidth=1.75
+                color="tab:blue",
+                linewidth=1.75,
             )
 
     x_lim = (np.min(pose_data[:, 0]), np.max(pose_data[:, 0]))
-    y_lim = (np.min(pose_data[:, 1]), np.max(pose_data[:, 1])) 
+    y_lim = (np.min(pose_data[:, 1]), np.max(pose_data[:, 1]))
     z_lim = (np.min(pose_data[:, 2]), np.max(pose_data[:, 2]))
 
     ax.set_xlim(*x_lim)
@@ -206,7 +212,7 @@ def plot_skeleton(ax, pose_data, connections):
     ax.set_zlim(*z_lim)
 
     # Set aspect ratio to be proportional to data ranges for a realistic shape
-    ax.set_box_aspect((x_lim[1]-x_lim[0], y_lim[1]-y_lim[0], z_lim[1]-z_lim[0]))
+    ax.set_box_aspect((x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]))
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     ax.set_zticklabels([])
@@ -220,6 +226,7 @@ def plot_skeleton(ax, pose_data, connections):
     ax.set_zmargin(0.0)
     ax.grid(False)
 
+
 def bytes_to_jpeg(jpeg_bytes: bytes) -> np.ndarray:
     # Create a binary stream from the raw bytes
     image_stream = io.BytesIO(jpeg_bytes)
@@ -228,100 +235,148 @@ def bytes_to_jpeg(jpeg_bytes: bytes) -> np.ndarray:
     # Convert the Pillow image to a NumPy array
     return np.array(pil_image)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--name',
-        '-n',
-        action='append',
+        "--name",
+        "-n",
+        action="append",
         type=str,
         required=True,
-        help="Name of the modality. Can be specified multiple times."
+        help="Name of the modality. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--file',
-        '-f',
-        action='append',
+        "--file",
+        "-f",
+        action="append",
         type=str,
         required=True,
-        help="Path to the HDF5 file. Can be specified multiple times."
+        help="Path to the HDF5 file. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--video',
-        '-v',
-        action='append',
+        "--video",
+        "-v",
+        action="append",
         type=str,
         default=None,
         required=False,
-        help="Path to the video file. Can be specified multiple times."
+        help="Path to the video file. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--dataset',
-        '-d',
-        action='append',
+        "--dataset",
+        "-d",
+        action="append",
         type=str,
         required=True,
         help="Path to the dataset. Must be specified for each file.\n"
-             "Example: '/MyProducer/MyDevice/'. Can be specified multiple times."
+        "Example: '/MyProducer/MyDevice/'. Can be specified multiple times.",
     )
     parser.add_argument(
-        '--offset',
-        '-o',
-        action='append',
+        "--offset",
+        "-o",
+        action="append",
         type=float,
         required=True,
-        help="Offset for initial alignment to counter internal delay of the corresponding system. Can be specified multiple times."
+        help="Offset for initial alignment to counter internal delay of the corresponding system. Can be specified multiple times.",
     )
 
     args = parser.parse_args()
 
-    if (len(args.name) != len(args.file) or
-        len(args.video) != len(args.file) or
-        len(args.dataset) != len(args.file) or
-        len(args.offset) != len(args.file)
+    if (
+        len(args.name) != len(args.file)
+        or len(args.video) != len(args.file)
+        or len(args.dataset) != len(args.file)
+        or len(args.offset) != len(args.file)
     ):
-        sys.exit("Error: The number of --name, --video, --dataset, --offset arguments must match.")
+        sys.exit(
+            "Error: The number of --name, --video, --dataset, --offset arguments must match."
+        )
 
     modalities = dict(
-        map(lambda x: (x[0], dict(zip(["file", "video", "dataset", "offset"], x[1:]))),
+        map(
+            lambda x: (x[0], dict(zip(["file", "video", "dataset", "offset"], x[1:]))),
             zip(
                 args.name,
                 args.file,
                 args.video,
                 args.dataset,
                 args.offset,
-            )
+            ),
         )
     )
 
     cam, ego, motor, imu, pose = create_components(modalities)
-    combined_timestamps, combined_toas, camera_align_info, start_trial_toa, end_trial_toa = (
-        extract_refticks_from_cameras([cam])
-    )
+    (
+        combined_timestamps,
+        combined_toas,
+        camera_align_info,
+        start_trial_toa,
+        end_trial_toa,
+    ) = extract_refticks_from_cameras([cam])
     add_alignment_info([cam], camera_align_info)
 
-    print(f'\nUsing Cameras as reference for visualization duration', flush=True)
-    print(f'Total {len(combined_timestamps)} video frames in trial, for {end_trial_toa - start_trial_toa:.2f}s', flush=True)
+    print(f"\nUsing Cameras as reference for visualization duration", flush=True)
+    print(
+        f"Total {len(combined_timestamps)} video frames in trial, for {end_trial_toa - start_trial_toa:.2f}s",
+        flush=True,
+    )
 
     # Prompt user for two timestamps from the list to generate an overlaid plot
-    cam_frame_id_1 = int(input(f'Enter start frame between 0 and {len(combined_timestamps)-1} (e.g. 15980): '))
-    cam_frame_id_2 = int(input(f'Enter end frame between {cam_frame_id_1} and {len(combined_timestamps)-1} (e.g. 85000): '))
-    assert 0 <= cam_frame_id_1 < cam_frame_id_2 < len(combined_timestamps), "Invalid frame indices."
+    cam_frame_id_1 = int(
+        input(
+            f"Enter start frame between 0 and {len(combined_timestamps) - 1} (e.g. 15980): "
+        )
+    )
+    cam_frame_id_2 = int(
+        input(
+            f"Enter end frame between {cam_frame_id_1} and {len(combined_timestamps) - 1} (e.g. 85000): "
+        )
+    )
+    assert 0 <= cam_frame_id_1 < cam_frame_id_2 < len(combined_timestamps), (
+        "Invalid frame indices."
+    )
 
-    toa_1, toa_2 = cam.get_toa_at_frame(cam_frame_id_1), cam.get_toa_at_frame(cam_frame_id_2)
-    ego_frame_id_1, ego_frame_id_2 = ego.get_frame_for_toa(toa_1), ego.get_frame_for_toa(toa_2)
-    pose_frame_id_1, pose_frame_id_2 = pose.get_frame_for_toa(toa_1), pose.get_frame_for_toa(toa_2)
+    toa_1, toa_2 = (
+        cam.get_toa_at_frame(cam_frame_id_1),
+        cam.get_toa_at_frame(cam_frame_id_2),
+    )
+    ego_frame_id_1, ego_frame_id_2 = (
+        ego.get_frame_for_toa(toa_1),
+        ego.get_frame_for_toa(toa_2),
+    )
+    pose_frame_id_1, pose_frame_id_2 = (
+        pose.get_frame_for_toa(toa_1),
+        pose.get_frame_for_toa(toa_2),
+    )
 
-    imu_idx_start, imu_idx_end = imu.get_frame_for_toa(start_trial_toa), imu.get_frame_for_toa(end_trial_toa)
-    motor_idx_start, motor_idx_end = motor.get_frame_for_toa(start_trial_toa), motor.get_frame_for_toa(end_trial_toa)
+    imu_idx_start, imu_idx_end = (
+        imu.get_frame_for_toa(start_trial_toa),
+        imu.get_frame_for_toa(end_trial_toa),
+    )
+    motor_idx_start, motor_idx_end = (
+        motor.get_frame_for_toa(start_trial_toa),
+        motor.get_frame_for_toa(end_trial_toa),
+    )
 
-    cam_frame_1, cam_frame_2 = cam.get_frame(cam_frame_id_1), cam.get_frame(cam_frame_id_2)
-    ego_frame_1, ego_frame_2 = ego.get_frame(ego_frame_id_1), ego.get_frame(ego_frame_id_2)
-    pose_frame_1, pose_frame_2 = pose.get_sync_info()['data'][pose_frame_id_1], pose.get_sync_info()['data'][pose_frame_id_2]
-    imu_data = imu.get_sync_info()['data'][imu_idx_start:imu_idx_end]
-    imu_timestamps = imu.get_sync_info()['timestamps'][imu_idx_start:imu_idx_end]
-    motor_data = motor.get_sync_info()['data'][motor_idx_start:motor_idx_end]
-    motor_timestamps = motor.get_sync_info()['timestamps'][motor_idx_start:motor_idx_end]
+    cam_frame_1, cam_frame_2 = (
+        cam.get_frame(cam_frame_id_1),
+        cam.get_frame(cam_frame_id_2),
+    )
+    ego_frame_1, ego_frame_2 = (
+        ego.get_frame(ego_frame_id_1),
+        ego.get_frame(ego_frame_id_2),
+    )
+    pose_frame_1, pose_frame_2 = (
+        pose.get_sync_info()["data"][pose_frame_id_1],
+        pose.get_sync_info()["data"][pose_frame_id_2],
+    )
+    imu_data = imu.get_sync_info()["data"][imu_idx_start:imu_idx_end]
+    imu_timestamps = imu.get_sync_info()["timestamps"][imu_idx_start:imu_idx_end]
+    motor_data = motor.get_sync_info()["data"][motor_idx_start:motor_idx_end]
+    motor_timestamps = motor.get_sync_info()["timestamps"][
+        motor_idx_start:motor_idx_end
+    ]
     duration = end_trial_toa - start_trial_toa
 
     # Generate the overlaid plot for the selected frame range using the aligned data from all components.
@@ -341,13 +396,25 @@ if __name__ == "__main__":
     )
 
     fig = plt.figure()
-    plt.suptitle("Snapshot of Longitudinal Synchronization in Raw HERMES Multimodal Data", fontsize=16)
+    plt.suptitle(
+        "Snapshot of Longitudinal Synchronization in Raw HERMES Multimodal Data",
+        fontsize=16,
+    )
 
-    gs1 = GridSpec(2, 5, width_ratios=[1, 1, 1, 1, 1], height_ratios=[1, 1], wspace=0.15, bottom=0.37)
+    gs1 = GridSpec(
+        2,
+        5,
+        width_ratios=[1, 1, 1, 1, 1],
+        height_ratios=[1, 1],
+        wspace=0.15,
+        bottom=0.37,
+    )
     gs2 = GridSpec(1, 5, width_ratios=[1, 1, 1, 1, 1], top=0.35)
 
-    time_fmt_precise_fn = lambda s: time.strftime('%M:%S', time.gmtime(s)) + f"{(s%1):.3f}"[1:]
-    time_fmt_fn = lambda s, _: time.strftime('%M:%S', time.gmtime(s))
+    time_fmt_precise_fn = lambda s: (
+        time.strftime("%M:%S", time.gmtime(s)) + f"{(s % 1):.3f}"[1:]
+    )
+    time_fmt_fn = lambda s, _: time.strftime("%M:%S", time.gmtime(s))
     formatter = FuncFormatter(time_fmt_fn)
 
     ax_main = fig.add_subplot(gs1[1, :])
@@ -359,8 +426,8 @@ if __name__ == "__main__":
     ax_zoom2 = fig.add_subplot(gs1[0, -1])
     ax_zoom2.xaxis.set_major_formatter(formatter)
     ax_zoom2_2 = ax_zoom2.twinx()
-    ax_pose1 = fig.add_subplot(gs1[0, 1], projection='3d')
-    ax_pose2 = fig.add_subplot(gs1[0, -2], projection='3d')
+    ax_pose1 = fig.add_subplot(gs1[0, 1], projection="3d")
+    ax_pose2 = fig.add_subplot(gs1[0, -2], projection="3d")
     ax_cam1 = fig.add_subplot(gs2[0, 0])
     ax_ego1 = fig.add_subplot(gs2[0, 1])
     ax_cam2 = fig.add_subplot(gs2[0, -2])
@@ -368,45 +435,67 @@ if __name__ == "__main__":
 
     # --- Main Plot ---
     # Plot the full time series on the main axes
-    ax_main.plot(motor_timestamps-start_trial_toa, motor_data, label="Right hip motor", color="tab:blue")
+    ax_main.plot(
+        motor_timestamps - start_trial_toa,
+        motor_data,
+        label="Right hip motor",
+        color="tab:blue",
+    )
     ax_main.set_xlim(0, duration)
     ax_main.set_xlabel("Time since start (mm:ss)")
     ax_main.set_ylabel("Motor position (degrees)", color="tab:blue")
-    ax_main.tick_params(axis='y', labelcolor="tab:blue")
+    ax_main.tick_params(axis="y", labelcolor="tab:blue")
     ax_main.set_xticks(np.arange(0, duration + 1, 300))
-    ax_main_2.plot(imu_timestamps-start_trial_toa, imu_data[:, 0], label="Right thigh IMU", color="tab:orange")
+    ax_main_2.plot(
+        imu_timestamps - start_trial_toa,
+        imu_data[:, 0],
+        label="Right thigh IMU",
+        color="tab:orange",
+    )
     ax_main_2.set_ylabel("IMU angle (degrees)", color="tab:orange")
-    ax_main_2.tick_params(axis='y', labelcolor="tab:orange")
+    ax_main_2.tick_params(axis="y", labelcolor="tab:orange")
     lines, labels = ax_main.get_legend_handles_labels()
     lines2, labels2 = ax_main_2.get_legend_handles_labels()
     ax_main_2.legend(lines + lines2, labels + labels2)
 
     # --- Zoom 1 Plot ---
-    ax_zoom1.set_title(f"Zoom at {time_fmt_precise_fn(toa_1-start_trial_toa)}", fontsize=12)
-    ax_zoom1.plot(motor_timestamps-start_trial_toa, motor_data, color="tab:blue")
-    zoom1_xmin = (toa_1-start_trial_toa) - 3.5
-    zoom1_xmax = (toa_1-start_trial_toa) + 3.5
-    ax_zoom1.set_xlim(zoom1_xmin-1.5, zoom1_xmax+1.5)
-    ax_zoom1.axvline(x=toa_1-start_trial_toa, color='r', linestyle='--', linewidth=1.0)
-    ax_zoom1.tick_params(axis='y', labelcolor="tab:blue")
+    ax_zoom1.set_title(
+        f"Zoom at {time_fmt_precise_fn(toa_1 - start_trial_toa)}", fontsize=12
+    )
+    ax_zoom1.plot(motor_timestamps - start_trial_toa, motor_data, color="tab:blue")
+    zoom1_xmin = (toa_1 - start_trial_toa) - 3.5
+    zoom1_xmax = (toa_1 - start_trial_toa) + 3.5
+    ax_zoom1.set_xlim(zoom1_xmin - 1.5, zoom1_xmax + 1.5)
+    ax_zoom1.axvline(
+        x=toa_1 - start_trial_toa, color="r", linestyle="--", linewidth=1.0
+    )
+    ax_zoom1.tick_params(axis="y", labelcolor="tab:blue")
     ax_zoom1.set_ylabel("Motor position (degrees)", color="tab:blue")
     ax_zoom1.grid(True, axis="x", linestyle="--", linewidth=0.5)
-    ax_zoom1_2.plot(imu_timestamps-start_trial_toa, imu_data[:, 0], color="tab:orange")
-    ax_zoom1_2.tick_params(axis='y', labelcolor="tab:orange")
+    ax_zoom1_2.plot(
+        imu_timestamps - start_trial_toa, imu_data[:, 0], color="tab:orange"
+    )
+    ax_zoom1_2.tick_params(axis="y", labelcolor="tab:orange")
     ax_zoom1_2.set_ylabel("IMU angle (degrees)", color="tab:orange")
 
     # --- Zoom 2 Plot ---
-    ax_zoom2.set_title(f"Zoom at {time_fmt_precise_fn(toa_2-start_trial_toa)}", fontsize=12)
-    ax_zoom2.plot(motor_timestamps-start_trial_toa, motor_data, color="tab:blue")
-    zoom2_xmin = (toa_2-start_trial_toa) - 3.5
-    zoom2_xmax = (toa_2-start_trial_toa) + 3.5
-    ax_zoom2.set_xlim(zoom2_xmin-1.5, zoom2_xmax+1.5)
-    ax_zoom2.axvline(x=toa_2-start_trial_toa, color='r', linestyle='--', linewidth=1.0)
-    ax_zoom2.tick_params(axis='y', labelcolor="tab:blue")
+    ax_zoom2.set_title(
+        f"Zoom at {time_fmt_precise_fn(toa_2 - start_trial_toa)}", fontsize=12
+    )
+    ax_zoom2.plot(motor_timestamps - start_trial_toa, motor_data, color="tab:blue")
+    zoom2_xmin = (toa_2 - start_trial_toa) - 3.5
+    zoom2_xmax = (toa_2 - start_trial_toa) + 3.5
+    ax_zoom2.set_xlim(zoom2_xmin - 1.5, zoom2_xmax + 1.5)
+    ax_zoom2.axvline(
+        x=toa_2 - start_trial_toa, color="r", linestyle="--", linewidth=1.0
+    )
+    ax_zoom2.tick_params(axis="y", labelcolor="tab:blue")
     ax_zoom2.set_ylabel("Motor position (degrees)", color="tab:blue")
     ax_zoom2.grid(True, axis="x", linestyle="--", linewidth=0.5)
-    ax_zoom2_2.plot(imu_timestamps-start_trial_toa, imu_data[:, 0], color="tab:orange")
-    ax_zoom2_2.tick_params(axis='y', labelcolor="tab:orange")
+    ax_zoom2_2.plot(
+        imu_timestamps - start_trial_toa, imu_data[:, 0], color="tab:orange"
+    )
+    ax_zoom2_2.tick_params(axis="y", labelcolor="tab:orange")
     ax_zoom2_2.set_ylabel("IMU angle (degrees)", color="tab:orange")
 
     # --- Connectors ---
@@ -420,21 +509,23 @@ if __name__ == "__main__":
     # --- Image Plots ---
     ax_cam1.imshow(bytes_to_jpeg(cam_frame_1))
     # ax_cam1.set_title(f"Ref Cam @ {toa_1-start_trial_toa:.2f}s")
-    ax_cam1.axis('off')
+    ax_cam1.axis("off")
 
     ax_ego1.imshow(bytes_to_jpeg(ego_frame_1))
     # ax_ego1.set_title(f"FPOV @ {toa_1-start_trial_toa:.2f}s")
-    ax_ego1.axis('off')
+    ax_ego1.axis("off")
 
     ax_cam2.imshow(bytes_to_jpeg(cam_frame_2))
     # ax_cam2.set_title(f"Ref Cam @ {toa_2-start_trial_toa:.2f}s")
-    ax_cam2.axis('off')
+    ax_cam2.axis("off")
 
     ax_ego2.imshow(bytes_to_jpeg(ego_frame_2))
     # ax_ego2.set_title(f"FPOV @ {toa_2-start_trial_toa:.2f}s")
-    ax_ego2.axis('off')
+    ax_ego2.axis("off")
 
     plt.tight_layout()
-    plt.subplots_adjust(left=0.05, right=0.955, top=0.92, bottom=0.05, wspace=0.02, hspace=0.2)
+    plt.subplots_adjust(
+        left=0.05, right=0.955, top=0.92, bottom=0.05, wspace=0.02, hspace=0.2
+    )
     plt.show()
     print("Done.")

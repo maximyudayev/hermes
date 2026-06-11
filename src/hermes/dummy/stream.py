@@ -42,10 +42,8 @@ class DummyStream(Stream):
         """
         super().__init__()
 
-        self._device_name = "sensor-emulator"
-
         self.add_stream(
-            device_name=self._device_name,
+            device_name="sensor-emulator1",
             stream_name="sequence",
             data_type="uint32",
             sample_size=[1],
@@ -53,7 +51,24 @@ class DummyStream(Stream):
             is_measure_rate_hz=False,
         )
         self.add_stream(
-            device_name=self._device_name,
+            device_name="sensor-emulator1",
+            stream_name="data",
+            data_type=f"S{payload_num_bytes}",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+            is_measure_rate_hz=True,
+        )
+
+        self.add_stream(
+            device_name="sensor-emulator2",
+            stream_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+            sampling_rate_hz=int(sampling_rate_hz),
+            is_measure_rate_hz=False,
+        )
+        self.add_stream(
+            device_name="sensor-emulator2",
             stream_name="data",
             data_type=f"S{payload_num_bytes}",
             sample_size=[1],
@@ -62,7 +77,10 @@ class DummyStream(Stream):
         )
 
     def get_fps(self) -> dict[str, float | None]:
-        return {self._device_name: super()._get_fps(self._device_name, "data")}
+        return {
+            "sensor-emulator1": super()._get_fps("sensor-emulator1", "data"),
+            "sensor-emulator2": super()._get_fps("sensor-emulator2", "data"),
+        }
 
 
 class DummyPipeStream(Stream):
