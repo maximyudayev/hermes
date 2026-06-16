@@ -27,6 +27,9 @@
 
 import random
 import string
+from typing import Optional
+
+import numpy as np
 from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import (
     PORT_BACKEND,
@@ -50,11 +53,11 @@ class DummyPipeline(Pipeline):
         stream_out_spec: dict,
         stream_in_specs: list[dict],
         logging_spec: LoggingSpec,
-        is_async_generate: bool = False,
-        port_pub: str = PORT_BACKEND,
-        port_sub: str = PORT_FRONTEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
+        is_async_generate: Optional[bool] = False,
+        port_pub: Optional[str] = PORT_BACKEND,
+        port_sub: Optional[str] = PORT_FRONTEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
         **_,
     ):
         """Constructor of the DummyPipeline Node.
@@ -73,7 +76,7 @@ class DummyPipeline(Pipeline):
         """
         self._is_continue_generate = True
         self._is_keep_samples = False
-        self._sequence = 0
+        self._sequence = np.array([0], dtype=np.uint32)
         self._period = 1 / stream_out_spec["sampling_rate_hz"]
         self._next_period: float
 
@@ -101,8 +104,8 @@ class DummyPipeline(Pipeline):
     def _process_data(self, topic: str, msg: dict) -> None:
         process_time_s: float = get_time()
         tag: str = "%s.data" % self.topic
-        data = msg["data"]["sensor-emulator"]
-        data["flag"] = 1
+        data = msg["data"]["sensor-emulator1"]
+        data["flag"] = np.array([1], dtype=np.uint8)
         self._publish(
             tag, process_time_s=process_time_s, data={"sensor-emulator-processed": data}
         )
@@ -113,13 +116,19 @@ class DummyPipeline(Pipeline):
             if self._next_period <= process_time_s:
                 tag: str = "%s.data" % self.topic
                 data = {
-                    "data": "".join(
+                    "data": np.array(
                         [
-                            random.choice(string.printable)
-                            for _ in range(random.randint(1, 100))
-                        ]
-                    ).encode("ascii"),
+                            "".join(
+                                [
+                                    random.choice(string.printable)
+                                    for _ in range(random.randint(1, 100))
+                                ]
+                            ).encode("ascii")
+                        ],
+                        dtype=f"V{100}",
+                    ),
                     "sequence": self._sequence,
+                    "toa_s": np.array([process_time_s], dtype=np.float64),
                 }
                 self._publish(
                     tag,

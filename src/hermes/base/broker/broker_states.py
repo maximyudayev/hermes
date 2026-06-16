@@ -151,11 +151,17 @@ class SyncBrokerBarrierState(AbstractBrokerState):
                 "%s sent %s to %s" % (broker_name, cmd.decode("utf-8"), self._host_ip),
                 flush=True,
             )
-            if cmd == CMD_ACK.encode("utf-8") and broker_name in self._brokers_left_to_acknowledge:
+            if (
+                cmd == CMD_ACK.encode("utf-8")
+                and broker_name in self._brokers_left_to_acknowledge
+            ):
                 # Remote publisher received ACK from remote subscriber.
                 self._brokers_left_to_acknowledge.remove(broker_name)
                 self._brokers[broker_name] = address
-            elif cmd == CMD_HELLO.encode("utf-8") and broker_name in self._brokers_left_to_checkin:
+            elif (
+                cmd == CMD_HELLO.encode("utf-8")
+                and broker_name in self._brokers_left_to_checkin
+            ):
                 self._brokers_left_to_checkin.remove(broker_name)
                 self._brokers[broker_name] = address
                 # Remote subscriber responds with ACK to remote publisher.

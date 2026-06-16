@@ -82,6 +82,7 @@ consumer_specs:
           settings:
             sampling_rate_hz: ${HERMES_EXP_RATE}
             payload_num_bytes: ${HERMES_EXP_NUM_BYTES}
+            buf_len: ${HERMES_EXP_BUF_LEN}
 
 
 pipeline_specs: []

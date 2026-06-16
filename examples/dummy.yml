@@ -61,6 +61,7 @@ producer_specs:
     settings:
       sampling_rate_hz: 1
       payload_num_bytes: 100
+      buf_len: 10000
 
 
 consumer_specs:
@@ -75,6 +76,7 @@ consumer_specs:
           settings:
             sampling_rate_hz: 1
             payload_num_bytes: 100
+            buf_len: 10000
 
 
 pipeline_specs:
@@ -86,6 +88,7 @@ pipeline_specs:
       stream_out_spec:
         incoming_payload_num_bytes: 100
         sampling_rate_hz: 10
+        buf_len: 10000
       stream_in_specs:
         - package: "dummy"
           class: "DummyProducer"
@@ -93,6 +96,7 @@ pipeline_specs:
           settings:
             sampling_rate_hz: 1
             payload_num_bytes: 100
+            buf_len: 10000
     logging_spec:
       stream_period_s     : 5
       stream_hdf5         : True

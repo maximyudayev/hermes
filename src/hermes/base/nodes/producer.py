@@ -26,11 +26,13 @@
 # ############
 
 from abc import abstractmethod
-from collections import OrderedDict
+from multiprocessing import Process, Event
 import threading
+from typing import Optional
 import zmq
 import math
 
+from hermes.utils.mp_utils import launch_handler
 from hermes.utils.msgpack_utils import serialize
 from hermes.utils.zmq_utils import (
     CMD_END,
@@ -58,11 +60,11 @@ class Producer(ProducerInterface, Node):
         host_ip: str,
         stream_out_spec: dict,
         logging_spec: LoggingSpec,
-        sampling_rate_hz: float = float("nan"),
-        port_pub: str = PORT_BACKEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
-        transmit_delay_sample_period_s: float = float("nan"),
+        sampling_rate_hz: Optional[float] = float("nan"),
+        port_pub: Optional[str] = PORT_BACKEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
+        transmit_delay_sample_period_s: Optional[float] = float("nan"),
     ) -> None:
         """Constructor of the Producer parent class.
 
@@ -94,15 +96,21 @@ class Producer(ProducerInterface, Node):
         # Data structure for keeping track of data.
         self._stream: Stream = self.create_stream(stream_out_spec)
 
-        # Create the data storing object.
-        self._storage = Storage(self.topic, logging_spec)
-
-        # Launch datalogging thread with reference to the Stream object.
-        self._storage_thread = threading.Thread(
-            target=self._storage,
-            args=(OrderedDict([(self.topic, self._stream)]),),
+        # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
+        self._is_cleanup_event = Event()
+        self._storage_proc = Process(
+            target=launch_handler,
+            args=(Storage,),
+            kwargs={
+                "log_tag": self.topic,
+                "spec": logging_spec,
+                "streams": {
+                    self.topic: self._stream.get_stream_info_all(),
+                },
+                "is_cleanup_event": self._is_cleanup_event,
+            },
         )
-        self._storage_thread.start()
+        self._storage_proc.start()
 
         # Conditional creation of the transmission delay estimate thread.
         if not math.isnan(self._transmit_delay_sample_period_s):
@@ -158,12 +166,14 @@ class Producer(ProducerInterface, Node):
     def _store_and_broadcast(self, tag: str, process_time_s: float, **kwargs) -> None:
         """Place captured data into the corresponding Stream datastructure and transmit serialized ZeroMQ packets to subscribers.
 
+        TODO: publish topics selectively.
+
         Args:
             tag (str): Uniquely identifying key for the modality to label data for message exchange.
         """
         msg = serialize(**kwargs)
         self._pub.send_multipart([tag.encode("utf-8"), msg])
-        self._stream.append_data(process_time_s=process_time_s, **kwargs)
+        self._stream.push(process_time_s=process_time_s, **kwargs)
 
     def _trigger_stop(self):
         self._is_continue_capture = False
@@ -181,10 +191,12 @@ class Producer(ProducerInterface, Node):
 
     @abstractmethod
     def _cleanup(self) -> None:
-        # Indicate to Storage to wrap up and exit.
-        self._storage.cleanup()
+        # Indicate to `Storage` subproc to wrap up and exit.
+        self._is_cleanup_event.set()
+
         if not math.isnan(self._transmit_delay_sample_period_s):
             self._delay_estimator.cleanup()
+
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
             [self.topic.encode("utf-8"), CMD_EXIT.encode("utf-8")]
@@ -198,8 +210,14 @@ class Producer(ProducerInterface, Node):
             flush=True,
         )
         self._pub.close()
-        # Join on the logging background thread last, so that all things can finish in parallel.
-        self._storage_thread.join()
+
+        # Join on the logging background process last, so that all things can finish in parallel.
+        self._storage_proc.join()
+
         if not math.isnan(self._transmit_delay_sample_period_s):
             self._delay_thread.join()
+
+        # Release allocated shared memory for the `Stream`.
+        self._stream.clear_data_all()
+
         super()._cleanup()

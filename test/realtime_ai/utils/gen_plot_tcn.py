@@ -31,8 +31,14 @@ if __name__ == "__main__":
         file_path, "ai/pytorch-worker/inference_latency_s"
     )[:, 0]
 
-    print(f"AI inference latency (s): {ai_inference_latency[1:].mean():.6f} ± {ai_inference_latency[1:].std():.6f}", flush=True)
-    print(f"AI inference latency percentiles (s): {', '.join(f'{p:.6f}' for p in np.percentile(ai_inference_latency[1:], [50, 90, 95, 99]))}", flush=True)
+    print(
+        f"AI inference latency (s): {ai_inference_latency[1:].mean():.6f} ± {ai_inference_latency[1:].std():.6f}",
+        flush=True,
+    )
+    print(
+        f"AI inference latency percentiles (s): {', '.join(f'{p:.6f}' for p in np.percentile(ai_inference_latency[1:], [50, 90, 95, 99]))}",
+        flush=True,
+    )
 
     imu_toa = read_hdf5_dataset(file_path, "dots/dots-imu/toa_s")
     imu_acc = read_hdf5_dataset(file_path, "dots/dots-imu/acceleration")

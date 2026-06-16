@@ -27,7 +27,7 @@
 
 from multiprocessing import Process, Queue
 from multiprocessing.synchronize import Event as EventClass
-from typing import Callable
+from typing import Callable, Optional
 import zmq
 
 from hermes.utils.node_utils import launch_node
@@ -81,12 +81,12 @@ class Broker(BrokerInterface):
         is_ready_event: EventClass,
         is_quit_event: EventClass,
         is_done_event: EventClass,
-        is_master_broker: bool = False,
-        port_backend: str = PORT_BACKEND,
-        port_frontend: str = PORT_FRONTEND,
-        port_sync_host: str = PORT_SYNC_HOST,
-        port_sync_remote: str = PORT_SYNC_REMOTE,
-        port_killsig: str = PORT_KILL,
+        is_master_broker: Optional[bool] = False,
+        port_backend: Optional[str] = PORT_BACKEND,
+        port_frontend: Optional[str] = PORT_FRONTEND,
+        port_sync_host: Optional[str] = PORT_SYNC_HOST,
+        port_sync_remote: Optional[str] = PORT_SYNC_REMOTE,
+        port_killsig: Optional[str] = PORT_KILL,
     ) -> None:
         """Constructor of the Broker component responsible for the lifecycle of all local Nodes and for message exchange across them and distributed hosts.
 
@@ -174,7 +174,7 @@ class Broker(BrokerInterface):
         self._frontends.append(frontend_remote)
 
     def connect_to_remote_broker(
-        self, addr: str, port_pub: str = PORT_FRONTEND
+        self, addr: str, port_pub: Optional[str] = PORT_FRONTEND
     ) -> None:
         """Connects to a known address and port of external LAN data broker.
 
@@ -187,7 +187,9 @@ class Broker(BrokerInterface):
         self._remote_pub_brokers.append(addr)
         self._backends.append(backend_remote)
 
-    def subscribe_to_killsig(self, addr: str, port_killsig: str = PORT_KILL) -> None:
+    def subscribe_to_killsig(
+        self, addr: str, port_killsig: Optional[str] = PORT_KILL
+    ) -> None:
         """Subscribes to external kill signal of another host as master.
 
         Args:
@@ -203,14 +205,14 @@ class Broker(BrokerInterface):
     #####################
     ###### RUNNING ######
     #####################
-    def __call__(self, duration_s: float | None = None) -> None:
+    def __call__(self, duration_s: Optional[float] = None) -> None:
         """The main FSM loop of the Broker.
 
         Runs continuously until the user ends the experiment or after the specified duration.
         The duration start to count only after all Nodes established communication and synced.
 
         Args:
-            duration_s (float | None, optional): Duration of data capturing/streaming. Defaults to `None`.
+            duration_s (float, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
         self._duration_s = duration_s
         while self._state.is_continue() and not self._is_quit_event.is_set():

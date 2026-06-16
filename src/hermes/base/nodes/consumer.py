@@ -25,11 +25,13 @@
 #
 # ############
 
-import threading
+from multiprocessing import Event, Process
 from abc import abstractmethod
 from collections import OrderedDict
+from typing import Optional
 import zmq
 
+from hermes.utils.mp_utils import launch_handler
 from hermes.utils.time_utils import get_time
 from hermes.utils.msgpack_utils import deserialize
 from hermes.utils.di_utils import search_module_class
@@ -43,9 +45,9 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
+from hermes.base.nodes.node import Node
 from hermes.base.stream import Stream
 from hermes.base.storage.storage import Storage
-from hermes.base.nodes.node import Node
 from hermes.base.nodes.consumer_interface import ConsumerInterface
 from hermes.base.nodes.producer_interface import ProducerInterface
 from hermes.base.nodes.pipeline_interface import PipelineInterface
@@ -63,9 +65,9 @@ class Consumer(ConsumerInterface, Node):
         host_ip: str,
         stream_in_specs: list[dict],
         logging_spec: LoggingSpec,
-        port_sub: str = PORT_FRONTEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
+        port_sub: Optional[str] = PORT_FRONTEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
     ) -> None:
         """Constructor of the Consumer parent class.
 
@@ -89,7 +91,7 @@ class Consumer(ConsumerInterface, Node):
         self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
         self._poll_data_fn = self._poll_data_packets
 
-        # Instantiate all desired Streams that the Consumer will subscribe to.
+        # Instantiate all desired `Streams` that the `Consumer` will subscribe to.
         self._streams: OrderedDict[str, Stream] = OrderedDict()
         for stream_spec in stream_in_specs:
             topic_name: str = stream_spec["topic"]
@@ -105,13 +107,22 @@ class Consumer(ConsumerInterface, Node):
             self._streams.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
 
-        # Create the data storing object.
-        self._storage = Storage(self.topic, logging_spec)
-        # Launch datalogging thread with reference to the Stream object.
-        self._storage_thread = threading.Thread(
-            target=self._storage, args=(self._streams,)
+        # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Consumer`s inputs.
+        self._is_cleanup_event = Event()
+        self._storage_proc = Process(
+            target=launch_handler,
+            args=(Storage,),
+            kwargs={
+                "log_tag": self.topic,
+                "spec": logging_spec,
+                "streams": {
+                    node_name: stream.get_stream_info_all()
+                    for node_name, stream in self._streams.items()
+                },
+                "is_cleanup_event": self._is_cleanup_event,
+            },
         )
-        self._storage_thread.start()
+        self._storage_proc.start()
 
     def _initialize(self):
         super()._initialize()
@@ -146,7 +157,7 @@ class Consumer(ConsumerInterface, Node):
         receive_time = get_time()
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._streams[topic_tree[0]].append_data(process_time_s=receive_time, **msg)
+        self._streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
 
     def _poll_ending_data_packets(self) -> None:
         """Receive data packets from producers and monitor for end-of-stream signal.
@@ -170,15 +181,16 @@ class Consumer(ConsumerInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._streams[topic_tree[0]].append_data(process_time_s=receive_time, **msg)
+            self._streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
 
     def _trigger_stop(self):
         self._poll_data_fn = self._poll_ending_data_packets
 
     @abstractmethod
     def _cleanup(self):
-        self._storage.cleanup()
-        self._storage_thread.join()
+        # Indicate to `Storage` subproc to wrap up and exit.
+        self._is_cleanup_event.set()
+
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
             [self.topic.encode("utf-8"), CMD_EXIT.encode("utf-8")]
@@ -192,4 +204,12 @@ class Consumer(ConsumerInterface, Node):
             flush=True,
         )
         self._sub.close()
+
+        # Join on the logging background process last, so that all things can finish in parallel.
+        self._storage_proc.join()
+
+        # Release allocated shared memory for the `Streams`.
+        for stream in self._streams.values():
+            stream.clear_data_all()
+
         super()._cleanup()

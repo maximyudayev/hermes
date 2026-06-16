@@ -23,6 +23,7 @@ set counter=0
 < "net_floor.txt" set /p "ONE_WAY_FLOOR="
 for %%n in (100) do (
   set HERMES_EXP_RATE=%%n
+  set /a "HERMES_EXP_BUF_LEN=%%n * 100"
   set "REMOTE_PATH=!REMOTE_BASE_DIR!/data/latency/multi_device/run_latency_vs_frequency/trial_!counter!"
   set "LOCAL_PATH=data\latency\multi_device\run_latency_vs_frequency\trial_!counter!"
 
@@ -55,6 +56,7 @@ for %%n in (100) do (
 endlocal
 
 @REM set HERMES_EXP_RATE=100
+@REM set /a "HERMES_EXP_BUF_LEN=!HERMES_EXP_RATE! * 100"
 @REM setlocal enabledelayedexpansion
 @REM set counter=0
 @REM for %%n in (10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000) do (

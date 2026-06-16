@@ -27,9 +27,12 @@
 
 from abc import abstractmethod
 from collections import OrderedDict
+from multiprocessing import Event, Process
 import threading
+from typing import Optional
 import zmq
 
+from hermes.utils.mp_utils import launch_handler
 from hermes.utils.time_utils import get_time
 from hermes.utils.di_utils import search_module_class
 from hermes.utils.msgpack_utils import deserialize, serialize
@@ -61,11 +64,11 @@ class Pipeline(PipelineInterface, Node):
         stream_out_spec: dict,
         stream_in_specs: list[dict],
         logging_spec: LoggingSpec,
-        is_async_generate: bool = False,
-        port_pub: str = PORT_BACKEND,
-        port_sub: str = PORT_FRONTEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
+        is_async_generate: Optional[bool] = False,
+        port_pub: Optional[str] = PORT_BACKEND,
+        port_sub: Optional[str] = PORT_FRONTEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
     ) -> None:
         """Constructor of the Pipeline parent class.
 
@@ -119,22 +122,25 @@ class Pipeline(PipelineInterface, Node):
             self._in_streams.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
 
-        # Create the data storing object.
-        self._storage = Storage(self.topic, logging_spec)
-
-        # Launch datalogging thread with reference to the Stream objects, to save Pipeline's outputs and inputs.
-        self._storage_thread = threading.Thread(
-            target=self._storage,
-            args=(
-                OrderedDict(
-                    [
-                        (self.topic, self._out_stream),
-                        *list(self._in_streams.items()),
-                    ]
-                ),
-            ),
+        # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Pipeline`s outputs and inputs.
+        self._is_cleanup_event = Event()
+        self._storage_proc = Process(
+            target=launch_handler,
+            args=(Storage,),
+            kwargs={
+                "log_tag": self.topic,
+                "spec": logging_spec,
+                "streams": {
+                    node_name: stream.get_stream_info_all()
+                    for node_name, stream in {
+                        self.topic: self._out_stream,
+                        **self._in_streams,
+                    }.items()
+                },
+                "is_cleanup_event": self._is_cleanup_event,
+            },
         )
-        self._storage_thread.start()
+        self._storage_proc.start()
 
     def _publish(self, tag: str, **kwargs) -> None:
         """Common method to save and publish the captured sample.
@@ -208,7 +214,7 @@ class Pipeline(PipelineInterface, Node):
         receive_time = get_time()
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._in_streams[topic_tree[0]].append_data(process_time_s=receive_time, **msg)
+        self._in_streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
         self._process_data(topic=topic_tree[0], msg=msg)
 
     def _poll_ending_data_packets(self) -> None:
@@ -234,9 +240,7 @@ class Pipeline(PipelineInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._in_streams[topic_tree[0]].append_data(
-                process_time_s=receive_time, **msg
-            )
+            self._in_streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _publish(self, tag: str, **kwargs) -> None:
@@ -255,7 +259,7 @@ class Pipeline(PipelineInterface, Node):
         """
         msg = serialize(**kwargs)
         self._pub.send_multipart([tag.encode("utf-8"), msg])
-        self._out_stream.append_data(process_time_s=process_time_s, **kwargs)
+        self._out_stream.push(process_time_s=process_time_s, **kwargs)
 
     def _trigger_stop(self):
         self._poll_data_fn = self._poll_ending_data_packets
@@ -287,7 +291,9 @@ class Pipeline(PipelineInterface, Node):
 
     @abstractmethod
     def _cleanup(self) -> None:
-        self._storage.cleanup()
+        # Indicate to `Storage` subproc to wrap up and exit.
+        self._is_cleanup_event.set()
+
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
             [self.topic.encode("utf-8"), CMD_EXIT.encode("utf-8")]
@@ -302,6 +308,13 @@ class Pipeline(PipelineInterface, Node):
         )
         self._pub.close()
         self._sub.close()
-        # Join on the logging background thread last, so that all things can finish in parallel.
-        self._storage_thread.join()
+
+        # Join on the logging background process last, so that all things can finish in parallel.
+        self._storage_proc.join()
+
+        # Release allocated shared memory for the `Streams`.
+        self._out_stream.clear_data_all()
+        for stream in self._in_streams.values():
+            stream.clear_data_all()
+
         super()._cleanup()

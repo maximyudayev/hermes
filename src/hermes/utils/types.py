@@ -26,22 +26,101 @@
 # ############
 
 from collections import namedtuple
-from dataclasses import dataclass
-from typing import Optional, TypeAlias, Any, Deque, Iterable, Mapping, Dict
+from dataclasses import dataclass, field
+from io import TextIOWrapper
+from typing import List, Optional, TypeAlias, Any, Iterable, Mapping, Dict
+import multiprocessing as mp
+from multiprocessing import Value
+from multiprocessing.synchronize import Lock
+from multiprocessing.sharedctypes import Synchronized
+from subprocess import Popen
 from enum import Enum
-from threading import Lock
+import numpy as np
 import zmq
 
 
-NewDataDict: TypeAlias = Dict[str, Dict[str, Any]]
-DataFifo: TypeAlias = Deque[Any]
-DataFifoDict: TypeAlias = Dict[str, Dict[str, DataFifo]]
-StreamInfoDict: TypeAlias = Dict[str, Dict[str, Dict[str, Any]]]
-DeviceLockDict: TypeAlias = Dict[str, Lock]
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
 VideoFormatTuple = namedtuple("VideoFormatTuple", ("format", "color"))
 AudioFormatTuple = namedtuple("AudioFormatTuple", ("format", "color"))
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
+
+
+@dataclass
+class VideoWriter:
+    subproc: Popen
+    node_name: str
+    device_name: str
+    stream_name: str
+
+
+@dataclass
+class AudioWriter:
+    subproc: Popen
+    node_name: str
+    device_name: str
+    stream_name: str
+
+
+@dataclass
+class CsvWriter:
+    file: TextIOWrapper
+    node_name: str
+    device_name: str
+    stream_name: str
+
+
+@dataclass
+class StreamFifoFillLevel:
+    num_samples: int
+    sample_num_bytes: int
+    buf_len: int
+
+
+@dataclass
+class SharedMemoryCircularBufferMetadata:
+    buf_len: int
+    data_type: str
+    sample_size: Iterable[int]
+    element_size: int
+    shm_id: str
+    lock: Lock = field(init=False)
+    is_reading: Synchronized[bool] = field(init=False)
+    is_writing: Synchronized[bool] = field(init=False)
+    write_head: Synchronized[int] = field(init=False)
+    read_head: Synchronized[int] = field(init=False)
+    read_tail: Synchronized[int] = field(init=False)
+
+    def __post_init__(self):
+        self.lock = mp.Lock()
+        self.is_reading = Value("b", False)
+        self.is_writing = Value("b", False)
+        self.write_head = Value("i", False)
+        self.read_head = Value("i", False)
+        self.read_tail = Value("i", False)
+        self.is_reading.value = False
+        self.is_writing.value = False
+        self.write_head.value = 0
+        self.read_head.value = 0
+        self.read_tail.value = 0
+
+
+@dataclass
+class StreamMetadataDictionary:
+    sampling_rate_hz: float
+    metadata: SharedMemoryCircularBufferMetadata
+    is_video: bool
+    is_audio: bool
+    timesteps_before_solidified: int
+    extra_data_info: ExtraDataInfoDict
+    data_notes: Mapping[str, str]
+    video_format: Optional[str] = None
+    video_color: Optional[str] = None
+    is_measure_rate_hz: Optional[bool] = None
+    actual_rate_hz: Optional[float] = None
+    dt_circular_buffer: Optional[List[float]] = None
+    dt_circular_index: Optional[int] = None
+    dt_running_sum: Optional[float] = None
+    old_toa: Optional[float] = None
 
 
 @dataclass
@@ -134,3 +213,7 @@ class AudioFormatEnum(Enum):
     YUV = AudioFormatTuple("rawvideo", "yuv420p")
     JPEG = AudioFormatTuple("image2pipe", "yuv420p")
     BAYER_RG8 = AudioFormatTuple("rawvideo", "bayer_rggb8")
+
+
+NewDataDict: TypeAlias = Dict[str, Dict[str, np.ndarray]]
+StreamInfoDict: TypeAlias = Dict[str, Dict[str, StreamMetadataDictionary]]

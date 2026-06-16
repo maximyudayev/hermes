@@ -55,10 +55,35 @@ Parse the log file for analysis and plotting.
 `echo "\n\n\n" > ntp_parsed.log; awk '/===/ { ts = $2 " " $3 } /System time/ { print ts ", " $4 "s" }' ntp_sync_1hr.log >> ntp_parsed.log`
 
 ## Python Packaging
-Update the changelog
+Update the changelog since previous tag
 `git-changelog --bump <new_pypi_version> --filter-commits <previous_tag>..`
+
+Update the changelog since previous tag, summarize all commit categories
 `git-changelog --bump <new_pypi_version> --filter-commits <previous_tag>.. -c angular -s :all:`
+
+Update the changelog with all commit categories
 `git-changelog --bump <new_pypi_version> -c angular -s :all:`
+
+Update the version of the Python package for release
 `uv version --bump <[major,minor,patch]> [--dry-run] [--no-sync]`
+
+Build the Python package
 `uv build`
+
+Release the Python package on PyPi
 `uv publish --token <pypi_token>`
+
+
+## HERMES Data Recovery
+Dump the video into a new container, when device or experiment crashed, to recover playable video
+`ffmpeg -i corrupted_video.mp4 -c copy fixed_video.mp4`
+
+
+## ManGo
+`for n in $(iron ls <mango_path> --columns name | sed 's/\x1b\[[0-9;]*m//g' | tail -n +2); do iron download <mango_path>/$n $n; done`
+
+`echo $FILE | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses.hdf5"}'`
+
+`iron ls /gbiomed/home/AID-FOG/KUL/upload/to_review --columns name | awk '/glasses/' | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses_temp.hdf5"}'`
+
+`for n in $(iron ls /gbiomed/home/AID-FOG/KUL/upload/to_review --columns name | awk '/glasses/' | sed 's/\x1b\[[0-9;]*m//g'); do echo /gbiomed/home/AID-FOG/KUL/upload/to_review/$n && echo $(echo $n | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses_temp.hdf5"}'); done`

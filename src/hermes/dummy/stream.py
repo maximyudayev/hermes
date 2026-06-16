@@ -25,6 +25,8 @@
 #
 # ############
 
+from typing import Optional
+
 from hermes.base.stream import Stream
 
 
@@ -32,13 +34,18 @@ class DummyStream(Stream):
     """A Stream structure to store Dummy modality data."""
 
     def __init__(
-        self, sampling_rate_hz: int = 1, payload_num_bytes: int = 100, **_
+        self,
+        sampling_rate_hz: Optional[int] = 1,
+        payload_num_bytes: Optional[int] = 100,
+        buf_len: Optional[int] = 10000,
+        **_,
     ) -> None:
         """Constructor of the DummyStream datastructure.
 
         Args:
             sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to `1`.
             payload_num_bytes (int, optional): Size of the messages to send. Defaults to `100`.
+            buf_len (int, optional): Length of the circular buffer. Defaults to `10000`.
         """
         super().__init__()
 
@@ -47,14 +54,23 @@ class DummyStream(Stream):
             stream_name="sequence",
             data_type="uint32",
             sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
-            is_measure_rate_hz=False,
+        )
+        self.add_stream(
+            device_name="sensor-emulator1",
+            stream_name="toa_s",
+            data_type="float64",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=int(sampling_rate_hz),
         )
         self.add_stream(
             device_name="sensor-emulator1",
             stream_name="data",
-            data_type=f"S{payload_num_bytes}",
+            data_type=f"V{payload_num_bytes}",
             sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
             is_measure_rate_hz=True,
         )
@@ -64,14 +80,23 @@ class DummyStream(Stream):
             stream_name="sequence",
             data_type="uint32",
             sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
-            is_measure_rate_hz=False,
+        )
+        self.add_stream(
+            device_name="sensor-emulator2",
+            stream_name="toa_s",
+            data_type="float64",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=int(sampling_rate_hz),
         )
         self.add_stream(
             device_name="sensor-emulator2",
             stream_name="data",
-            data_type=f"S{payload_num_bytes}",
+            data_type=f"V{payload_num_bytes}",
             sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
             is_measure_rate_hz=True,
         )
@@ -88,14 +113,17 @@ class DummyPipeStream(Stream):
 
     def __init__(
         self,
-        sampling_rate_hz: int = 1,
-        incoming_payload_num_bytes: int = 100,
+        sampling_rate_hz: Optional[int] = 1,
+        incoming_payload_num_bytes: Optional[int] = 100,
+        buf_len: Optional[int] = 10000,
         **_,
     ) -> None:
         """Constructor of the DummyStream datastructure.
 
         Args:
             sampling_rate_hz (int, optional): Number of times per second, monotonically spaced, that new data becomes available. Defaults to `1`.
+            incoming_payload_num_bytes (int, optional): Size of the messages to send. Defaults to `100`.
+            buf_len (int, optional): Length of the circular buffer. Defaults to `10000`.
         """
         super().__init__()
 
@@ -104,18 +132,28 @@ class DummyPipeStream(Stream):
             stream_name="sequence",
             data_type="uint32",
             sample_size=[1],
+            buf_len=buf_len,
+        )
+        self.add_stream(
+            device_name="sensor-emulator-processed",
+            stream_name="toa_s",
+            data_type="float64",
+            sample_size=[1],
+            buf_len=buf_len,
         )
         self.add_stream(
             device_name="sensor-emulator-processed",
             stream_name="data",
-            data_type=f"S{incoming_payload_num_bytes}",
+            data_type=f"V{incoming_payload_num_bytes}",
             sample_size=[1],
+            buf_len=buf_len,
         )
         self.add_stream(
             device_name="sensor-emulator-processed",
             stream_name="flag",
             data_type="uint8",
             sample_size=[1],
+            buf_len=buf_len,
         )
 
         self.add_stream(
@@ -123,13 +161,23 @@ class DummyPipeStream(Stream):
             stream_name="sequence",
             data_type="uint32",
             sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=int(sampling_rate_hz),
+        )
+        self.add_stream(
+            device_name="sensor-emulator-internal",
+            stream_name="toa_s",
+            data_type="float64",
+            sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
         self.add_stream(
             device_name="sensor-emulator-internal",
             stream_name="data",
-            data_type="T",
+            data_type=f"V{incoming_payload_num_bytes}",
             sample_size=[1],
+            buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
             is_measure_rate_hz=True,
         )

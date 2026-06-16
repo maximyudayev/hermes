@@ -27,6 +27,9 @@
 
 import time
 import random
+from typing import Optional
+
+import numpy as np
 
 from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import PORT_BACKEND, PORT_KILL, PORT_SYNC_HOST
@@ -44,12 +47,13 @@ class DummyProducer(Producer):
         topic: str,
         host_ip: str,
         logging_spec: LoggingSpec,
-        sampling_rate_hz: int = 1,
-        payload_num_bytes: int = 100,
-        port_pub: str = PORT_BACKEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
-        transmit_delay_sample_period_s: float = float("nan"),
+        sampling_rate_hz: Optional[int] = 1,
+        payload_num_bytes: Optional[int] = 100,
+        buf_len: Optional[int] = 10000,
+        port_pub: Optional[str] = PORT_BACKEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
+        transmit_delay_sample_period_s: Optional[float] = float("nan"),
         **_,
     ):
         """Constructor of the DummyProducer Node.
@@ -79,14 +83,18 @@ class DummyProducer(Producer):
 
         self._period = 1 / sampling_rate_hz
         self._payload_num_bytes = payload_num_bytes
-        self._sequence = 0
-        self._data = random.randbytes(self._payload_num_bytes)
+        self._sequence = np.array([0], dtype=np.uint32)
+        self._data = np.array(
+            [random.randbytes(self._payload_num_bytes)],
+            dtype=f"V{self._payload_num_bytes}",
+        )
         self._tag: str = "%s.data" % topic
         self._next_period: float
 
         stream_out_spec = {
             "sampling_rate_hz": sampling_rate_hz,
             "payload_num_bytes": payload_num_bytes,
+            "buf_len": buf_len,
         }
 
         super().__init__(
@@ -127,8 +135,16 @@ class DummyProducer(Producer):
                 self._tag,
                 process_time_s=process_time_s,
                 data={
-                    "sensor-emulator1": {"data": self._data, "sequence": self._sequence},
-                    "sensor-emulator2": {"data": self._data, "sequence": self._sequence},
+                    "sensor-emulator1": {
+                        "data": self._data,
+                        "sequence": self._sequence,
+                        "toa_s": np.array([process_time_s], dtype=np.float64),
+                    },
+                    "sensor-emulator2": {
+                        "data": self._data,
+                        "sequence": self._sequence,
+                        "toa_s": np.array([process_time_s], dtype=np.float64),
+                    },
                 },
             )
             self._sequence += 1

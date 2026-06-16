@@ -26,6 +26,7 @@
 # ############
 
 from abc import abstractmethod
+from typing import Optional
 import zmq
 
 from hermes.utils.time_utils import init_time
@@ -48,9 +49,9 @@ class Node(NodeInterface):
         self,
         topic: str,
         ref_time: float,
-        host_ip: str = DNS_LOCALHOST,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
+        host_ip: Optional[str] = DNS_LOCALHOST,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
     ) -> None:
         """Constructor of the Node parent class.
 

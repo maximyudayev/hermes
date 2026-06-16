@@ -25,6 +25,8 @@
 #
 # ############
 
+from typing import Optional
+
 from hermes.utils.zmq_utils import PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
 from hermes.utils.types import LoggingSpec
 
@@ -40,9 +42,9 @@ class DummyConsumer(Consumer):
         host_ip: str,
         stream_in_specs: list[dict],
         logging_spec: LoggingSpec,
-        port_sub: str = PORT_FRONTEND,
-        port_sync: str = PORT_SYNC_HOST,
-        port_killsig: str = PORT_KILL,
+        port_sub: Optional[str] = PORT_FRONTEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
         **_,
     ):
         """Constructor of the DummyConsumer Node.

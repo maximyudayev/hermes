@@ -12,6 +12,7 @@ for %%b in (100, 1000, 5000, 10000) do (
 
   for %%r in (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000) do (
     set HERMES_EXP_RATE=%%r
+    set /a "HERMES_EXP_BUF_LEN=%%r * 100"
 
     echo Starting experiment !counter! of 14: HERMES_EXP_NUM_BYTES=%%b, HERMES_EXP_RATE=%%r...
     hermes-cli -o !OUTPUT_PATH! -d !DURATION! --experiment run=latency_vs_frequency trial=!counter! --config_file ..\config\localhost.yml
@@ -32,6 +33,7 @@ setlocal enabledelayedexpansion
 for %%r in (1, 10, 100, 1000) do (
   set counter=0
   set HERMES_EXP_RATE=%%r
+  set /a "HERMES_EXP_BUF_LEN=%%r * 100"
   set "OUTPUT_PATH=data\latency\localhost\rate_!HERMES_EXP_RATE!"
   rmdir /s /q "!OUTPUT_PATH!\run_latency_vs_msgsize"
 
