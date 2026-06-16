@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [0.4.0](https://github.com/maximyudayev/hermes/releases/tag/0.4.0) - 2026-06-16
+
+<small>[Compare with 0.3.0](https://github.com/maximyudayev/hermes/compare/0.3.0..0.4.0)</small>
+
+### Features
+
+- subproc `Storage` with shared mem `Stream`s ([ecedcb5](https://github.com/maximyudayev/hermes/commit/ecedcb521b2013e5710acdb1c299180ad9366700) by Maxim Yudayev). Resolves: maximyudayev/hermes#33
+
+### Bug Fixes
+
+- Pipelines send extra separator, crashing exit ([a36e895](https://github.com/maximyudayev/hermes/commit/a36e895fc716c5bf2c1e8a674ecdac6be129d3c4) by Maxim Yudayev).
+
 ## [0.3.0](https://github.com/maximyudayev/hermes/releases/tag/0.3.0) - 2026-05-05
 
 <small>[Compare with 0.2.0](https://github.com/maximyudayev/hermes/compare/0.2.0..0.3.0)</small>
