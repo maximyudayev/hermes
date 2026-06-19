@@ -39,6 +39,7 @@ HERMES for the Greek mythology analogy of the god of communication and speed, pr
 HERMES offers out-of-the-box streaming integrations to a number of commercial sensor devices and systems, high resolution cameras, templates for extension with custom user devices, and a ready-made wrapper for easy PyTorch AI model insertion. It reliably and synchronously captures heterogeneous data across distributed interconnected devices on a local network in a continuous manner, and enables realtime AI processing at the edge toward personalized intelligent closed-loop interventions of the user. All continuously acquired data is periodically flushed to disk for as long as the system has disk space, as MKV/MP4 and HDF5 files, for video and sensor data, respectively.
 
 # Quickstart
+<!-- TODO: suggest using UV -->
 ## Core
 Create a Python 3 virtual environment `python -m venv .venv` (python >= 3.7).
 

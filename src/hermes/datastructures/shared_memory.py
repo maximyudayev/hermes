@@ -187,7 +187,8 @@ class SharedMemoryCircularBuffer:
         else:
             first_part = self.buf_len - write_tail
             self.buffer[write_tail:] = new_data[:first_part]
-            self.buffer[: num_elements - first_part] = new_data[first_part:]
+            if num_elements > 1:
+                self.buffer[: num_elements - first_part] = new_data[first_part:]
 
         # Update the datastructures metadata in a thread-safe way.
         with self.metadata.lock:

@@ -73,6 +73,20 @@ Build the Python package
 Release the Python package on PyPi
 `uv publish --token <pypi_token>`
 
+## Secure Version Control with Multiple Users
+1. Create an SSH key for a user on the shared device, securing with a password only you know.
+`ssh-keygen -t ed25519`
+1. Upload the public SSH key to your GitHub account.
+1. On device, add a domain that uniquely identifies you to the Git SSH config under `.ssh/config`, like:
+    ```
+    Host <unique_user>
+    HostName github.com
+    IdentityFile ~/.ssh/id_ed25519_gh_<unique_user>
+    User git
+    ```
+1. Change the push URL of the remote repo to use SSH-based authentication (or push AND pull, for non-public remote repos), using your unique identifiable domain:
+`git remote set-url --push origin git@<unique_user>:username/reponame.git`
+1. Push to the repo. SSH agent will prompt for password each time.
 
 ## HERMES Data Recovery
 Dump the video into a new container, when device or experiment crashed, to recover playable video

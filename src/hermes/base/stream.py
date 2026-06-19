@@ -178,8 +178,9 @@ class Stream(ABC):
                 device_name=device_name,
                 stream_name="process_time_s",
                 data_type="float64",
-                sample_size=(1,),
+                sample_size=[1],
                 buf_len=buf_len,
+                sampling_rate_hz=sampling_rate_hz,
                 data_notes=OrderedDict(
                     [
                         (
@@ -195,8 +196,9 @@ class Stream(ABC):
                 device_name=device_name,
                 stream_name="count",
                 data_type="uint16",
-                sample_size=(1,),
+                sample_size=[1],
                 buf_len=buf_len,
+                sampling_rate_hz=sampling_rate_hz,
                 data_notes=OrderedDict(
                     [
                         (
@@ -345,12 +347,12 @@ class Stream(ABC):
                 self._push(
                     device_name,
                     "process_time_s",
-                    np.array([process_time_s], dtype=np.float64),
+                    np.array([[process_time_s]], dtype=np.float64),
                 )
                 self._push(
                     device_name,
                     "count",
-                    np.array([len(device_data["toa_s"])], dtype=np.uint16),
+                    np.array([[len(device_data["toa_s"])]], dtype=np.uint16),
                 )
 
     def _push(self, device_name: str, stream_name: str, data: np.ndarray) -> None:
