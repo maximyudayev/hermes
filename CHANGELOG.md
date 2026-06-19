@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [0.4.1](https://github.com/maximyudayev/hermes/releases/tag/0.4.1) - 2026-06-19
+
+<small>[Compare with 0.4.0](https://github.com/maximyudayev/hermes/compare/0.4.0...0.4.1)</small>
+
+### Bug Fixes
+
+- Can't broadcast at ring buffer wrap around ([96e0b14](https://github.com/maximyudayev/hermes/commit/96e0b14cd2651c24066a0eba2200e589273a39d0) by Maxim Yudayev).
+
 ## [0.4.0](https://github.com/maximyudayev/hermes/releases/tag/0.4.0) - 2026-06-16
 
 <small>[Compare with 0.3.0](https://github.com/maximyudayev/hermes/compare/0.3.0..0.4.0)</small>
