@@ -81,7 +81,7 @@ class Stream(ABC):
         self._streams_info = dict()
 
     @classmethod
-    def create_from_metadata(cls, streams_info_all: StreamInfoDict) -> Stream:
+    def create_from_metadata(cls, streams_info_all: StreamInfoDict):
         stream = cls()
         stream._streams_info = streams_info_all
         for device_name, device_info in stream._streams_info.items():

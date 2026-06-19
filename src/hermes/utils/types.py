@@ -84,11 +84,11 @@ class SharedMemoryCircularBufferMetadata:
     element_size: int
     shm_id: str
     lock: Lock = field(init=False)
-    is_reading: Synchronized[bool] = field(init=False)
-    is_writing: Synchronized[bool] = field(init=False)
-    write_head: Synchronized[int] = field(init=False)
-    read_head: Synchronized[int] = field(init=False)
-    read_tail: Synchronized[int] = field(init=False)
+    is_reading: "Synchronized[bool]" = field(init=False)
+    is_writing: "Synchronized[bool]" = field(init=False)
+    write_head: "Synchronized[int]" = field(init=False)
+    read_head: "Synchronized[int]" = field(init=False)
+    read_tail: "Synchronized[int]" = field(init=False)
 
     def __post_init__(self):
         self.lock = mp.Lock()
