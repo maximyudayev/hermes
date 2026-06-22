@@ -148,7 +148,8 @@ class Producer(ProducerInterface, Node):
         # Socket to publish sensor data and log
         self._pub: zmq.SyncSocket = self._ctx.socket(zmq.PUB)
         self._pub.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_pub))
-        self._connect()
+        while not self._connect():
+            print(f"Reconnecting {self.topic}", flush=True)
 
     def _activate_data_poller(self) -> None:
         self._poller.register(self._pub, zmq.POLLOUT)

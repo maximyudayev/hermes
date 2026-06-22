@@ -576,8 +576,9 @@ def app():
     log_time_s, log_dir, log_history_filepath = init_output_files(args)
     args, node_specs, ref_time_s = configure_specs(args, log_time_s, log_dir)
 
-    # TODO: check why all of the suddent `force=True` is required (Python==3.14.4)
-    set_start_method("spawn", force=True)
+    # TODO: check why all of the sudden `force=True` is required (Python==3.14.4)
+    # set_start_method("spawn", force=True)
+    set_start_method("spawn")
 
     # Launch slave hosts over SSH if the current broker is master and any connections are specified.
     if args.is_master_broker and args.connections:

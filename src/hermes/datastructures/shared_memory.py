@@ -152,7 +152,7 @@ class SharedMemoryCircularBuffer:
                     return True
         return False
 
-    def push(self, new_data: np.ndarray) -> None:
+    def push(self, device_name: str, stream_name: str, new_data: np.ndarray) -> None:
         """In-place update of the shared circular buffer.
 
         Args:

@@ -74,26 +74,27 @@ Release the Python package on PyPi
 `uv publish --token <pypi_token>`
 
 ## Secure Version Control with Multiple Users
-1. Create an SSH key for a user on the shared device, securing with a password only you know.
-`ssh-keygen -t ed25519`
-1. Upload the public SSH key to your GitHub account.
-1. On device, add a domain that uniquely identifies you to the Git SSH config under `.ssh/config`, like:
+1. Create an SSH key for a user on the target shared device (e.g Jetson, Raspberry Pi), securing it with a password only you know.
+`ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_gh_<new_user>`
+1. Upload the `~/.ssh/id_ed25519_gh_<new_user>.pub` public SSH key to your GitHub account, and give it a clear name.
+1. On the target shared device, reference your unique key in the shared project domain inside the `~/.ssh/config` Git SSH config file, so that the SSH agent iterates over the other user's keys and prompts you to securely authenticate yours:
     ```
-    Host <unique_user>
-    HostName github.com
-    IdentityFile ~/.ssh/id_ed25519_gh_<unique_user>
-    User git
+    Host <project_name>
+        HostName github.com
+        IdentityFile ~/.ssh/id_ed25519_gh_<userA>
+        IdentityFile ~/.ssh/id_ed25519_gh_<userB>
+        IdentityFile ~/.ssh/id_ed25519_gh_<new_user>
+        User git
     ```
 1. Change the push URL of the remote repo to use SSH-based authentication (or push AND pull, for non-public remote repos), using your unique identifiable domain:
-`git remote set-url --push origin git@<unique_user>:username/reponame.git`
-1. Push to the repo. SSH agent will prompt for password each time.
+`git remote set-url --push origin git@<project_name>:username/reponame.git` (e.g. `git@revalexo:kuleuven-emedia/revalexo.git`, for domain project name `revalexo`).
+1. Push to the repo. The SSH agent will iterate through the identity files, prompting you for the password of each, until all files were unsuccessfully tried or until one of the SSH keys were unlocked.
 
 ## HERMES Data Recovery
 Dump the video into a new container, when device or experiment crashed, to recover playable video
 `ffmpeg -i corrupted_video.mp4 -c copy fixed_video.mp4`
 
-
-## ManGo
+## ManGo iRODS
 `for n in $(iron ls <mango_path> --columns name | sed 's/\x1b\[[0-9;]*m//g' | tail -n +2); do iron download <mango_path>/$n $n; done`
 
 `echo $FILE | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses.hdf5"}'`

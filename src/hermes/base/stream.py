@@ -363,7 +363,7 @@ class Stream(ABC):
             stream_name (str): Valid sub-stream name.
             data (np.ndarray): NumPy array of a batch of samples.
         """
-        self._data[device_name][stream_name].push(data)
+        self._data[device_name][stream_name].push(device_name, stream_name, data)
 
         # If stream set to measure actual fps
         if self._streams_info[device_name][stream_name].is_measure_rate_hz:

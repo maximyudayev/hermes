@@ -259,8 +259,14 @@ class RunningState(AbstractBrokerState):
 
     def _on_subscription_added(self, msg: list[bytes]) -> None:
         """Update a list on the Broker that keeps track of which Nodes are being brokered for."""
-        topic: str = msg[0].decode("utf-8").split("\x01")[1]
-        self._context._add_brokered_node(topic=topic)
+        msg_decoded = msg[0].decode("utf-8")
+        if "\x01" in msg_decoded:
+            topic: str = msg_decoded.split("\x01")[1]
+            print(f"{topic} subscribed", flush=True)
+            self._context._add_brokered_node(topic=topic)
+        elif "\x00" in msg_decoded:
+            topic: str = msg_decoded.split("\x00")[1]
+            print(f"{topic} unsubscribed", flush=True)
 
 
 class KillState(AbstractBrokerState):

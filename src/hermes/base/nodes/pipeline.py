@@ -28,7 +28,6 @@
 from abc import abstractmethod
 from collections import OrderedDict
 from multiprocessing import Event, Process
-import threading
 from typing import Optional
 import zmq
 
