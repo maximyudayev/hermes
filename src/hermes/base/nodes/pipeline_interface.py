@@ -28,7 +28,7 @@
 from abc import abstractmethod
 
 from hermes.base.nodes.node_interface import NodeInterface
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 
 
 class PipelineInterface(NodeInterface):
@@ -36,7 +36,7 @@ class PipelineInterface(NodeInterface):
 
     @classmethod
     @abstractmethod
-    def create_stream(cls, stream_spec: dict) -> Stream:
+    def create_stream(cls, stream_spec: dict) -> DataContainer:
         """Instantiate Stream datastructure object specific to this Pipeline.
 
         Should also be a class method to create Stream objects on consumers.

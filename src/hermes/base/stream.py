@@ -28,100 +28,50 @@
 from abc import ABC
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Mapping, Optional, Dict, TypeAlias
+from typing import Generator, Iterable, Iterator, Mapping, Optional, Dict, Tuple
 import numpy as np
 
 from hermes.datastructures.shared_memory import SharedMemoryCircularBuffer
 from hermes.utils.time_utils import get_time
 from hermes.utils.types import (
+    DataContainerInfo,
+    DataBundleInfo,
     SharedMemoryCircularBufferMetadata,
-    StreamMetadataDictionary,
+    DataChannelInfo,
     VideoFormatEnum,
     ExtraDataInfoDict,
-    NewDataDict,
-    StreamInfoDict,
+    NewData,
 )
-
-StreamFifoDict: TypeAlias = Dict[str, Dict[str, SharedMemoryCircularBuffer]]
 
 
 @dataclass
-class StreamReconstructor:
+class DataContainerReconstructor:
     module_name: str
     class_name: str
-    stream_info: StreamInfoDict
+    container_info: DataContainerInfo
 
 
-class Stream(ABC):
-    """An abstract class to hold data of a `Node`.
+class DataBundle:
+    _name: str
+    _data: Dict[str, SharedMemoryCircularBuffer]
+    _bundle_info: DataBundleInfo
 
-    Tree-like structure of circular shared memory FIFO buffers.
-    May contain multiple sub-streams for a single device (e.g. acceleration and gyroscope of an IMU).
-
-    Data for sub-streams under the same device tree arrives as a single packet (e.g. from sensor).
-    Packets containing decoupled data (e.g. not guaranteed to be of equal length and consumed separately)
-    are better treated as independent device trees.
-
-    Uses multiprocessing `Lock` protected metadata for underlying circular FIFOs contained
-    in a device tree, to coordinate non-blocking (when possible) thread-safe access to the FIFO ranges:
-    ensures high-performance parallel acquisition, processing, and logging.
-
-    Permanent storing is managed by the `Storage`: continuously flushes data to disk at specified intervals.
-    will log the class name of each sensor in the files metadata.
-    """
-
-    metadata_class_name_key = "Stream class name"
-    metadata_data_headings_key = "Data headings"
-
-    _data: StreamFifoDict
-    _streams_info: StreamInfoDict
-
-    def __init__(self) -> None:
-        self._data = dict()
-        self._streams_info = dict()
-
-    @classmethod
-    def create_from_metadata(cls, streams_info_all: StreamInfoDict):
-        stream = cls()
-        stream._streams_info = streams_info_all
-        for device_name, device_info in stream._streams_info.items():
-            for stream_name, stream_info in device_info.items():
-                stream._init_stream_data(
-                    device_name=device_name,
-                    stream_name=stream_name,
-                    data_type=stream_info.metadata.data_type,
-                    sample_size=stream_info.metadata.sample_size,
-                    buf_len=stream_info.metadata.buf_len,
-                    metadata=stream_info.metadata,
-                )
-        return stream
-
-    ############################
-    ###### INTERFACE FLOW ######
-    ############################
-    # @abstractmethod
-    # def get_fps(self) -> dict[str, float | None]:
-    #     """Get effective frame rate of this unique stream's captured data.
-
-    #     Subject to expected transmission delay and throughput limitation.
-    #     Computed based on how fast data becomes available to the data structure.
-    #     Used to measure the performance of the system - local or remote nodes.
-
-    #     Returns:
-    #         dict[str, float | None]: Mapping of measured FPS to stream names.
-    #     """
-    #     pass
-
-    #############################
-    ###### GETTERS/SETTERS ######
-    #############################
-    def add_stream(
+    def __init__(
         self,
-        device_name: str,
-        stream_name: str,
+        name: str,
+        bundle_info: Optional[DataBundleInfo] = None,
+    ) -> None:
+        self._name = name
+        self._data = dict()
+        self._bundle_info = bundle_info or DataBundleInfo()
+
+    def add_channel(
+        self,
+        channel_name: str,
         data_type: str,
         sample_size: Iterable[int],
         buf_len: int,
+        shm_buffer_metadata: Optional[SharedMemoryCircularBufferMetadata] = None,
         sampling_rate_hz: Optional[float] = 0.0,
         is_measure_rate_hz: Optional[bool] = False,
         data_notes: Optional[Mapping[str, str]] = {},
@@ -131,39 +81,41 @@ class Stream(ABC):
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
     ) -> None:
-        """Add a new sub-stream to an existing device tree or creates new.
+        """Add a new channel to the data bundle.
 
-        Will by default add a stream for each device to mark each captured sample
-        with the host's time-of-arrival.
+        Will by default add a time-of-processing channel for the bundle to mark each
+        captured batch of samples with the host's handling time: will have fewer samples
+        than the rest of the data for cases when batches of samples are pushed by `Node`.
 
         Args:
-            device_name (str): Device tree name. Will autocreate if doesn't exist.
-            stream_name (str): Unique sub-stream name under this device tree.
-            data_type (str): Fixed data type expected in the sub-stream.
+            channel_name (str): Unique channel name under this data bundle.
+            data_type (str): Fixed data type expected in the channel.
             sample_size (Iterable[int]): An interable of dimensions of given data type in each captured sample.
-            buf_len (int): Size of the circular buffer to preallocate in the shared memory for the stream.
+            buf_len (int): Size of the underlying circular buffer to preallocate in the shared memory for the channel.
+            shm_buffer_metadata (SharedMemoryCircularBufferMetadata, optional): Metadata for binding datastructure to
+                an underlying allocated shared memory. Defaults to `None`.
             sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to `0.0`.
             is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to `False`.
-            data_notes (Mapping[str, str], optional): Mapping of streams to notes for Storage to use in file metadata. Defaults to `{}`.
-            is_video (bool, optional): Whether it is a video stream. Defaults to `False`.
-            color_format (VideoFormatEnum | None, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
-            is_audio (bool, optional): Whether it is an audio stream. Defaults to `False`.
+            data_notes (Mapping[str, str], optional): Mapping of channels to notes for `Storage` to use in file metadata. Defaults to `{}`.
+            is_video (bool, optional): Whether it is a video channel. Defaults to `False`.
+            color_format (VideoFormatEnum, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
+            is_audio (bool, optional): Whether it is an audio channel. Defaults to `False`.
             timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
             extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
-                with at least 'data_type' and 'sample_size'. Defaults to `{}`.
+                with at least `data_type` and `sample_size`. Defaults to `{}`.
 
         Raises:
-            ValueError: If stream name is not unique or is reserved.
+            ValueError: If channel name is not unique or is reserved.
         """
-        if stream_name in ["process_time_s", "count"]:
-            raise ValueError(f"`{stream_name}` is reserved for `Stream` internal use.")
+        if channel_name in ["process_time_s", "count"]:
+            raise ValueError(f"`{channel_name}` is reserved for `DataContainer` internal use.")
 
-        self._add_stream(
-            device_name=device_name,
-            stream_name=stream_name,
+        self._add_channel(
+            channel_name=channel_name,
             data_type=data_type,
             sample_size=sample_size,
             buf_len=buf_len,
+            shm_buffer_metadata=shm_buffer_metadata,
             sampling_rate_hz=sampling_rate_hz,
             is_measure_rate_hz=is_measure_rate_hz,
             data_notes=data_notes,
@@ -173,10 +125,10 @@ class Stream(ABC):
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
         )
-        if "process_time_s" not in self._data[device_name]:
-            self._add_stream(
-                device_name=device_name,
-                stream_name="process_time_s",
+
+        if "process_time_s" not in self.get_channel_names():
+            self._add_channel(
+                channel_name="process_time_s",
                 data_type="float64",
                 sample_size=[1],
                 buf_len=buf_len,
@@ -191,10 +143,9 @@ class Stream(ABC):
                     ]
                 ),
             )
-        if "count" not in self._data[device_name]:
-            self._add_stream(
-                device_name=device_name,
-                stream_name="count",
+        if "count" not in self.get_channel_names():
+            self._add_channel(
+                channel_name="count",
                 data_type="uint16",
                 sample_size=[1],
                 buf_len=buf_len,
@@ -209,14 +160,13 @@ class Stream(ABC):
                 ),
             )
 
-    def _add_stream(
+    def _add_channel(
         self,
-        device_name: str,
-        stream_name: str,
+        channel_name: str,
         data_type: str,
         sample_size: Iterable[int],
         buf_len: int,
-        metadata: Optional[SharedMemoryCircularBufferMetadata] = None,
+        shm_buffer_metadata: Optional[SharedMemoryCircularBufferMetadata] = None,
         sampling_rate_hz: Optional[float] = 0.0,
         is_measure_rate_hz: Optional[bool] = False,
         data_notes: Optional[Mapping[str, str]] = {},
@@ -226,17 +176,15 @@ class Stream(ABC):
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
     ) -> None:
-        self._init_stream_data(
-            device_name=device_name,
-            stream_name=stream_name,
+        self._alloc_channel(
+            channel_name=channel_name,
             data_type=data_type,
             sample_size=sample_size,
             buf_len=buf_len,
-            metadata=metadata,
+            shm_buffer_metadata=shm_buffer_metadata,
         )
-        self._init_stream_info(
-            device_name=device_name,
-            stream_name=stream_name,
+        self._init_channel_info(
+            channel_name=channel_name,
             sample_size=sample_size,
             sampling_rate_hz=sampling_rate_hz,
             is_measure_rate_hz=is_measure_rate_hz,
@@ -248,28 +196,25 @@ class Stream(ABC):
             extra_data_info=extra_data_info,
         )
 
-    def _init_stream_data(
+    def _alloc_channel(
         self,
-        device_name: str,
-        stream_name: str,
+        channel_name: str,
         data_type: str,
         sample_size: Iterable[int],
         buf_len: int,
-        metadata: Optional[SharedMemoryCircularBufferMetadata],
+        shm_buffer_metadata: Optional[SharedMemoryCircularBufferMetadata],
     ) -> None:
-        self._data.setdefault(device_name, OrderedDict())
-        if stream_name not in self._data[device_name]:
-            self._data[device_name][stream_name] = SharedMemoryCircularBuffer(
+        if channel_name not in self._data:
+            self._data[channel_name] = SharedMemoryCircularBuffer(
                 buf_len,
                 sample_size,
                 data_type,
-                metadata,
+                shm_buffer_metadata,
             )
 
-    def _init_stream_info(
+    def _init_channel_info(
         self,
-        device_name: str,
-        stream_name: str,
+        channel_name: str,
         sample_size: Iterable[int],
         sampling_rate_hz: Optional[float] = 0.0,
         is_measure_rate_hz: Optional[bool] = False,
@@ -280,33 +225,28 @@ class Stream(ABC):
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
     ) -> None:
-        buffer: SharedMemoryCircularBuffer = self._data[device_name][stream_name]
+        buffer: SharedMemoryCircularBuffer = self._data[channel_name]
 
         if not isinstance(sample_size, Iterable):
             sample_size = [sample_size]
 
-        self._streams_info.setdefault(device_name, dict())
-        self._streams_info[device_name][stream_name] = StreamMetadataDictionary(
-            metadata=buffer.get_metadata(),
+        self._bundle_info.channels[channel_name] = DataChannelInfo(
             sampling_rate_hz="%.2f" % sampling_rate_hz,
-            is_measure_rate_hz=is_measure_rate_hz,
+            shm_buffer_metadata=buffer.get_metadata(),
             is_video=is_video,
             is_audio=is_audio,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
             data_notes=data_notes,
+            is_measure_rate_hz=is_measure_rate_hz,
         )
 
         # Record color formats to use by FFmpeg, for saving and displaying frames.
         if is_video:
             try:
                 if color_format is not None:
-                    self._streams_info[device_name][
-                        stream_name
-                    ].video_format = color_format.value.format
-                    self._streams_info[device_name][
-                        stream_name
-                    ].video_color = color_format.value.color
+                    self._bundle_info.channels[channel_name].video_format = color_format.value.format
+                    self._bundle_info.channels[channel_name].video_color = color_format.value.color
                 else:
                     raise KeyError
             except KeyError:
@@ -318,112 +258,127 @@ class Stream(ABC):
         # Some metadata to keep track of during running to measure the actual frame rate.
         if is_measure_rate_hz:
             # Set at start actual rate equal to desired sample rate
-            self._streams_info[device_name][
-                stream_name
-            ].actual_rate_hz = sampling_rate_hz
+            self._bundle_info.channels[channel_name].actual_rate_hz = sampling_rate_hz
             # Create a circular buffer of 1 second, w.r.t. desired sample rate
             circular_buffer_len: int = max(round(sampling_rate_hz), 1)
-            self._streams_info[device_name][stream_name].dt_circular_buffer = list(
+            self._bundle_info.channels[channel_name].dt_circular_buffer = list(
                 [1 / sampling_rate_hz] * circular_buffer_len
             )
-            self._streams_info[device_name][stream_name].dt_circular_index = 0
-            self._streams_info[device_name][stream_name].dt_running_sum = 1.0
-            self._streams_info[device_name][stream_name].old_toa = get_time()
+            self._bundle_info.channels[channel_name].dt_circular_index = 0
+            self._bundle_info.channels[channel_name].dt_running_sum = 1.0
+            self._bundle_info.channels[channel_name].old_toa = get_time()
 
-    def push(self, process_time_s: float, data: NewDataDict) -> None:
-        """Addition of a batch of new samples to the `Stream`.
+    def push(self, process_time_s: float, data: Dict[str, np.ndarray]) -> None:
+        """Atomic addition of a batch of new samples to the channels of the data bundle.
 
-        Shuffles keys inside the device-tree to limit collisions with `Storage`
-        during flushes of data to disk.
+        Atomically checks if all the channels in the bundle can accommodate the new data.
+        If a channel would overlap and drop incoming data - a channel with 
+        `BytesSharedMemoryCircularBuffer` underlying data structure - then the samples in the batch
+        are symmetrically truncated (preserving the newest samples) for ALL channels in the bundle
+        to maintain atomic access and perfect one-to-one relational mapping.
+
+        NOTE: currently not suitable for `BytesSharedMemoryCircularBuffer`.
 
         Args:
             process_time_s (float): Time-of-processing of the batch of samples.
-            data (NewDataDict): Newly processed batch of samples.
+            data (Dict[str, np.ndarray]): Newly processed batch of samples in the `[N, *sample_size]` shape.
         """
-        for device_name, device_data in data.items():
-            if device_data is not None:
-                for stream_name, stream_data in device_data.items():
-                    self._push(device_name, stream_name, stream_data)
-                self._push(
-                    device_name,
-                    "process_time_s",
-                    np.array([[process_time_s]], dtype=np.float64),
-                )
-                self._push(
-                    device_name,
-                    "count",
-                    np.array([[len(device_data["toa_s"])]], dtype=np.uint16),
-                )
+        # Augment the device data dictionary.
+        data["process_time_s"] = np.array([[process_time_s]], dtype=np.float64)
+        num_elements = data["toa_s"].shape[0]
+        data["count"] = np.array([[num_elements]], dtype=np.uint16)
 
-    def _push(self, device_name: str, stream_name: str, data: np.ndarray) -> None:
-        """[Internal] Underlying logic for adding new data to a stream.
+        metadata = self._bundle_info.metadata
+        with metadata.lock:
+            # Calculate the free space in the bundle.
+            metadata.is_writing.value = True
+            buf = self._data["toa_s"]
+            write_tail = metadata.write_head.value
+            
+            free_space = (metadata.read_tail.value - write_tail - 1) % buf.buf_len
+            if num_elements > free_space:
+                num_elements = free_space
+            
+            write_head = (write_tail + num_elements) % buf.buf_len
 
-        Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
-            data (np.ndarray): NumPy array of a batch of samples.
-        """
-        self._data[device_name][stream_name].push(device_name, stream_name, data)
+        if num_elements == 0:
+            with metadata.lock:
+                metadata.is_writing.value = False
+            return
 
-        # If stream set to measure actual fps
-        if self._streams_info[device_name][stream_name].is_measure_rate_hz:
-            # Make intermediate variables for current and previous samples' time-of-arrival
-            new_toa = get_time()
-            old_toa = self._streams_info[device_name][stream_name].old_toa
-            # Record the new arrival time for the next iteration
-            self._streams_info[device_name][stream_name].old_toa = new_toa
-            # Update the running sum of time increments of the circular buffer
-            oldest_dt = self._streams_info[device_name][stream_name].dt_circular_buffer[
-                self._streams_info[device_name][stream_name].dt_circular_index
-            ]
-            newest_dt = new_toa - old_toa
-            self._streams_info[device_name][stream_name].dt_running_sum += (
-                newest_dt - oldest_dt
+        # Execute atomic write for all streams, trimming all arrays identically if circular buffer's head cathes onto the tail.
+        for channel_name, channel_data in data.items():
+            self._data[channel_name].push_unprotected(
+                bundle_name=self._name,
+                channel_name=channel_name,
+                new_data=channel_data[-num_elements:],
+                write_tail=write_tail,
+                write_head=write_head,
+                num_elements=num_elements,
             )
-            # Put current time increment in place of the oldest one in the circular buffer
-            self._streams_info[device_name][stream_name].dt_circular_buffer[
-                self._streams_info[device_name][stream_name].dt_circular_index
-            ] = newest_dt
-            # Move the index in the circular fashion
-            self._streams_info[device_name][stream_name].dt_circular_index = (
-                self._streams_info[device_name][stream_name].dt_circular_index + 1
-            ) % len(self._streams_info[device_name][stream_name].dt_circular_buffer)
-            # Refresh the actual frame rate information
-            self._streams_info[device_name][stream_name].actual_rate_hz = (
-                len(self._streams_info[device_name][stream_name].dt_circular_buffer)
-                / self._streams_info[device_name][stream_name].dt_running_sum
-            )
+
+            # If stream set to measure actual fps.
+            if self._bundle_info.channels[channel_name].is_measure_rate_hz:
+                # Make intermediate variables for current and previous samples' time-of-arrival.
+                new_toa = get_time()
+                old_toa = self._bundle_info.channels[channel_name].old_toa
+                # Record the new arrival time for the next iteration.
+                self._bundle_info.channels[channel_name].old_toa = new_toa
+                # Update the running sum of time increments of the circular buffer.
+                oldest_dt = self._bundle_info.channels[channel_name].dt_circular_buffer[
+                    self._bundle_info.channels[channel_name].dt_circular_index
+                ]
+                newest_dt = new_toa - old_toa
+                self._bundle_info.channels[channel_name].dt_running_sum += (
+                    newest_dt - oldest_dt
+                )
+                # Put current time increment in place of the oldest one in the circular buffer
+                self._bundle_info.channels[channel_name].dt_circular_buffer[
+                    self._bundle_info.channels[channel_name].dt_circular_index
+                ] = newest_dt
+                # Move the index in the circular fashion
+                self._bundle_info.channels[channel_name].dt_circular_index = (
+                    self._bundle_info.channels[channel_name].dt_circular_index + 1
+                ) % len(self._bundle_info.channels[channel_name].dt_circular_buffer)
+                # Refresh the actual frame rate information
+                self._bundle_info.channels[channel_name].actual_rate_hz = (
+                    len(self._bundle_info.channels[channel_name].dt_circular_buffer)
+                    / self._bundle_info.channels[channel_name].dt_running_sum
+                )
+        with metadata.lock:
+            metadata.write_head.value = write_head
+            metadata.is_writing.value = False
 
     def pop(
         self,
-        device_name: str,
-        stream_name: str,
         num_oldest_to_pop: Optional[int] = None,
         is_flush: Optional[bool] = False,
-    ) -> Iterator[np.ndarray]:
+    ) -> Generator[Tuple[str, np.ndarray]]:
         """Wrap all samples ready to be popped in views over shared memory NumPy arrays.
 
-        Used by `Storage` to flush data to disk.
-
         Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
             num_oldest_to_pop (int, optional): Number of samples to pop. Defaults to `None`.
             is_flush (bool, optional): Whether to pop all data in the stream, regardless of timesteps_before_solidified. Defaults to `False`.
 
-        Yields:
-            Iterator[np.ndarray]: Iterator over poppable views of samples (oldest->newest).
+        Returns:
+            Generator[Tuple[str, np.ndarray]]: Generator over poppable views of samples (oldest->newest) of each stream.
         """
-        # O(1) complexity to check length of the `SharedMemoryCircularBuffer`.
-        num_available: int = (
-            self._data[device_name][stream_name].get_fill_level().num_samples
-        )
+        metadata = self._bundle_info.metadata
+        # Reserve the current unread data range.
+        with metadata.lock:
+            metadata.is_reading.value = True
+            metadata.read_head.value = metadata.write_head.value
+            num_available = (
+                metadata.read_head.value - metadata.read_tail.value
+            ) % self._data["toa_s"].buf_len
+            start = metadata.read_tail.value
+
         # Can pop all available data, except what must be kept peekable.
-        num_poppable: int = (
+        num_poppable: int = max(0,
             num_available
-            - self._streams_info[device_name][stream_name].timesteps_before_solidified
+            - self._bundle_info.channels["toa_s"].timesteps_before_solidified
         )
-        # If experiment ended, flush all available data from the Stream.
+        # If experiment ended, flush all available data from the `DataContainer`.
         if is_flush:
             num_oldest_to_pop = num_available
         elif num_oldest_to_pop is None:
@@ -431,154 +386,338 @@ class Stream(ABC):
         else:
             num_oldest_to_pop = min(num_oldest_to_pop, num_poppable)
 
-        views, num_popped = self._data[device_name][stream_name].pop(num_oldest_to_pop)
-        for view in views:
-            yield view
-        self._data[device_name][stream_name].release(num_popped)
+        end = (start + num_oldest_to_pop) % self._data["toa_s"].buf_len
 
-    def peek(
+        def _generator() -> Iterator[Tuple[str, np.ndarray]]:
+            try:
+                # Create an iterator of views over the data.
+                if num_oldest_to_pop > 0:
+                    for channel_name, channel in self._data.items():
+                        for view in channel.pop_unprotected(start, end):
+                            yield channel_name, view
+            finally:
+                # Release read reservations on buffer ranges, to allow `Node` to overwrite it.
+                with metadata.lock:
+                    if num_oldest_to_pop > 0:
+                        metadata.read_tail.value = (
+                            metadata.read_tail.value + num_oldest_to_pop
+                        ) % self._data["toa_s"].buf_len
+                    metadata.is_reading.value = False
+
+        return _generator()
+
+    def clear(
         self,
-        device_name: str,
-        stream_name: str,
-        num_newest_to_peek: Optional[int],
-    ) -> Iterator[Any]:
-        """Wrap N newest samples to peek in views over shared memory NumPy arrays.
-
-        Peeking and popping ranges are protected by `timesteps_before_solidified`.
-
-        TODO: Adjust and test the method after introduction of the `SharedMemoryCircularBuffer`.
-
-        Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid stream name.
-            num_newest_to_peek (int, optional): Number of samples to peek, if less than `timesteps_before_solidified`. Defaults to `None`.
-
-        Yields:
-            Iterator[np.ndarray]: Iterator over peekable views of newest samples.
-        """
-        num_peekable: int = min(
-            self._streams_info[device_name][stream_name].timesteps_before_solidified,
-            len(self._data[device_name][stream_name]),
-        )
-        if num_newest_to_peek is None:
-            num_newest_to_peek = num_peekable
-        else:
-            num_newest_to_peek = min(
-                num_newest_to_peek,
-                self._streams_info[device_name][
-                    stream_name
-                ].timesteps_before_solidified,
-            )
-
-        views, num_peeked = self._data[device_name][stream_name].peek(
-            num_newest_to_peek
-        )
-        for view in views:
-            yield view
-        self._data[device_name][stream_name].release()
-
-    def clear_data(
-        self,
-        device_name: str,
-        stream_name: str,
         num_oldest_to_clear: Optional[int] = None,
     ) -> None:
-        """Clear all or N oldest samples in a stream.
+        """Clear all or N oldest samples in the bundle.
+
+        NOTE: Only changes metadata.
 
         Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
             num_oldest_to_clear (int): Number of oldest samples to clear. Defaults to `None`.
         """
-        if num_oldest_to_clear is not None:
-            # Clearing up to a point in the FIFO.
-            # TODO: Wait until neither Node, nor GUI, append or peek newest data, respectively,
-            #   only if clearing past their operating area.
-            num_clearable: int = (
-                self._data[device_name][stream_name].get_fill_level().num_samples
-                - self._streams_info[device_name][
-                    stream_name
-                ].timesteps_before_solidified
-            )
-            _, num_cleared = self._data[device_name][stream_name].pop(num_clearable)
-            self._data[device_name][stream_name].release(num_cleared)
-        else:
-            # Clearing the whole FIFO.
-            # TODO: Wait until neither Node, nor GUI, append or peek newest data, respectively.
-            self._data[device_name][stream_name].clear()
+        metadata = self._bundle_info.metadata
+        with metadata.lock:
+            metadata.read_head.value = metadata.write_head.value
+            num_available = (
+                metadata.read_head.value - metadata.read_tail.value
+            ) % self._data["toa_s"].buf_len
 
-    def clear_data_all(self) -> None:
-        """Clear all sub-streams from all device trees."""
-        for device_name, device_info in self._streams_info.items():
-            for stream_name, stream_info in device_info.items():
-                self.clear_data(device_name, stream_name)
+            if num_oldest_to_clear is None:
+                num_oldest_to_clear = num_available
+            else:
+                num_oldest_to_clear = min(num_oldest_to_clear, num_available)
 
-    def get_num_devices(self) -> int:
-        """Get the number of asynchronous device trees.
+            if num_oldest_to_clear > 0:
+                metadata.read_tail.value = (
+                    metadata.read_tail.value + num_oldest_to_clear
+                ) % self._data["toa_s"].buf_len
 
-        Returns:
-            int: Number of device trees.
-        """
-        return len(self._streams_info)
+    def close(self) -> None:
+        for channel_name, channel in self._data.items():
+            channel.close()
 
-    def get_device_names(self) -> list[str]:
-        """Get the names of the asynchronous device trees.
+    def unlink(self) -> None:
+        for channel_name, channel in self._data.items():
+            channel.unlink()
+
+    def get_channel_names(self) -> list[str]:
+        """Get the names of channels in the atomic data bundle.
 
         Returns:
-            list[str]: Names of device trees.
+            list[str]: Names of data channels in the bundle.
         """
-        return list(self._streams_info.keys())
+        return list(self._data.keys())
 
-    def get_stream_names(self, device_name: Optional[str] = None) -> list[str]:
-        """Get the names of sub-streams in a device tree.
-
-        If device_name is None, will assume streams are the same for every device.
+    def get_info(
+        self,
+        channel_name: str,
+    ) -> DataChannelInfo:
+        """Get metadata of a data channel.
 
         Args:
-            device_name (str, optional): Name of the device tree to query. Defaults to `None`.
+            channel_name (str): Valid data channel name.
 
         Returns:
-            list[str]: Names of sub-streams in a device tree.
+            ChannelInfo: Metadata dictionary describing the data channel.
         """
-        if device_name is None:
-            device_name = self.get_device_names()[0]
-        return list(self._streams_info[device_name].keys())
+        return self._bundle_info.channels[channel_name]
+    
+    def get_info_all(self) -> DataBundleInfo:
+        return self._bundle_info
 
-    def get_stream_info(
-        self, device_name: str, stream_name: str
-    ) -> StreamMetadataDictionary:
-        """Get metadata of a sub-stream.
+
+class DataContainer(ABC):
+    """An abstract hierarchical container for holding data of a `Node`.
+
+    Tree-like structure of bundles of channels of circular shared memory FIFO buffers.
+    May contain multiple channels for a single bundle (e.g. acceleration and gyroscope of an IMU).
+
+    Channels under the same bundle are atomic to preserve one-to-one mapping of data
+    arriving as a single packet (e.g. from a sensor).
+    Packets containing decoupled data (e.g. not guaranteed to be of equal length and consumed separately)
+    are better split into independent bundles.
+
+    Uses multiprocessing `Lock` protected metadata for atomic access to the underlying circular FIFOs contained
+    in a bundle, to coordinate non-blocking (when possible) thread-safe access to the FIFO ranges:
+    ensures high-performance parallel acquisition, processing, and logging.
+
+    Permanent storing is managed by the `Storage`: continuously flushes data to disk at specified intervals.
+    Will log the class name of the parent data logging component in the files metadata.
+
+    TODO: run validator after construction to check that each bundle contains a `toa_s` channel.
+    """
+
+    metadata_class_name_key = "Container class name"
+    metadata_data_headings_key = "Data headings"
+
+    _data: Dict[str, DataBundle]
+    _container_info: DataContainerInfo
+
+    def __init__(self) -> None:
+        self._data = dict()
+        self._container_info = dict()
+
+    @classmethod
+    def create_from_metadata(cls, container_info: DataContainerInfo):
+        container = cls()
+        for bundle_name, bundle_info in container_info.items():
+            for channel_name, channel_info in bundle_info.channels.items():
+                container.set_channel(
+                    bundle_name=bundle_name,
+                    channel_name=channel_name,
+                    data_type=channel_info.shm_buffer_metadata.data_type,
+                    sample_size=channel_info.shm_buffer_metadata.sample_size,
+                    buf_len=channel_info.shm_buffer_metadata.buf_len,
+                    shm_buffer_metadata=channel_info.shm_buffer_metadata,
+                    bundle_info=bundle_info,
+                )
+        return container
+
+    def add_channel(
+        self,
+        bundle_name: str,
+        channel_name: str,
+        data_type: str,
+        sample_size: Iterable[int],
+        buf_len: int,
+        sampling_rate_hz: Optional[float] = 0.0,
+        is_measure_rate_hz: Optional[bool] = False,
+        data_notes: Optional[Mapping[str, str]] = {},
+        is_video: Optional[bool] = False,
+        color_format: Optional[VideoFormatEnum] = None,
+        is_audio: Optional[bool] = False,
+        timesteps_before_solidified: Optional[int] = 0,
+        extra_data_info: Optional[ExtraDataInfoDict] = {},
+    ) -> None:
+        """Add a new data channel to the container, creating a bundle if it does not exist.
 
         Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
-
-        Returns:
-            StreamMetadataDictionary: Metadata dictionary describing the sub-stream.
+            bundle_name (str): Data bundle name. Will be auto-created if it does not exist.
+            channel_name (str): Unique channel name under this data bundle.
+            data_type (str): Fixed data type expected in the channel.
+            sample_size (Iterable[int]): An interable of dimensions of given data type in each captured sample.
+            buf_len (int): Size of the underlying circular buffer to preallocate in the shared memory for the channel.
+            sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to `0.0`.
+            is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to `False`.
+            data_notes (Mapping[str, str], optional): Mapping of channels to notes for `Storage` to use in file metadata. Defaults to `{}`.
+            is_video (bool, optional): Whether it is a video channel. Defaults to `False`.
+            color_format (VideoFormatEnum, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
+            is_audio (bool, optional): Whether it is an audio channel. Defaults to `False`.
+            timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
+            extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
+                with at least 'data_type' and 'sample_size'. Defaults to `{}`.
         """
-        return self._streams_info[device_name][stream_name]
+        if bundle_name not in self._data:
+            self._data[bundle_name] = DataBundle(bundle_name)
+        self._data[bundle_name].add_channel(
+            channel_name=channel_name,
+            data_type=data_type,
+            sample_size=sample_size,
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
+            is_measure_rate_hz=is_measure_rate_hz,
+            data_notes=data_notes,
+            is_video=is_video,
+            color_format=color_format,
+            is_audio=is_audio,
+            timesteps_before_solidified=timesteps_before_solidified,
+            extra_data_info=extra_data_info,
+        )
 
-    def get_stream_info_all(self) -> StreamInfoDict:
-        """Get metadata of all sub-streams.
+    def set_channel(
+        self,
+        bundle_name: str,
+        channel_name: str,
+        data_type: str,
+        sample_size: Iterable[int],
+        buf_len: int,
+        shm_buffer_metadata: SharedMemoryCircularBufferMetadata,
+        bundle_info: DataBundleInfo,
+    ) -> None:
+        if bundle_name not in self._data:
+            self._data[bundle_name] = DataBundle(bundle_name, bundle_info)
+        self._data[bundle_name]._alloc_channel(
+            channel_name=channel_name,
+            data_type=data_type,
+            sample_size=sample_size,
+            buf_len=buf_len,
+            shm_buffer_metadata=shm_buffer_metadata,
+        )
 
-        Returns:
-            StreamInfoDict: Nested dictionary of metadata, with device trees and sub-streams as keys.
-        """
-        return self._streams_info
-
-    def _get_fps(self, device_name: str, stream_name: str) -> float | None:
-        """[Internal] Retrieve the effective sampling rate of a signal, if recorded.
-
-        Records and refreshes rolling statistics on each data structure append over 1-second windows.
+    def push(self, process_time_s: float, data: NewData) -> None:
+        """Addition (of bundles) of a batch of new samples to the data container.
 
         Args:
-            device_name (str): Valid device tree name.
-            stream_name (str): Valid sub-stream name.
+            process_time_s (float): Time-of-processing of the batch of samples.
+            data (NewDataDict): Newly processed batch of samples for (multiple) bundles.
+        """
+        for bundle_name, bundle_data in data.items():
+            if bundle_data is not None:
+                self._data[bundle_name].push(process_time_s, bundle_data)
+
+    def pop(
+        self,
+        bundle_name: str,
+        num_oldest_to_pop: Optional[int] = None,
+        is_flush: Optional[bool] = False,
+    ) -> Generator[Tuple[str, np.ndarray]]:
+        """Wrap all samples ready to be popped in views over shared memory.
+
+        Used by `Storage` to flush data to disk.
+
+        Args:
+            bundle_name (str): Valid data bundle name.
+            num_oldest_to_pop (int, optional): Number of samples to pop. Defaults to `None`.
+            is_flush (bool, optional): Whether to pop all data in the atomic bundle, regardless of `timesteps_before_solidified`. Defaults to `False`.
 
         Returns:
-            float | None: Measured acquisition sampling rate of the sub-stream.
+            Generator[Tuple[str, np.ndarray]]: Generator over poppable views of samples (oldest->newest) of each named data channel.
         """
-        if self._streams_info[device_name][stream_name].is_measure_rate_hz:
-            return self._streams_info[device_name][stream_name].actual_rate_hz
-        else:
-            return None
+        return self._data[bundle_name].pop(num_oldest_to_pop, is_flush)
+
+    def clear(self, bundle_name: str, num_oldest_to_clear: Optional[int] = None) -> None:
+        self._data[bundle_name].clear(num_oldest_to_clear)
+
+    def clear_all(self) -> None:
+        """Clear all chanenls from all atomic data bundles."""
+        for bundle_name, bundle in self._data.items():
+            bundle.clear()
+
+    def close_all(self) -> None:
+        """Close access to all channels' `SharedMemoryCircularBuffer`s from all bundles."""
+        for bundle_name, bundle in self._data.items():
+            bundle.close()
+
+    def unlink_all(self) -> None:
+        """Free allocated memory from all channels of all atomic data bundles.
+        
+        NOTE: Must be called only once, from the corresponding `Node`,
+            after all subprocesses closed shared access to it.
+        """
+        for bundle_name, bundle in self._data.items():
+            bundle.unlink()
+
+    def get_num_bundles(self) -> int:
+        """Get the number of atomic data bundles.
+
+        Returns:
+            int: Number of data bundles.
+        """
+        return len(self._data.keys())
+
+    def get_bundle_names(self) -> list[str]:
+        """Get the names of atomic data bundles.
+
+        Returns:
+            list[str]: Names of data bundles.
+        """
+        return list(self._data.keys())
+
+    def get_channel_names(self, bundle_name: str) -> list[str]:
+        """Get the names of channels in a data bundle.
+
+        Args:
+            bundle_name (str): Name of the data bundle to query.
+
+        Returns:
+            list[str]: Names of data channels in a bundle.
+        """
+        return list(self._data[bundle_name].get_channel_names())
+
+    def get_info(
+        self,
+        bundle_name: str,
+        channel_name: str,
+    ) -> DataChannelInfo:
+        """Get metadata of a data channel.
+
+        Args:
+            bundle_name (str): Valid data bundle name.
+            channel_name (str): Valid data channel name.
+
+        Returns:
+            DataContainerMetadata: Metadata dictionary describing the sub-stream.
+        """
+        return self._data[bundle_name].get_info(channel_name)
+
+    def get_info_all(self) -> DataContainerInfo:
+        """Get metadata of all bundle-channel pairs.
+
+        Returns:
+            DataContainerInfo: Nested dictionary of metadata, with bundle and channel names as keys.
+        """
+        return {bundle_name: bundle.get_info_all() for bundle_name, bundle in self._data.items()}
+
+    # def _get_fps(
+    #     self,
+    #     bundle_name: str,
+    #     channel_name: str
+    # ) -> float | None:
+    #     """Retrieve the effective sampling rate of a channel, if recorded.
+
+    #     Args:
+    #         bundle_name (str): Valid data bundle name.
+    #         channel_name (str): Valid data channel name.
+
+    #     Returns:
+    #         float | None: Measured acquisition sampling rate of the channel.
+    #     """
+    #     if self._container_info[bundle_name][channel_name].is_measure_rate_hz:
+    #         return self._container_info[bundle_name][channel_name].actual_rate_hz
+    #     else:
+    #         return None
+
+    # @abstractmethod
+    # def get_fps(self) -> dict[str, float | None]:
+    #     """Get effective frame rate of this unique stream's captured data.
+
+    #     Subject to expected transmission delay and throughput limitation.
+    #     Computed based on how fast data becomes available to the data structure.
+    #     Used to measure the performance of the system - local or remote nodes.
+
+    #     Returns:
+    #         dict[str, float | None]: Mapping of measured FPS to stream names.
+    #     """
+    #     pass

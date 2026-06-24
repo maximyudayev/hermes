@@ -30,7 +30,7 @@ import asyncio
 from collections import OrderedDict
 
 from hermes.base.state_interface import StateInterface
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 from hermes.base.storage.storage_interface import StorageInterface
 
 
@@ -63,7 +63,7 @@ class StartState(AbstractStorageState):
     Will immediately transition into `StreamState` after initialization.
     """
 
-    def __init__(self, context: StorageInterface, streams: OrderedDict[str, Stream]):
+    def __init__(self, context: StorageInterface, streams: OrderedDict[str, DataContainer]):
         """Constructor of the StartState.
 
         Args:

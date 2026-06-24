@@ -27,10 +27,10 @@
 
 from typing import Optional
 
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 
 
-class DummyStream(Stream):
+class DummyStream(DataContainer):
     """A Stream structure to store Dummy modality data."""
 
     def __init__(
@@ -49,25 +49,25 @@ class DummyStream(Stream):
         """
         super().__init__()
 
-        self.add_stream(
-            device_name="sensor-emulator1",
-            stream_name="sequence",
+        self.add_channel(
+            bundle_name="sensor_emulator1",
+            channel_name="sequence",
             data_type="uint32",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator1",
-            stream_name="toa_s",
+        self.add_channel(
+            bundle_name="sensor_emulator1",
+            channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator1",
-            stream_name="data",
+        self.add_channel(
+            bundle_name="sensor_emulator1",
+            channel_name="data",
             data_type=f"V{payload_num_bytes}",
             sample_size=[1],
             buf_len=buf_len,
@@ -75,25 +75,25 @@ class DummyStream(Stream):
             is_measure_rate_hz=True,
         )
 
-        self.add_stream(
-            device_name="sensor-emulator2",
-            stream_name="sequence",
+        self.add_channel(
+            bundle_name="sensor_emulator2",
+            channel_name="sequence",
             data_type="uint32",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator2",
-            stream_name="toa_s",
+        self.add_channel(
+            bundle_name="sensor_emulator2",
+            channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator2",
-            stream_name="data",
+        self.add_channel(
+            bundle_name="sensor_emulator2",
+            channel_name="data",
             data_type=f"V{payload_num_bytes}",
             sample_size=[1],
             buf_len=buf_len,
@@ -103,12 +103,12 @@ class DummyStream(Stream):
 
     def get_fps(self) -> dict[str, float | None]:
         return {
-            "sensor-emulator1": super()._get_fps("sensor-emulator1", "data"),
-            "sensor-emulator2": super()._get_fps("sensor-emulator2", "data"),
+            "sensor_emulator1": super()._get_fps("sensor_emulator1", "data"),
+            "sensor_emulator2": super()._get_fps("sensor_emulator2", "data"),
         }
 
 
-class DummyPipeStream(Stream):
+class DummyPipeStream(DataContainer):
     """A Stream structure to store Dummy Pipeline modality data."""
 
     def __init__(
@@ -127,54 +127,54 @@ class DummyPipeStream(Stream):
         """
         super().__init__()
 
-        self.add_stream(
-            device_name="sensor-emulator-processed",
-            stream_name="sequence",
+        self.add_channel(
+            bundle_name="sensor_emulator_processed",
+            channel_name="sequence",
             data_type="uint32",
             sample_size=[1],
             buf_len=buf_len,
         )
-        self.add_stream(
-            device_name="sensor-emulator-processed",
-            stream_name="toa_s",
+        self.add_channel(
+            bundle_name="sensor_emulator_processed",
+            channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
         )
-        self.add_stream(
-            device_name="sensor-emulator-processed",
-            stream_name="data",
+        self.add_channel(
+            bundle_name="sensor_emulator_processed",
+            channel_name="data",
             data_type=f"V{incoming_payload_num_bytes}",
             sample_size=[1],
             buf_len=buf_len,
         )
-        self.add_stream(
-            device_name="sensor-emulator-processed",
-            stream_name="flag",
+        self.add_channel(
+            bundle_name="sensor_emulator_processed",
+            channel_name="flag",
             data_type="uint8",
             sample_size=[1],
             buf_len=buf_len,
         )
 
-        self.add_stream(
-            device_name="sensor-emulator-internal",
-            stream_name="sequence",
+        self.add_channel(
+            bundle_name="sensor_emulator_internal",
+            channel_name="sequence",
             data_type="uint32",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator-internal",
-            stream_name="toa_s",
+        self.add_channel(
+            bundle_name="sensor_emulator_internal",
+            channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
             sampling_rate_hz=int(sampling_rate_hz),
         )
-        self.add_stream(
-            device_name="sensor-emulator-internal",
-            stream_name="data",
+        self.add_channel(
+            bundle_name="sensor_emulator_internal",
+            channel_name="data",
             data_type=f"V{incoming_payload_num_bytes}",
             sample_size=[1],
             buf_len=buf_len,
@@ -184,10 +184,10 @@ class DummyPipeStream(Stream):
 
     def get_fps(self) -> dict[str, float | None]:
         return {
-            "sensor-emulator-processed": super()._get_fps(
-                "sensor-emulator-processed", "data"
+            "sensor_emulator_processed": super()._get_fps(
+                "sensor_emulator_processed", "data"
             ),
-            "sensor-emulator-internal": super()._get_fps(
-                "sensor-emulator-internal", "data"
+            "sensor_emulator_internal": super()._get_fps(
+                "sensor_emulator_internal", "data"
             ),
         }

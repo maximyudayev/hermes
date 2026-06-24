@@ -46,7 +46,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.nodes.node import Node
 from hermes.base.nodes.pipeline_interface import PipelineInterface
@@ -98,10 +98,10 @@ class Pipeline(PipelineInterface, Node):
         self._publish_fn = lambda tag, **kwargs: None
 
         # Data structure for keeping track of the Pipeline's output data.
-        self._out_stream: Stream = self.create_stream(stream_out_spec)
+        self._out_stream: DataContainer = self.create_stream(stream_out_spec)
 
         # Instantiate all desired Streams that the Pipeline will process.
-        self._in_streams: OrderedDict[str, Stream] = OrderedDict()
+        self._in_streams: OrderedDict[str, DataContainer] = OrderedDict()
         self._poll_data_fn = self._poll_data_packets
         self._on_poll_fn = (
             self._on_poll_in_out if self._is_async_generate else self._on_poll_in_only
@@ -117,7 +117,7 @@ class Pipeline(PipelineInterface, Node):
             class_type: type[ProducerInterface] | type[PipelineInterface] = (
                 search_module_class(module_name, class_name)
             )  # type: ignore
-            class_object: Stream = class_type.create_stream(specs)
+            class_object: DataContainer = class_type.create_stream(specs)
             self._in_streams.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
 
@@ -130,7 +130,7 @@ class Pipeline(PipelineInterface, Node):
                 "log_tag": self.topic,
                 "spec": logging_spec,
                 "streams": {
-                    node_name: stream.get_stream_info_all()
+                    node_name: stream.get_info_all()
                     for node_name, stream in {
                         self.topic: self._out_stream,
                         **self._in_streams,
@@ -312,8 +312,9 @@ class Pipeline(PipelineInterface, Node):
         self._storage_proc.join()
 
         # Release allocated shared memory for the `Streams`.
-        self._out_stream.clear_data_all()
-        for stream in self._in_streams.values():
-            stream.clear_data_all()
+        for stream in [self._out_stream, *list(self._in_streams.values())]:
+            stream.clear_all()
+            stream.close_all()
+            stream.unlink_all()
 
         super()._cleanup()

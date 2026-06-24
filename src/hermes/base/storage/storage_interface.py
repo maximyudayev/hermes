@@ -28,7 +28,7 @@
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 
 
 class StorageInterface(ABC):
@@ -44,7 +44,7 @@ class StorageInterface(ABC):
         pass
 
     @abstractmethod
-    def _initialize(self, streams: OrderedDict[str, Stream]) -> None:
+    def _initialize(self, streams: OrderedDict[str, DataContainer]) -> None:
         """Initializes files and indices for write pointer tracking.
 
         Args:

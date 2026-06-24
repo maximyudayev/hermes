@@ -28,7 +28,6 @@
 import time
 import random
 from typing import Optional
-
 import numpy as np
 
 from hermes.utils.time_utils import get_time
@@ -83,9 +82,9 @@ class DummyProducer(Producer):
 
         self._period = 1 / sampling_rate_hz
         self._payload_num_bytes = payload_num_bytes
-        self._sequence = np.array([0], dtype=np.uint32)
+        self._sequence = np.array([[0]], dtype=np.uint32)
         self._data = np.array(
-            [random.randbytes(self._payload_num_bytes)],
+            [[random.randbytes(self._payload_num_bytes)]],
             dtype=f"V{self._payload_num_bytes}",
         )
         self._tag: str = "%s.data" % topic
@@ -135,15 +134,15 @@ class DummyProducer(Producer):
                 self._tag,
                 process_time_s=process_time_s,
                 data={
-                    "sensor-emulator1": {
+                    "sensor_emulator1": {
                         "data": self._data,
                         "sequence": self._sequence,
-                        "toa_s": np.array([process_time_s], dtype=np.float64),
+                        "toa_s": np.array([[process_time_s]], dtype=np.float64),
                     },
-                    "sensor-emulator2": {
+                    "sensor_emulator2": {
                         "data": self._data,
                         "sequence": self._sequence,
-                        "toa_s": np.array([process_time_s], dtype=np.float64),
+                        "toa_s": np.array([[process_time_s]], dtype=np.float64),
                     },
                 },
             )

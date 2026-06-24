@@ -44,7 +44,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.delay_estimator import DelayEstimator
 from hermes.base.nodes.node import Node
@@ -94,7 +94,7 @@ class Producer(ProducerInterface, Node):
         self._publish_fn = lambda tag, **kwargs: None
 
         # Data structure for keeping track of data.
-        self._stream: Stream = self.create_stream(stream_out_spec)
+        self._stream: DataContainer = self.create_stream(stream_out_spec)
 
         # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
         self._is_cleanup_event = Event()
@@ -105,7 +105,7 @@ class Producer(ProducerInterface, Node):
                 "log_tag": self.topic,
                 "spec": logging_spec,
                 "streams": {
-                    self.topic: self._stream.get_stream_info_all(),
+                    self.topic: self._stream.get_info_all(),
                 },
                 "is_cleanup_event": self._is_cleanup_event,
             },
@@ -219,6 +219,8 @@ class Producer(ProducerInterface, Node):
             self._delay_thread.join()
 
         # Release allocated shared memory for the `Stream`.
-        self._stream.clear_data_all()
+        self._stream.clear_all()
+        self._stream.close_all()
+        self._stream.unlink_all()
 
         super()._cleanup()

@@ -46,7 +46,7 @@ from hermes.utils.zmq_utils import (
 from hermes.utils.types import LoggingSpec
 
 from hermes.base.nodes.node import Node
-from hermes.base.stream import Stream
+from hermes.base.stream import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.nodes.consumer_interface import ConsumerInterface
 from hermes.base.nodes.producer_interface import ProducerInterface
@@ -92,7 +92,7 @@ class Consumer(ConsumerInterface, Node):
         self._poll_data_fn = self._poll_data_packets
 
         # Instantiate all desired `Streams` that the `Consumer` will subscribe to.
-        self._streams: OrderedDict[str, Stream] = OrderedDict()
+        self._streams: OrderedDict[str, DataContainer] = OrderedDict()
         for stream_spec in stream_in_specs:
             topic_name: str = stream_spec["topic"]
             module_name: str = stream_spec["package"]
@@ -102,7 +102,7 @@ class Consumer(ConsumerInterface, Node):
             class_type: type[ProducerInterface] | type[PipelineInterface] = (
                 search_module_class(module_name, class_name)
             )
-            class_object: Stream = class_type.create_stream(specs)
+            class_object: DataContainer = class_type.create_stream(specs)
             # Store the streamer object.
             self._streams.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
@@ -116,7 +116,7 @@ class Consumer(ConsumerInterface, Node):
                 "log_tag": self.topic,
                 "spec": logging_spec,
                 "streams": {
-                    node_name: stream.get_stream_info_all()
+                    node_name: stream.get_info_all()
                     for node_name, stream in self._streams.items()
                 },
                 "is_cleanup_event": self._is_cleanup_event,
@@ -210,6 +210,8 @@ class Consumer(ConsumerInterface, Node):
 
         # Release allocated shared memory for the `Streams`.
         for stream in self._streams.values():
-            stream.clear_data_all()
+            stream.clear_all()
+            stream.close_all()
+            stream.unlink_all()
 
         super()._cleanup()

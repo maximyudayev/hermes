@@ -40,74 +40,49 @@ import zmq
 
 
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
-VideoFormatTuple = namedtuple("VideoFormatTuple", ("format", "color"))
-AudioFormatTuple = namedtuple("AudioFormatTuple", ("format", "color"))
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
 
 
 @dataclass
-class VideoWriter:
-    subproc: Popen
-    node_name: str
-    device_name: str
-    stream_name: str
-
-
-@dataclass
-class AudioWriter:
-    subproc: Popen
-    node_name: str
-    device_name: str
-    stream_name: str
-
-
-@dataclass
-class CsvWriter:
-    file: TextIOWrapper
-    node_name: str
-    device_name: str
-    stream_name: str
-
-
-@dataclass
-class StreamFifoFillLevel:
+class BundleFillLevel:
     num_samples: int
     sample_num_bytes: int
     buf_len: int
 
 
 @dataclass
-class SharedMemoryCircularBufferMetadata:
-    buf_len: int
-    data_type: str
-    sample_size: Iterable[int]
-    element_size: int
-    shm_id: str
+class BundleMetadata:
+    """Atomic data bundle synchronization primitives (non-blocking) to guard `SharedMemoryCircularBuffer` across processes."""
     lock: Lock = field(init=False)
-    is_reading: "Synchronized[bool]" = field(init=False)
     is_writing: "Synchronized[bool]" = field(init=False)
+    is_reading: "Synchronized[bool]" = field(init=False)
     write_head: "Synchronized[int]" = field(init=False)
     read_head: "Synchronized[int]" = field(init=False)
     read_tail: "Synchronized[int]" = field(init=False)
 
     def __post_init__(self):
         self.lock = mp.Lock()
-        self.is_reading = Value("b", False)
-        self.is_writing = Value("b", False)
-        self.write_head = Value("i", False)
-        self.read_head = Value("i", False)
-        self.read_tail = Value("i", False)
-        self.is_reading.value = False
-        self.is_writing.value = False
-        self.write_head.value = 0
-        self.read_head.value = 0
-        self.read_tail.value = 0
+        self.is_writing = Value("b", False, lock=False)
+        self.is_reading = Value("b", False, lock=False)
+        self.write_head = Value("i", 0, lock=False)
+        self.read_head = Value("i", 0, lock=False)
+        self.read_tail = Value("i", 0, lock=False)
 
 
 @dataclass
-class StreamMetadataDictionary:
+class SharedMemoryCircularBufferMetadata:
+    """Shared memory circular buffer information to bind processes to the same underlying allocated memory."""
+    buf_len: int
+    data_type: str
+    sample_size: Iterable[int]
+    element_size: int
+    shm_id: str
+
+
+@dataclass
+class DataChannelInfo:
     sampling_rate_hz: float
-    metadata: SharedMemoryCircularBufferMetadata
+    shm_buffer_metadata: SharedMemoryCircularBufferMetadata
     is_video: bool
     is_audio: bool
     timesteps_before_solidified: int
@@ -121,6 +96,44 @@ class StreamMetadataDictionary:
     dt_circular_index: Optional[int] = None
     dt_running_sum: Optional[float] = None
     old_toa: Optional[float] = None
+
+
+@dataclass
+class DataBundleInfo:
+    metadata: BundleMetadata = field(init=False)
+    channels: Dict[str, DataChannelInfo] = field(init=False)
+
+    def __post_init__(self):
+        self.metadata = BundleMetadata()
+        self.channels = dict()
+
+
+NewData: TypeAlias = Dict[str, Dict[str, np.ndarray]]
+DataContainerInfo: TypeAlias = Dict[str, DataBundleInfo]
+
+
+@dataclass
+class VideoWriter:
+    subproc: Popen
+    node_name: str
+    bundle_name: str
+    channel_name: str
+
+
+@dataclass
+class AudioWriter:
+    subproc: Popen
+    node_name: str
+    bundle_name: str
+    channel_name: str
+
+
+@dataclass
+class CsvWriter:
+    file: TextIOWrapper
+    node_name: str
+    bundle_name: str
+    channel_name: str
 
 
 @dataclass
@@ -186,6 +199,10 @@ class LoggingSpec:
     audio_codec: Optional[AudioCodec] = None
 
 
+VideoFormatTuple = namedtuple("VideoFormatTuple", ("format", "color"))
+AudioFormatTuple = namedtuple("AudioFormatTuple", ("format", "color"))
+
+
 class VideoFormatEnum(Enum):
     """Video format enumeration for supported FFmpeg video formats.
 
@@ -213,7 +230,3 @@ class AudioFormatEnum(Enum):
     YUV = AudioFormatTuple("rawvideo", "yuv420p")
     JPEG = AudioFormatTuple("image2pipe", "yuv420p")
     BAYER_RG8 = AudioFormatTuple("rawvideo", "bayer_rggb8")
-
-
-NewDataDict: TypeAlias = Dict[str, Dict[str, np.ndarray]]
-StreamInfoDict: TypeAlias = Dict[str, Dict[str, StreamMetadataDictionary]]

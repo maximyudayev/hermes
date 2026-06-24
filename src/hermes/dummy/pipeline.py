@@ -28,8 +28,8 @@
 import random
 import string
 from typing import Optional
-
 import numpy as np
+
 from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import (
     PORT_BACKEND,
@@ -76,7 +76,7 @@ class DummyPipeline(Pipeline):
         """
         self._is_continue_generate = True
         self._is_keep_samples = False
-        self._sequence = np.array([0], dtype=np.uint32)
+        self._sequence = np.array([[0]], dtype=np.uint32)
         self._period = 1 / stream_out_spec["sampling_rate_hz"]
         self._next_period: float
 
@@ -104,10 +104,10 @@ class DummyPipeline(Pipeline):
     def _process_data(self, topic: str, msg: dict) -> None:
         process_time_s: float = get_time()
         tag: str = "%s.data" % self.topic
-        data = msg["data"]["sensor-emulator1"]
-        data["flag"] = np.array([1], dtype=np.uint8)
+        data = msg["data"]["sensor_emulator1"]
+        data["flag"] = np.array([[1]], dtype=np.uint8)
         self._publish(
-            tag, process_time_s=process_time_s, data={"sensor-emulator-processed": data}
+            tag, process_time_s=process_time_s, data={"sensor_emulator_processed": data}
         )
 
     def _generate_data(self) -> None:
@@ -117,14 +117,14 @@ class DummyPipeline(Pipeline):
                 tag: str = "%s.data" % self.topic
                 data = {
                     "data": np.array(
-                        [
+                        [[
                             "".join(
                                 [
                                     random.choice(string.printable)
                                     for _ in range(random.randint(1, 100))
                                 ]
                             ).encode("ascii")
-                        ],
+                        ]],
                         dtype=f"V{100}",
                     ),
                     "sequence": self._sequence,
@@ -133,7 +133,7 @@ class DummyPipeline(Pipeline):
                 self._publish(
                     tag,
                     process_time_s=process_time_s,
-                    data={"sensor-emulator-internal": data},
+                    data={"sensor_emulator_internal": data},
                 )
                 self._sequence += 1
                 self._next_period += self._period
