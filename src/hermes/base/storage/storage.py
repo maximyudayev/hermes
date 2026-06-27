@@ -56,7 +56,7 @@ try:
 except PackageNotFoundError:
     __version__ = "NA"
 
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage_interface import StorageInterface
 from hermes.base.storage.storage_states import AbstractStorageState, StartState
 from hermes.utils.time_utils import init_time, get_time, get_time_str
@@ -71,7 +71,7 @@ from hermes.utils.types import (
 
 
 class Storage(StorageInterface):
-    """Manages IO operations of all stream data.
+    """Manages IO operations of all `Node`s data.
 
     Flushes data periodically for continuous operation and clears from memory
     to reduce RAM usage, or all at once if user guarantees enough memory.
@@ -79,9 +79,9 @@ class Storage(StorageInterface):
 
     Logs video and audio data with FFmpeg to MKV/MP4 and MP3, respectively.
     Logs all other sensor data in a single hierarchical HDF5 file.
-    CSV format is also supported, but discouraged -> creates file per sub-stream.
+    CSV format is also supported, but discouraged -> creates file per data bundle.
 
-    If sub-stream elements contain a burst of samples of sample_size,
+    If data channel elements contain a burst of samples of `sample_size`,
     will automatically unroll it.
 
     Will fail if no FFmpeg is installed on the system.
@@ -105,7 +105,7 @@ class Storage(StorageInterface):
         self,
         log_tag: str,
         spec: LoggingSpec,
-        streams: Dict[str, DataContainerInfo],
+        data_containers: Dict[str, DataContainerInfo],
         is_cleanup_event: _Event,
     ):
         """Constructor of the Storage component responsible for all IO.
@@ -113,8 +113,8 @@ class Storage(StorageInterface):
         Args:
             log_tag (str): Filename prefix.
             spec (LoggingSpec): Specifies what and how to store to disk.
-            streams (Dict[str, StreamInfoDict]): Dictionary of per-stream metadata required
-                to rebuild the `Stream` object in the `Storage` subprocess.
+            data_containers (Dict[str, DataContainerInfo]): Dictionary of per-bundle metadata required
+                to rebuild the `DataContainer` object in the `Storage` subprocess.
             is_cleanup_event (Event): Multiprocessing flag used to indicate by the parent `Node`
                 to the `Storage` subprocess to clean up and flush all remaining data to disk.
         """
@@ -122,9 +122,9 @@ class Storage(StorageInterface):
         self._spec = spec
         self._is_cleanup_event = is_cleanup_event
 
-        self._streams: Dict[str, DataContainer] = {}
-        for node_name, stream_reconstructor in streams.items():
-            self._streams[node_name] = DataContainer.create_from_metadata(stream_reconstructor)
+        self._data_containers: Dict[str, DataContainer] = {}
+        for node_name, data_container_reconstructor in data_containers.items():
+            self._data_containers[node_name] = DataContainer.create_from_metadata(data_container_reconstructor)
 
         # Create the log directory if needed.
         if self._is_to_stream() or self._is_to_dump():
@@ -136,7 +136,7 @@ class Storage(StorageInterface):
         Runs continuously, ignoring Ctrl+C interrupt, until owner Node triggers an exit.
         """
         init_time(ref_time=self._spec.ref_time_s)
-        self._state = StartState(self, self._streams)
+        self._state = StartState(self, self._data_containers)
         while self._state.is_continue():
             self._state.run()
         print("%s Storage safely exited." % self._log_tag, flush=True)
@@ -146,7 +146,7 @@ class Storage(StorageInterface):
 
         Will stop stream-logging, if it is active.
         Will trigger data dump, if configured.
-        Node pushing data to the Stream should stop adding new data before cleaning up Logger.
+        `Node` pushing data to the `DataContainer` should stop adding new data before cleaning up `Storage`.
         """
         self._stop_stream_logging()
         self._log_stop_time_s = get_time()
@@ -154,16 +154,16 @@ class Storage(StorageInterface):
     ############################
     ###### FSM OPERATIONS ######
     ############################
-    def _initialize(self, streams: OrderedDict[str, DataContainer]) -> None:
+    def _initialize(self, data_containers: OrderedDict[str, DataContainer]) -> None:
         self._hdf5_log_length_increment = 10000
-        self._streams = streams
+        self._data_containers = data_containers
         self._timesteps_before_solidified: OrderedDict[
             str, OrderedDict[str, OrderedDict[str, int]]
         ] = OrderedDict()
         self._next_data_indices_hdf5: OrderedDict[
             str, OrderedDict[str, OrderedDict[str, int]]
         ] = OrderedDict()
-        for tag in streams.keys():
+        for tag in data_containers.keys():
             # Initialize a record of what indices have been logged,
             #  and how many timesteps to stay behind of the most recent step (if needed).
             self._timesteps_before_solidified.setdefault(tag, OrderedDict())
@@ -202,7 +202,7 @@ class Storage(StorageInterface):
             num_file_writers += self._init_files_audio()
         self._init_log_indices()
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=sum(map(lambda x: x.get_num_bundles(), self._streams.values()))
+            max_workers=sum(map(lambda x: x.get_num_bundles(), self._data_containers.values()))
         )
         self._is_streaming = True
         self._is_flush = False
@@ -240,7 +240,7 @@ class Storage(StorageInterface):
         # Initialize indices and log all of the data.
         self._init_log_indices()
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=sum(map(lambda x: x.get_num_bundles(), self._streams.values()))
+            max_workers=sum(map(lambda x: x.get_num_bundles(), self._data_containers.values()))
         )
 
     def _wait_till_flush(self) -> None:
@@ -256,10 +256,10 @@ class Storage(StorageInterface):
     def _init_log_indices(self) -> None:
         """Initialize the data indices to fetch for logging
 
-        Will record the next data indices that should be fetched for each stream,
-        and the number of timesteps that each streamer needs before data is solidified.
+        Will record the next data indices that should be fetched for each bundle,
+        and the number of timesteps that each bundle needs before data is solidified.
         """
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
                 self._timesteps_before_solidified[node_name][bundle_name] = OrderedDict()
                 for channel_name, channel_info in bundle_info.channels.items():
@@ -270,14 +270,14 @@ class Storage(StorageInterface):
     def _init_files_csv(self) -> int:
         """Create and initialize CSV files.
 
-        Will have a separate file for each stream of each device.
-        Currently assumes that device names are unique across all streamers.
+        Will have a separate file for each channel of each device.
+        Currently assumes that bundle names are unique across all nodes.
 
         Returns:
             int: Number of initialized writers.
         """
         num_writers: int = 0
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip saving video or audio in a CSV.
@@ -290,7 +290,7 @@ class Storage(StorageInterface):
                     )
                     filepath_csv = os.path.join(self._spec.log_dir, filename_csv)
                     csv_file = open(filepath_csv, "w")
-                    self._csv_writers["/".join(node_name, bundle_name, channel_name)] = (
+                    self._csv_writers["/".join([node_name, bundle_name, channel_name])] = (
                         CsvWriter(csv_file, node_name, bundle_name, channel_name)
                     )
                     num_writers += 1
@@ -303,7 +303,7 @@ class Storage(StorageInterface):
         # Write CSV headers.
         for csv_file, node_name, bundle_name, channel_name in self._csv_writers.values():
             # First check if custom header titles have been specified.
-            channel_info = self._streams[node_name].get_info(bundle_name, channel_name)
+            channel_info = self._data_containers[node_name].get_info(bundle_name, channel_name)
             sample_size = channel_info.shm_buffer_metadata.sample_size
             if (
                 isinstance(channel_info.data_notes, dict)
@@ -331,8 +331,8 @@ class Storage(StorageInterface):
     def _init_files_hdf5(self) -> int:
         """Create and initialize a hierarchical HDF5 file.
 
-        Will have a single file for all streams from all devices.
-        Currently assumes that device names are unique across all streamers.
+        Will have a single file for all `Node`s from all devices.
+        Currently assumes that bundle names are unique across all `Node`s.
 
         Returns:
             int: Number of initialized writers.
@@ -346,7 +346,7 @@ class Storage(StorageInterface):
             filepath_hdf5 = os.path.join(self._spec.log_dir, filename_hdf5)
         self._hdf5_writer = h5py.File(filepath_hdf5, "w")
         # Create a dataset for each data key of each stream of each device.
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             node_group = self._hdf5_writer.create_group(node_name)
             for bundle_name, bundle_info in container.get_info_all().items():
                 device_group = node_group.create_group(bundle_name)
@@ -386,7 +386,7 @@ class Storage(StorageInterface):
             )
 
         num_writers: int = 0
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip non-video streams.
@@ -459,7 +459,7 @@ class Storage(StorageInterface):
                         video_stream, quiet=self._spec.is_quiet, pipe_stdin=True
                     )  # type: ignore
                     # Store the writer.
-                    self._video_writers["/".join(node_name, bundle_name, channel_name)] = (
+                    self._video_writers["/".join([node_name, bundle_name, channel_name])] = (
                         VideoWriter(video_subproc, node_name, bundle_name, channel_name)
                     )
                     num_writers += 1
@@ -484,7 +484,7 @@ class Storage(StorageInterface):
             )
 
         num_writers: int = 0
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip non-audio streams.
@@ -553,7 +553,7 @@ class Storage(StorageInterface):
                         audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True
                     )  # type: ignore
                     # Store the writer.
-                    self._audio_writers["/".join(node_name, bundle_name, channel_name)] = (
+                    self._audio_writers["/".join([node_name, bundle_name, channel_name])] = (
                         AudioWriter(audio_subproc, node_name, bundle_name, channel_name)
                     )
                     num_writers += 1
@@ -564,7 +564,7 @@ class Storage(StorageInterface):
 
         TODO: validate logic.
         """
-        for node_name, container in self._streams.items():
+        for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
                 # Get data notes for each stream.
                 for channel_name, channel_info in bundle_info.channels.items():
@@ -607,7 +607,7 @@ class Storage(StorageInterface):
             file_group.attrs.update(file_metadata)
             # Add metadata per stream.
             # Flatten and prune the dictionary to make it HDF5 compatible.
-            for node_name, container in self._streams.items():
+            for node_name, container in self._data_containers.items():
                 # Add the class name.
                 container_metadata = convert_dict_values_to_str(
                     {DataContainer.metadata_class_name_key: type(container).__name__},
@@ -665,7 +665,7 @@ class Storage(StorageInterface):
         Resizes datasets to remove extra empty rows.
         """
         if self._hdf5_writer is not None:
-            for node_name, container in self._streams.items():
+            for node_name, container in self._data_containers.items():
                 for bundle_name, bundle_info in container.get_info_all().items():
                     for channel_name, channel_info in bundle_info.channels.items():
                         try:
@@ -813,7 +813,7 @@ class Storage(StorageInterface):
 
     def _write_data(
         self,
-        node: DataContainer,
+        container: DataContainer,
         node_name: str,
         bundle_name: str,
         is_flush: bool,
@@ -822,8 +822,8 @@ class Storage(StorageInterface):
         
         Will synchronously write collected channels data to disk, releasing the atomic bundle at the end.
         """
-        for channel_name, view in node.pop(bundle_name, is_flush=is_flush):
-            channel_info = node.get_info(bundle_name, channel_name)
+        for channel_name, view in container.pop(bundle_name, is_flush=is_flush):
+            channel_info = container.get_info(bundle_name, channel_name)
             if self._spec.stream_hdf5 and not (channel_info.is_video or channel_info.is_audio):
                 self._sync_write_hdf5(
                     node_name=node_name,
@@ -833,23 +833,23 @@ class Storage(StorageInterface):
                 )
             elif self._spec.stream_video and channel_info.is_video:
                 self._sync_write_video(
-                    video_writer=self._video_writers["/".join(node_name, bundle_name, channel_name)],
+                    video_writer=self._video_writers["/".join([node_name, bundle_name, channel_name])].subproc,
                     view=view,
                 )
             elif self._spec.stream_audio and channel_info.is_audio:
                 self._sync_write_audio(
-                    audio_writer=self._audio_writers["/".join(node_name, bundle_name, channel_name)],
+                    audio_writer=self._audio_writers["/".join([node_name, bundle_name, channel_name])].subproc,
                     view=view,
                 )
             elif self._spec.stream_csv and not (channel_info.is_video or channel_info.is_audio):
                 self._sync_write_csv(
-                    csv_writer=self._csv_writers["/".join(node_name, bundle_name, channel_name)],
+                    csv_writer=self._csv_writers["/".join([node_name, bundle_name, channel_name])].file,
                     view=view,
                 )
 
     async def _write_bundle(
         self,
-        node: DataContainer,
+        container: DataContainer,
         node_name: str,
         bundle_name: str,
         is_flush: bool,
@@ -861,7 +861,7 @@ class Storage(StorageInterface):
         await asyncio.get_event_loop().run_in_executor(
             self._thread_pool,
             lambda: self._write_data(
-                node=node,
+                container=container,
                 node_name=node_name,
                 bundle_name=bundle_name,
                 is_flush=is_flush,   
@@ -933,11 +933,11 @@ class Storage(StorageInterface):
 
             tasks = []
             # Execute all data bundles writing concurrently.
-            for node_name, container in self._streams.items():
+            for node_name, container in self._data_containers.items():
                 for bundle_name, bundle_info in container.get_info_all().items():
                     tasks.append(
                         self._write_bundle(
-                            node=container,
+                            container=container,
                             node_name=node_name,
                             bundle_name=bundle_name,
                             is_flush=is_flush_all_in_current_iteration,
@@ -963,5 +963,5 @@ class Storage(StorageInterface):
         # Save and close the files.
         self._close_files()
         # Close handles to the allocated shared memory for the `Streams`.
-        for container in self._streams.values():
+        for container in self._data_containers.values():
             container.close_all()

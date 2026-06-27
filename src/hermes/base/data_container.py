@@ -31,7 +31,10 @@ from dataclasses import dataclass
 from typing import Generator, Iterable, Iterator, Mapping, Optional, Dict, Tuple
 import numpy as np
 
-from hermes.datastructures.shared_memory import SharedMemoryCircularBuffer
+from hermes.datastructures.shared_memory import (
+    SharedMemoryCircularBuffer,
+    RawBytesSharedMemoryCircularBuffer,
+)
 from hermes.utils.time_utils import get_time
 from hermes.utils.types import (
     DataContainerInfo,
@@ -80,6 +83,7 @@ class DataBundle:
         is_audio: Optional[bool] = False,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
+        **kwargs,
     ) -> None:
         """Add a new channel to the data bundle.
 
@@ -103,13 +107,7 @@ class DataBundle:
             timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
             extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
                 with at least `data_type` and `sample_size`. Defaults to `{}`.
-
-        Raises:
-            ValueError: If channel name is not unique or is reserved.
         """
-        if channel_name in ["process_time_s", "count"]:
-            raise ValueError(f"`{channel_name}` is reserved for `DataContainer` internal use.")
-
         self._add_channel(
             channel_name=channel_name,
             data_type=data_type,
@@ -124,41 +122,8 @@ class DataBundle:
             is_audio=is_audio,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
+            **kwargs,
         )
-
-        if "process_time_s" not in self.get_channel_names():
-            self._add_channel(
-                channel_name="process_time_s",
-                data_type="float64",
-                sample_size=[1],
-                buf_len=buf_len,
-                sampling_rate_hz=sampling_rate_hz,
-                data_notes=OrderedDict(
-                    [
-                        (
-                            "Description",
-                            "Time of arrival of the data point to the host PC, "
-                            "to be used for aligned idexing of data between distributed hosts.",
-                        )
-                    ]
-                ),
-            )
-        if "count" not in self.get_channel_names():
-            self._add_channel(
-                channel_name="count",
-                data_type="uint16",
-                sample_size=[1],
-                buf_len=buf_len,
-                sampling_rate_hz=sampling_rate_hz,
-                data_notes=OrderedDict(
-                    [
-                        (
-                            "Description",
-                            "Number of samples pushed in a batch at the same `process_time_s`.",
-                        )
-                    ]
-                ),
-            )
 
     def _add_channel(
         self,
@@ -175,6 +140,7 @@ class DataBundle:
         is_audio: Optional[bool] = False,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
+        **kwargs,
     ) -> None:
         self._alloc_channel(
             channel_name=channel_name,
@@ -182,6 +148,8 @@ class DataBundle:
             sample_size=sample_size,
             buf_len=buf_len,
             shm_buffer_metadata=shm_buffer_metadata,
+            is_video=is_video,
+            **kwargs,
         )
         self._init_channel_info(
             channel_name=channel_name,
@@ -203,13 +171,14 @@ class DataBundle:
         sample_size: Iterable[int],
         buf_len: int,
         shm_buffer_metadata: Optional[SharedMemoryCircularBufferMetadata],
+        **_,
     ) -> None:
         if channel_name not in self._data:
             self._data[channel_name] = SharedMemoryCircularBuffer(
-                buf_len,
-                sample_size,
-                data_type,
-                shm_buffer_metadata,
+                buf_len=buf_len,
+                sample_size=sample_size,
+                dtype_str=data_type,
+                metadata=shm_buffer_metadata,
             )
 
     def _init_channel_info(
@@ -251,7 +220,7 @@ class DataBundle:
                     raise KeyError
             except KeyError:
                 print(
-                    "Color format %s is not supported when specifying video frame pixel color format on Stream."
+                    "Color format %s is not supported when specifying video frame pixel color format on channel."
                     % color_format
                 )
 
@@ -268,7 +237,7 @@ class DataBundle:
             self._bundle_info.channels[channel_name].dt_running_sum = 1.0
             self._bundle_info.channels[channel_name].old_toa = get_time()
 
-    def push(self, process_time_s: float, data: Dict[str, np.ndarray]) -> None:
+    def push(self, data: Dict[str, np.ndarray]) -> None:
         """Atomic addition of a batch of new samples to the channels of the data bundle.
 
         Atomically checks if all the channels in the bundle can accommodate the new data.
@@ -277,17 +246,10 @@ class DataBundle:
         are symmetrically truncated (preserving the newest samples) for ALL channels in the bundle
         to maintain atomic access and perfect one-to-one relational mapping.
 
-        NOTE: currently not suitable for `BytesSharedMemoryCircularBuffer`.
-
         Args:
-            process_time_s (float): Time-of-processing of the batch of samples.
             data (Dict[str, np.ndarray]): Newly processed batch of samples in the `[N, *sample_size]` shape.
         """
-        # Augment the device data dictionary.
-        data["process_time_s"] = np.array([[process_time_s]], dtype=np.float64)
         num_elements = data["toa_s"].shape[0]
-        data["count"] = np.array([[num_elements]], dtype=np.uint16)
-
         metadata = self._bundle_info.metadata
         with metadata.lock:
             # Calculate the free space in the bundle.
@@ -316,35 +278,8 @@ class DataBundle:
                 write_head=write_head,
                 num_elements=num_elements,
             )
+            self.update_running_stats(channel_name)
 
-            # If stream set to measure actual fps.
-            if self._bundle_info.channels[channel_name].is_measure_rate_hz:
-                # Make intermediate variables for current and previous samples' time-of-arrival.
-                new_toa = get_time()
-                old_toa = self._bundle_info.channels[channel_name].old_toa
-                # Record the new arrival time for the next iteration.
-                self._bundle_info.channels[channel_name].old_toa = new_toa
-                # Update the running sum of time increments of the circular buffer.
-                oldest_dt = self._bundle_info.channels[channel_name].dt_circular_buffer[
-                    self._bundle_info.channels[channel_name].dt_circular_index
-                ]
-                newest_dt = new_toa - old_toa
-                self._bundle_info.channels[channel_name].dt_running_sum += (
-                    newest_dt - oldest_dt
-                )
-                # Put current time increment in place of the oldest one in the circular buffer
-                self._bundle_info.channels[channel_name].dt_circular_buffer[
-                    self._bundle_info.channels[channel_name].dt_circular_index
-                ] = newest_dt
-                # Move the index in the circular fashion
-                self._bundle_info.channels[channel_name].dt_circular_index = (
-                    self._bundle_info.channels[channel_name].dt_circular_index + 1
-                ) % len(self._bundle_info.channels[channel_name].dt_circular_buffer)
-                # Refresh the actual frame rate information
-                self._bundle_info.channels[channel_name].actual_rate_hz = (
-                    len(self._bundle_info.channels[channel_name].dt_circular_buffer)
-                    / self._bundle_info.channels[channel_name].dt_running_sum
-                )
         with metadata.lock:
             metadata.write_head.value = write_head
             metadata.is_writing.value = False
@@ -386,6 +321,9 @@ class DataBundle:
         else:
             num_oldest_to_pop = min(num_oldest_to_pop, num_poppable)
 
+        if num_oldest_to_pop == 0:
+            return []
+
         end = (start + num_oldest_to_pop) % self._data["toa_s"].buf_len
 
         def _generator() -> Iterator[Tuple[str, np.ndarray]]:
@@ -412,7 +350,7 @@ class DataBundle:
     ) -> None:
         """Clear all or N oldest samples in the bundle.
 
-        NOTE: Only changes metadata.
+        NOTE: Only changes the circular buffer's metadata pointers.
 
         Args:
             num_oldest_to_clear (int): Number of oldest samples to clear. Defaults to `None`.
@@ -435,10 +373,18 @@ class DataBundle:
                 ) % self._data["toa_s"].buf_len
 
     def close(self) -> None:
+        """Release access to the underlying shared memory arrays of all the data channels.
+
+        NOTE: Must be done from all the consuming processes.
+        """
         for channel_name, channel in self._data.items():
             channel.close()
 
     def unlink(self) -> None:
+        """Free allocated shared memory back to the OS for all the data channels.
+
+        NOTE: Must be done from only one of the consuming processes.
+        """
         for channel_name, channel in self._data.items():
             channel.unlink()
 
@@ -465,7 +411,145 @@ class DataBundle:
         return self._bundle_info.channels[channel_name]
     
     def get_info_all(self) -> DataBundleInfo:
+        """Get metadata of all the channels of the bundle.
+
+        Returns:
+            DataBundleInfo: Metadata dictionary describing all the data channels in the bundle.
+        """
         return self._bundle_info
+    
+    def update_running_stats(self, channel_name: str) -> None:
+        """Update the actual sampling rate during operation.
+        
+        Args:
+            channel_name (str): Valid data channel name.
+        """
+        if self._bundle_info.channels[channel_name].is_measure_rate_hz:
+            # Make intermediate variables for current and previous samples' time-of-arrival.
+            new_toa = get_time()
+            old_toa = self._bundle_info.channels[channel_name].old_toa
+            # Record the new arrival time for the next iteration.
+            self._bundle_info.channels[channel_name].old_toa = new_toa
+            # Update the running sum of time increments of the circular buffer.
+            oldest_dt = self._bundle_info.channels[channel_name].dt_circular_buffer[
+                self._bundle_info.channels[channel_name].dt_circular_index
+            ]
+            newest_dt = new_toa - old_toa
+            self._bundle_info.channels[channel_name].dt_running_sum += (
+                newest_dt - oldest_dt
+            )
+            # Put current time increment in place of the oldest one in the circular buffer
+            self._bundle_info.channels[channel_name].dt_circular_buffer[
+                self._bundle_info.channels[channel_name].dt_circular_index
+            ] = newest_dt
+            # Move the index in the circular fashion
+            self._bundle_info.channels[channel_name].dt_circular_index = (
+                self._bundle_info.channels[channel_name].dt_circular_index + 1
+            ) % len(self._bundle_info.channels[channel_name].dt_circular_buffer)
+            # Refresh the actual frame rate information
+            if self._bundle_info.channels[channel_name].dt_running_sum > 0:
+                self._bundle_info.channels[channel_name].actual_rate_hz = (
+                    len(self._bundle_info.channels[channel_name].dt_circular_buffer)
+                    / self._bundle_info.channels[channel_name].dt_running_sum
+                )
+
+
+class RawBytesDataBundle(DataBundle):
+    """An atomic data bundle for variable length raw bytes circular buffers.
+    Manages custom logic for atomic boundaries that map a helper index array to variable length byte frames.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        bundle_info: Optional[DataBundleInfo] = None,
+    ) -> None:
+        self._name = name
+        self._data = dict()
+        self._bundle_info = bundle_info or DataBundleInfo()
+
+    def _alloc_channel(
+        self,
+        channel_name: str,
+        data_type: str,
+        sample_size: Iterable[int],
+        buf_len: int,
+        shm_buffer_metadata: Optional[SharedMemoryCircularBufferMetadata],
+        is_video: Optional[bool] = False,
+        mem_size: Optional[int] = None,
+        **_,
+    ) -> None:
+        if channel_name not in self._data:
+            if is_video:
+                if mem_size is None:
+                    raise ValueError(f"`mem_size` must be provided for video channels to allocate ax space for video frames (channel '{channel_name}').")
+                self._data[channel_name] = RawBytesSharedMemoryCircularBuffer(
+                    buf_len=buf_len,
+                    mem_size=mem_size,
+                    sample_size=sample_size,
+                    metadata=shm_buffer_metadata,
+                )
+            else:
+                self._data[channel_name] = SharedMemoryCircularBuffer(
+                    buf_len=buf_len,
+                    sample_size=sample_size,
+                    dtype_str=data_type,
+                    metadata=shm_buffer_metadata,
+                )
+
+    def push(self, data: Dict[str, np.ndarray]) -> None:
+        """Atomic addition of a batch of new samples to the channels of the data bundle.
+        Symmetrically truncates incoming samples based on the actual bytes free in the circular buffer.
+
+        TODO (low-priority): make suitable for pushing multiple samples at a time.
+        """
+        num_elements = data["toa_s"].shape[0]
+
+        if num_elements > 1:
+            raise NotImplementedError("Can't push multiple frames to `RawBytesDataBundle` yet.")
+
+        metadata = self._bundle_info.metadata
+        with metadata.lock:
+            # Calculate free space wrt the video frame channel and the helper index size.
+            # NOTE: helper index array and fixed-size channels relate one-to-one.
+            metadata.is_writing.value = True
+            buf: RawBytesSharedMemoryCircularBuffer = self._data["frame"]
+
+            write_tail = metadata.write_head.value  # `metadata.write_head` is a synchronized pointer to the next empty cell to write to.
+            free_space_index = (metadata.read_tail.value - write_tail - 1) % buf.buf_len
+
+            oldest_frame_offset, oldest_frame_num_bytes = buf.index_buffer[metadata.read_tail.value]  # oldest unread frame (incl.)
+            newest_frame_offset, newest_frame_num_bytes = buf.index_buffer[(write_tail - 1) % buf.buf_len]
+            free_space_frame = (oldest_frame_offset.item() - (newest_frame_offset.item() + newest_frame_num_bytes.item()) - 1) % buf.mem_size
+            requested_space_frame = len(data["frame"])
+
+            # TODO: 
+            # Truncate oldest of the newest frames until:
+            #   1. The number of frames to be written is less than the free space in the index;
+            #   2. The total number of bytes for all frames to be written is less than the free space in the memory buffer;
+
+        if num_elements > free_space_index or requested_space_frame > free_space_frame:
+            with metadata.lock:
+                metadata.is_writing.value = False
+            return
+
+        write_head = (write_tail + num_elements) % buf.buf_len  # end index (excl.)
+
+        # Execute atomic write for all channels, trimming all arrays identically if circular buffer's head catches onto the tail.
+        for channel_name, channel_data in data.items():
+            self._data[channel_name].push_unprotected(
+                bundle_name=self._name,
+                channel_name=channel_name,
+                new_data=channel_data,
+                write_tail=write_tail,
+                write_head=write_head,
+                num_elements=num_elements,
+            )
+            self.update_running_stats(channel_name)
+
+        with metadata.lock:
+            metadata.write_head.value = write_head
+            metadata.is_writing.value = False
 
 
 class DataContainer(ABC):
@@ -509,7 +593,6 @@ class DataContainer(ABC):
                     channel_name=channel_name,
                     data_type=channel_info.shm_buffer_metadata.data_type,
                     sample_size=channel_info.shm_buffer_metadata.sample_size,
-                    buf_len=channel_info.shm_buffer_metadata.buf_len,
                     shm_buffer_metadata=channel_info.shm_buffer_metadata,
                     bundle_info=bundle_info,
                 )
@@ -522,6 +605,7 @@ class DataContainer(ABC):
         data_type: str,
         sample_size: Iterable[int],
         buf_len: int,
+        mem_size: Optional[int] = None,
         sampling_rate_hz: Optional[float] = 0.0,
         is_measure_rate_hz: Optional[bool] = False,
         data_notes: Optional[Mapping[str, str]] = {},
@@ -539,6 +623,7 @@ class DataContainer(ABC):
             data_type (str): Fixed data type expected in the channel.
             sample_size (Iterable[int]): An interable of dimensions of given data type in each captured sample.
             buf_len (int): Size of the underlying circular buffer to preallocate in the shared memory for the channel.
+            mem_size (int): Size of the memory to allocate for data channel in `RawBytesSharedMemoryCircularBuffer`.
             sampling_rate_hz (float, optional): Expected sampling frequency of the signal. Defaults to `0.0`.
             is_measure_rate_hz (bool, optional): Whether to compute the effective sampling frequency. Defaults to `False`.
             data_notes (Mapping[str, str], optional): Mapping of channels to notes for `Storage` to use in file metadata. Defaults to `{}`.
@@ -550,12 +635,22 @@ class DataContainer(ABC):
                 with at least 'data_type' and 'sample_size'. Defaults to `{}`.
         """
         if bundle_name not in self._data:
-            self._data[bundle_name] = DataBundle(bundle_name)
+            if is_video and color_format == VideoFormatEnum.MJPEG:
+                self._data[bundle_name] = RawBytesDataBundle(bundle_name)
+            else:
+                self._data[bundle_name] = DataBundle(bundle_name)
+        elif is_video and color_format == VideoFormatEnum.MJPEG and type(self._data[bundle_name]) is DataBundle:
+            old_bundle = self._data[bundle_name]
+            new_bundle = RawBytesDataBundle(bundle_name, old_bundle._bundle_info)
+            new_bundle._data = old_bundle._data
+            self._data[bundle_name] = new_bundle
+
         self._data[bundle_name].add_channel(
             channel_name=channel_name,
             data_type=data_type,
             sample_size=sample_size,
             buf_len=buf_len,
+            mem_size=mem_size,
             sampling_rate_hz=sampling_rate_hz,
             is_measure_rate_hz=is_measure_rate_hz,
             data_notes=data_notes,
@@ -566,24 +661,91 @@ class DataContainer(ABC):
             extra_data_info=extra_data_info,
         )
 
+        if (support_bundle_name := f"{bundle_name}_metadata") not in self._data:
+            self._data[support_bundle_name] = DataBundle(support_bundle_name)
+            self._data[support_bundle_name].add_channel(
+                channel_name="toa_s",
+                data_type="float64",
+                sample_size=[1],
+                buf_len=buf_len,
+                data_notes=OrderedDict(
+                    [
+                        (
+                            "Description",
+                            "Time of arrival of the (first) data point to the host PC (as part of a batch), "
+                            "to be used for aligned idexing of data between distributed hosts."
+                            "Maps one-to-many with the main `DataBundle`.",
+                        )
+                    ]
+                ),
+            )
+            self._data[support_bundle_name].add_channel(
+                channel_name="process_time_s",
+                data_type="float64",
+                sample_size=[1],
+                buf_len=buf_len,
+                data_notes=OrderedDict(
+                    [
+                        (
+                            "Description",
+                            "Time of consumption of the captured samples by the `HERMES` middleware.",
+                        )
+                    ]
+                ),
+            )
+            self._data[support_bundle_name].add_channel(
+                channel_name="count",
+                data_type="uint16",
+                sample_size=[1],
+                buf_len=buf_len,
+                data_notes=OrderedDict(
+                    [
+                        (
+                            "Description",
+                            "Number of samples pushed in a batch at the same `process_time_s`.",
+                        )
+                    ]
+                ),
+            )
+
     def set_channel(
         self,
         bundle_name: str,
         channel_name: str,
         data_type: str,
         sample_size: Iterable[int],
-        buf_len: int,
         shm_buffer_metadata: SharedMemoryCircularBufferMetadata,
         bundle_info: DataBundleInfo,
     ) -> None:
+        is_video_bundle = any(ch_info.is_video for ch_info in bundle_info.channels.values())
+        is_mjpeg = any(filter(lambda x: getattr(x, "video_format", False) == VideoFormatEnum.MJPEG.value.format, bundle_info.channels.values()))
+
+        # Recreate the data bundle according to the spec received over IPC, and bind it to the same shared memory.
         if bundle_name not in self._data:
-            self._data[bundle_name] = DataBundle(bundle_name, bundle_info)
+            if is_video_bundle and is_mjpeg:
+                self._data[bundle_name] = RawBytesDataBundle(bundle_name, bundle_info)
+            else:
+                self._data[bundle_name] = DataBundle(bundle_name, bundle_info)
+        # Dynamically convert the `DataBundle` to `RawBytesDataBundle` if sensed that the bundle contains MJPEG video.
+        elif is_video_bundle and is_mjpeg and type(self._data[bundle_name]) is DataBundle:
+            old_bundle = self._data[bundle_name]
+            new_bundle = RawBytesDataBundle(bundle_name, old_bundle._bundle_info)
+            new_bundle._data = old_bundle._data
+            self._data[bundle_name] = new_bundle
+
+        # Extract size of the memory preallocation for the MJPEG video channels.
+        kwargs = {}
+        if is_video_bundle and hasattr(shm_buffer_metadata, "mem_size") and is_mjpeg:
+            kwargs["mem_size"] = shm_buffer_metadata.mem_size
+
         self._data[bundle_name]._alloc_channel(
             channel_name=channel_name,
             data_type=data_type,
             sample_size=sample_size,
-            buf_len=buf_len,
+            buf_len=shm_buffer_metadata.buf_len,
             shm_buffer_metadata=shm_buffer_metadata,
+            is_video=bundle_info.channels[channel_name].is_video,
+            **kwargs,
         )
 
     def push(self, process_time_s: float, data: NewData) -> None:
@@ -591,11 +753,17 @@ class DataContainer(ABC):
 
         Args:
             process_time_s (float): Time-of-processing of the batch of samples.
-            data (NewDataDict): Newly processed batch of samples for (multiple) bundles.
+            data (NewData): Newly processed batch of samples for (multiple) bundles.
         """
         for bundle_name, bundle_data in data.items():
             if bundle_data is not None:
-                self._data[bundle_name].push(process_time_s, bundle_data)
+                self._data[bundle_name].push(bundle_data)
+                metadata = {
+                    "process_time_s": np.array([[process_time_s]], dtype=np.float64),
+                    "count": np.array([[bundle_data["toa_s"].shape[0]]], dtype=np.uint16),
+                    "toa_s": bundle_data["toa_s"][0][None],
+                }
+                self._data[f"{bundle_name}_metadata"].push(metadata)
 
     def pop(
         self,
@@ -689,35 +857,3 @@ class DataContainer(ABC):
             DataContainerInfo: Nested dictionary of metadata, with bundle and channel names as keys.
         """
         return {bundle_name: bundle.get_info_all() for bundle_name, bundle in self._data.items()}
-
-    # def _get_fps(
-    #     self,
-    #     bundle_name: str,
-    #     channel_name: str
-    # ) -> float | None:
-    #     """Retrieve the effective sampling rate of a channel, if recorded.
-
-    #     Args:
-    #         bundle_name (str): Valid data bundle name.
-    #         channel_name (str): Valid data channel name.
-
-    #     Returns:
-    #         float | None: Measured acquisition sampling rate of the channel.
-    #     """
-    #     if self._container_info[bundle_name][channel_name].is_measure_rate_hz:
-    #         return self._container_info[bundle_name][channel_name].actual_rate_hz
-    #     else:
-    #         return None
-
-    # @abstractmethod
-    # def get_fps(self) -> dict[str, float | None]:
-    #     """Get effective frame rate of this unique stream's captured data.
-
-    #     Subject to expected transmission delay and throughput limitation.
-    #     Computed based on how fast data becomes available to the data structure.
-    #     Used to measure the performance of the system - local or remote nodes.
-
-    #     Returns:
-    #         dict[str, float | None]: Mapping of measured FPS to stream names.
-    #     """
-    #     pass

@@ -39,7 +39,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.dummy.stream import DummyPipeStream
+from hermes.dummy.data_container import DummyPipeDataContainer
 from hermes.base.nodes.pipeline import Pipeline
 
 
@@ -50,8 +50,8 @@ class DummyPipeline(Pipeline):
         self,
         topic: str,
         host_ip: str,
-        stream_out_spec: dict,
-        stream_in_specs: list[dict],
+        data_out_spec: dict,
+        data_in_specs: list[dict],
         logging_spec: LoggingSpec,
         is_async_generate: Optional[bool] = False,
         port_pub: Optional[str] = PORT_BACKEND,
@@ -65,8 +65,8 @@ class DummyPipeline(Pipeline):
         Args:
             topic (str): Topic to which the pipeline will publish messages.
             host_ip (str): IP address of the local master Broker.
-            stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
-            stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+            data_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+            data_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
             logging_spec (LoggingSpec): Specification of what and how to store.
             is_async_generate (bool, optional): Whether the Pipeline produces data asynchronously, in parallel to what is fed into it. Defaults to `False`.
             port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
@@ -77,14 +77,14 @@ class DummyPipeline(Pipeline):
         self._is_continue_generate = True
         self._is_keep_samples = False
         self._sequence = np.array([[0]], dtype=np.uint32)
-        self._period = 1 / stream_out_spec["sampling_rate_hz"]
+        self._period = 1 / data_out_spec["sampling_rate_hz"]
         self._next_period: float
 
         super().__init__(
             topic=topic,
             host_ip=host_ip,
-            stream_out_spec=stream_out_spec,
-            stream_in_specs=stream_in_specs,
+            data_out_spec=data_out_spec,
+            data_in_specs=data_in_specs,
             logging_spec=logging_spec,
             is_async_generate=is_async_generate,
             port_pub=port_pub,
@@ -94,8 +94,8 @@ class DummyPipeline(Pipeline):
         )
 
     @classmethod
-    def create_stream(cls, stream_spec: dict) -> DummyPipeStream:
-        return DummyPipeStream(**stream_spec)
+    def create_data_container(cls, data_spec: dict) -> DummyPipeDataContainer:
+        return DummyPipeDataContainer(**data_spec)
 
     def _keep_samples(self) -> None:
         self._is_keep_samples = True

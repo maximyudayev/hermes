@@ -3,6 +3,7 @@
 __pycache__
 *.pyc
 *.asv
+.antigravityignore
 
 .vscode/*
 !.vscode/launch.json

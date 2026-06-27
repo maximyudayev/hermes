@@ -1,0 +1,8 @@
+# Optimized codec settings for Jetson Orin NX 16GB via [Keylost/jetson-ffmpeg](https://github.com/Keylost/jetson-ffmpeg)
+codec_name  : 'h264_nvmpi'
+pix_format  : 'yuv420p'
+input_options: {}
+output_options:
+  preset        : 'ultrafast'
+  "profile:v"   : 'high' # main
+  # "b:v" : '6M' # 3M

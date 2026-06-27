@@ -46,7 +46,7 @@ from hermes.utils.zmq_utils import (
 from hermes.utils.types import LoggingSpec
 
 from hermes.base.nodes.node import Node
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.nodes.consumer_interface import ConsumerInterface
 from hermes.base.nodes.producer_interface import ProducerInterface
@@ -63,7 +63,7 @@ class Consumer(ConsumerInterface, Node):
         self,
         topic: str,
         host_ip: str,
-        stream_in_specs: list[dict],
+        data_in_specs: list[dict],
         logging_spec: LoggingSpec,
         port_sub: Optional[str] = PORT_FRONTEND,
         port_sync: Optional[str] = PORT_SYNC_HOST,
@@ -74,7 +74,7 @@ class Consumer(ConsumerInterface, Node):
         Args:
             topic (str): Uniquely identifying tag for the Consumer and its data.
             host_ip (str): IP address of the local master Broker.
-            stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+            data_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
             logging_spec (LoggingSpec): Specification of what and how to store.
             port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
@@ -92,19 +92,19 @@ class Consumer(ConsumerInterface, Node):
         self._poll_data_fn = self._poll_data_packets
 
         # Instantiate all desired `Streams` that the `Consumer` will subscribe to.
-        self._streams: OrderedDict[str, DataContainer] = OrderedDict()
-        for stream_spec in stream_in_specs:
-            topic_name: str = stream_spec["topic"]
-            module_name: str = stream_spec["package"]
-            class_name: str = stream_spec["class"]
-            specs: dict = stream_spec["settings"]
+        self._data_containers: OrderedDict[str, DataContainer] = OrderedDict()
+        for data_spec in data_in_specs:
+            topic_name: str = data_spec["topic"]
+            module_name: str = data_spec["package"]
+            class_name: str = data_spec["class"]
+            spec: dict = data_spec["settings"]
             # Create the stream datastructure.
             class_type: type[ProducerInterface] | type[PipelineInterface] = (
                 search_module_class(module_name, class_name)
             )
-            class_object: DataContainer = class_type.create_stream(specs)
+            class_object: DataContainer = class_type.create_data_container(spec)
             # Store the streamer object.
-            self._streams.setdefault(topic_name, class_object)
+            self._data_containers.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
 
         # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Consumer`s inputs.
@@ -115,9 +115,9 @@ class Consumer(ConsumerInterface, Node):
             kwargs={
                 "log_tag": self.topic,
                 "spec": logging_spec,
-                "streams": {
-                    node_name: stream.get_info_all()
-                    for node_name, stream in self._streams.items()
+                "data_containers": {
+                    node_name: data_container.get_info_all()
+                    for node_name, data_container in self._data_containers.items()
                 },
                 "is_cleanup_event": self._is_cleanup_event,
             },
@@ -131,7 +131,7 @@ class Consumer(ConsumerInterface, Node):
         self._sub.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sub))
 
         # Subscribe to topics for each mentioned local and remote Nodes
-        for tag in self._streams.keys():
+        for tag in self._data_containers.keys():
             self._sub.subscribe(tag)
 
     # Launch data receiving.
@@ -157,7 +157,7 @@ class Consumer(ConsumerInterface, Node):
         receive_time = get_time()
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
+        self._data_containers[topic_tree[0]].push(process_time_s=receive_time, **msg)
 
     def _poll_ending_data_packets(self) -> None:
         """Receive data packets from producers and monitor for end-of-stream signal.
@@ -181,7 +181,7 @@ class Consumer(ConsumerInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
+            self._data_containers[topic_tree[0]].push(process_time_s=receive_time, **msg)
 
     def _trigger_stop(self):
         self._poll_data_fn = self._poll_ending_data_packets
@@ -209,7 +209,7 @@ class Consumer(ConsumerInterface, Node):
         self._storage_proc.join()
 
         # Release allocated shared memory for the `Streams`.
-        for stream in self._streams.values():
+        for stream in self._data_containers.values():
             stream.clear_all()
             stream.close_all()
             stream.unlink_all()

@@ -27,10 +27,10 @@
 
 from typing import Optional
 
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 
 
-class DummyStream(DataContainer):
+class DummyDataContainer(DataContainer):
     """A Stream structure to store Dummy modality data."""
 
     def __init__(
@@ -108,7 +108,7 @@ class DummyStream(DataContainer):
         }
 
 
-class DummyPipeStream(DataContainer):
+class DummyPipeDataContainer(DataContainer):
     """A Stream structure to store Dummy Pipeline modality data."""
 
     def __init__(

@@ -47,6 +47,7 @@ remote_kill_ip: null
 
 logging_spec:
   stream_period_s     : 10
+  is_quiet            : True
 
   stream_hdf5         : True
   stream_csv          : False
@@ -80,10 +81,10 @@ pipeline_specs:
     topic: "dummy_pipeline_master"
     settings:
       is_async_generate: true
-      stream_out_spec:
+      data_out_spec:
         incoming_payload_num_bytes: 100
         sampling_rate_hz: 1
-      stream_in_specs:
+      data_in_specs:
         - package: "dummy"
           class: "DummyProducer"
           topic: "dummy_producer_slave"

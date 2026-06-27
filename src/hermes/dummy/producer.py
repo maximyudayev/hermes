@@ -34,7 +34,7 @@ from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import PORT_BACKEND, PORT_KILL, PORT_SYNC_HOST
 from hermes.utils.types import LoggingSpec
 
-from hermes.dummy.stream import DummyStream
+from hermes.dummy.data_container import DummyDataContainer
 from hermes.base.nodes.producer import Producer
 
 
@@ -63,6 +63,7 @@ class DummyProducer(Producer):
             logging_spec (LoggingSpec): Specification of what and how to store.
             sampling_rate_hz (int, optional): Expected sample rate of the device. Defaults to `1`.
             payload_num_bytes (int, optional): Size of the messages in bytes to generate. Defaults to `100`.
+            buf_len (int, optional): Number of samples to preallocate for the `DataContainer`. Defaults to `10000`.
             port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
             port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
@@ -90,7 +91,7 @@ class DummyProducer(Producer):
         self._tag: str = "%s.data" % topic
         self._next_period: float
 
-        stream_out_spec = {
+        data_out_spec = {
             "sampling_rate_hz": sampling_rate_hz,
             "payload_num_bytes": payload_num_bytes,
             "buf_len": buf_len,
@@ -99,7 +100,7 @@ class DummyProducer(Producer):
         super().__init__(
             topic=topic,
             host_ip=host_ip,
-            stream_out_spec=stream_out_spec,
+            data_out_spec=data_out_spec,
             logging_spec=logging_spec,
             port_pub=port_pub,
             port_sync=port_sync,
@@ -108,8 +109,8 @@ class DummyProducer(Producer):
         )
 
     @classmethod
-    def create_stream(cls, stream_spec: dict) -> DummyStream:
-        return DummyStream(**stream_spec)
+    def create_data_container(cls, data_spec: dict) -> DummyDataContainer:
+        return DummyDataContainer(**data_spec)
 
     def _ping_device(self) -> None:
         return None

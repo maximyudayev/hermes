@@ -80,6 +80,12 @@ class SharedMemoryCircularBufferMetadata:
 
 
 @dataclass
+class RawBytesSharedMemoryCircularBufferMetadata(SharedMemoryCircularBufferMetadata):
+    """Shared memory circular buffer information to bind processes to the same underlying allocated memory."""
+    mem_size: int
+
+
+@dataclass
 class DataChannelInfo:
     sampling_rate_hz: float
     shm_buffer_metadata: SharedMemoryCircularBufferMetadata

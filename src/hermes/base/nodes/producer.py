@@ -44,7 +44,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.delay_estimator import DelayEstimator
 from hermes.base.nodes.node import Node
@@ -58,7 +58,7 @@ class Producer(ProducerInterface, Node):
         self,
         topic: str,
         host_ip: str,
-        stream_out_spec: dict,
+        data_out_spec: dict,
         logging_spec: LoggingSpec,
         sampling_rate_hz: Optional[float] = float("nan"),
         port_pub: Optional[str] = PORT_BACKEND,
@@ -71,7 +71,7 @@ class Producer(ProducerInterface, Node):
         Args:
             topic (str): Uniquely identifying tag for the Producer and its data.
             host_ip (str): IP address of the local master Broker.
-            stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+            data_out_spec (dict): Mapping of corresponding `DataContainer` object parameters to user-defined configuration values.
             logging_spec (LoggingSpec): Specification of what and how to store.
             sampling_rate_hz (float, optional): Expected sample rate of the device. Defaults to `float('nan')`.
             port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
@@ -94,7 +94,7 @@ class Producer(ProducerInterface, Node):
         self._publish_fn = lambda tag, **kwargs: None
 
         # Data structure for keeping track of data.
-        self._stream: DataContainer = self.create_stream(stream_out_spec)
+        self._data_container: DataContainer = self.create_data_container(data_out_spec)
 
         # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
         self._is_cleanup_event = Event()
@@ -104,8 +104,8 @@ class Producer(ProducerInterface, Node):
             kwargs={
                 "log_tag": self.topic,
                 "spec": logging_spec,
-                "streams": {
-                    self.topic: self._stream.get_info_all(),
+                "data_containers": {
+                    self.topic: self._data_container.get_info_all(),
                 },
                 "is_cleanup_event": self._is_cleanup_event,
             },
@@ -123,7 +123,7 @@ class Producer(ProducerInterface, Node):
                         tag="%s.connection" % self.topic,
                         time_s=time_s,
                         data={
-                            "%s-connection" % self.topic: {
+                            "%s_connection" % self.topic: {
                                 "transmission_delay": delay_s
                             }
                         },
@@ -171,10 +171,12 @@ class Producer(ProducerInterface, Node):
 
         Args:
             tag (str): Uniquely identifying key for the modality to label data for message exchange.
+            process_time_s (float): Time of consumption of the captured samples by the `HERMES` middleware.
+            **kwargs: Data in bundles to be serialized and sent, and stored locally.
         """
         msg = serialize(**kwargs)
         self._pub.send_multipart([tag.encode("utf-8"), msg])
-        self._stream.push(process_time_s=process_time_s, **kwargs)
+        self._data_container.push(process_time_s=process_time_s, **kwargs)
 
     def _trigger_stop(self):
         self._is_continue_capture = False
@@ -219,8 +221,8 @@ class Producer(ProducerInterface, Node):
             self._delay_thread.join()
 
         # Release allocated shared memory for the `Stream`.
-        self._stream.clear_all()
-        self._stream.close_all()
-        self._stream.unlink_all()
+        self._data_container.clear_all()
+        self._data_container.close_all()
+        self._data_container.unlink_all()
 
         super()._cleanup()

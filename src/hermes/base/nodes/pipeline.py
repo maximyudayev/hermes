@@ -46,7 +46,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage import Storage
 from hermes.base.nodes.node import Node
 from hermes.base.nodes.pipeline_interface import PipelineInterface
@@ -60,8 +60,8 @@ class Pipeline(PipelineInterface, Node):
         self,
         topic: str,
         host_ip: str,
-        stream_out_spec: dict,
-        stream_in_specs: list[dict],
+        data_out_spec: dict,
+        data_in_specs: list[dict],
         logging_spec: LoggingSpec,
         is_async_generate: Optional[bool] = False,
         port_pub: Optional[str] = PORT_BACKEND,
@@ -74,8 +74,8 @@ class Pipeline(PipelineInterface, Node):
         Args:
             topic (str): Uniquely identifying tag for the Node and its data.
             host_ip (str): IP address of the local master Broker.
-            stream_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
-            stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+            data_out_spec (dict): Mapping of corresponding `DataContainer` object parameters to user-defined configuration values.
+            data_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
             logging_spec (LoggingSpec): Specification of what and how to store.
             is_async_generate (bool, optional): Whether the Pipeline produces data asynchronously, in parallel to what is fed into it. Defaults to `False`.
             port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
@@ -97,31 +97,31 @@ class Pipeline(PipelineInterface, Node):
         self._is_more_data_out = True
         self._publish_fn = lambda tag, **kwargs: None
 
-        # Data structure for keeping track of the Pipeline's output data.
-        self._out_stream: DataContainer = self.create_stream(stream_out_spec)
+        # Data structure for keeping track of the `Pipeline`s output data.
+        self._data_container_out: DataContainer = self.create_data_container(data_out_spec)
 
-        # Instantiate all desired Streams that the Pipeline will process.
-        self._in_streams: OrderedDict[str, DataContainer] = OrderedDict()
+        # Instantiate all desired `DataContainer`s that the `Pipeline` will process.
+        self._data_containers_in: OrderedDict[str, DataContainer] = OrderedDict()
         self._poll_data_fn = self._poll_data_packets
         self._on_poll_fn = (
             self._on_poll_in_out if self._is_async_generate else self._on_poll_in_only
         )
         self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
 
-        for stream_spec in stream_in_specs:
-            topic_name: str = stream_spec["topic"]
-            module_name: str = stream_spec["package"]
-            class_name: str = stream_spec["class"]
-            specs: dict = stream_spec["settings"]
-            # Create the stream datastructure.
+        for data_spec in data_in_specs:
+            topic_name: str = data_spec["topic"]
+            module_name: str = data_spec["package"]
+            class_name: str = data_spec["class"]
+            spec: dict = data_spec["settings"]
+            # Create the data container.
             class_type: type[ProducerInterface] | type[PipelineInterface] = (
                 search_module_class(module_name, class_name)
             )  # type: ignore
-            class_object: DataContainer = class_type.create_stream(specs)
-            self._in_streams.setdefault(topic_name, class_object)
+            class_object: DataContainer = class_type.create_data_container(spec)
+            self._data_containers_in.setdefault(topic_name, class_object)
             self._is_producer_ended.setdefault(topic_name, False)
 
-        # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Pipeline`s outputs and inputs.
+        # Create and spawn data storing subprocess with reference to the `DataContainer` objects, to save `Pipeline`s outputs and inputs.
         self._is_cleanup_event = Event()
         self._storage_proc = Process(
             target=launch_handler,
@@ -129,11 +129,11 @@ class Pipeline(PipelineInterface, Node):
             kwargs={
                 "log_tag": self.topic,
                 "spec": logging_spec,
-                "streams": {
-                    node_name: stream.get_info_all()
-                    for node_name, stream in {
-                        self.topic: self._out_stream,
-                        **self._in_streams,
+                "data_containers": {
+                    node_name: data_container.get_info_all()
+                    for node_name, data_container in {
+                        self.topic: self._data_container_out,
+                        **self._data_containers_in,
                     }.items()
                 },
                 "is_cleanup_event": self._is_cleanup_event,
@@ -164,7 +164,7 @@ class Pipeline(PipelineInterface, Node):
         self._sub.connect("tcp://%s:%s" % (DNS_LOCALHOST, self._port_sub))
 
         # Subscribe to topics for each mentioned local and remote streamer
-        for tag in self._in_streams.keys():
+        for tag in self._data_containers_in.keys():
             self._sub.subscribe(tag)
 
     def _activate_data_poller(self) -> None:
@@ -213,7 +213,7 @@ class Pipeline(PipelineInterface, Node):
         receive_time = get_time()
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._in_streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
+        self._data_containers_in[topic_tree[0]].push(process_time_s=receive_time, **msg)
         self._process_data(topic=topic_tree[0], msg=msg)
 
     def _poll_ending_data_packets(self) -> None:
@@ -239,7 +239,7 @@ class Pipeline(PipelineInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._in_streams[topic_tree[0]].push(process_time_s=receive_time, **msg)
+            self._data_containers_in[topic_tree[0]].push(process_time_s=receive_time, **msg)
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _publish(self, tag: str, **kwargs) -> None:
@@ -253,12 +253,16 @@ class Pipeline(PipelineInterface, Node):
     def _store_and_broadcast(self, tag: str, process_time_s: float, **kwargs) -> None:
         """Place captured data into the corresponding Stream datastructure and transmit serialized ZeroMQ packets to subscribers.
 
+        TODO: publish topics selectively.
+
         Args:
             tag (str): Uniquely identifying key for the modality to label data for message exchange.
+            process_time_s (float): Time of consumption of the captured samples by the `HERMES` middleware.
+            **kwargs: Data in bundles to be serialized and sent, and stored locally.
         """
         msg = serialize(**kwargs)
         self._pub.send_multipart([tag.encode("utf-8"), msg])
-        self._out_stream.push(process_time_s=process_time_s, **kwargs)
+        self._data_container_out.push(process_time_s=process_time_s, **kwargs)
 
     def _trigger_stop(self):
         self._poll_data_fn = self._poll_ending_data_packets
@@ -311,10 +315,10 @@ class Pipeline(PipelineInterface, Node):
         # Join on the logging background process last, so that all things can finish in parallel.
         self._storage_proc.join()
 
-        # Release allocated shared memory for the `Streams`.
-        for stream in [self._out_stream, *list(self._in_streams.values())]:
-            stream.clear_all()
-            stream.close_all()
-            stream.unlink_all()
+        # Release allocated shared memory for the `DataContainer`s.
+        for data_container in [self._data_container_out, *list(self._data_containers_in.values())]:
+            data_container.clear_all()
+            data_container.close_all()
+            data_container.unlink_all()
 
         super()._cleanup()

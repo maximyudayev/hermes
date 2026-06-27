@@ -28,7 +28,7 @@
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 
 
 class StorageInterface(ABC):
@@ -44,11 +44,11 @@ class StorageInterface(ABC):
         pass
 
     @abstractmethod
-    def _initialize(self, streams: OrderedDict[str, DataContainer]) -> None:
+    def _initialize(self, data_containers: OrderedDict[str, DataContainer]) -> None:
         """Initializes files and indices for write pointer tracking.
 
         Args:
-            streams (OrderedDict[str, Stream]): Reference to the Stream objects to flush to disk.
+            data_containers (OrderedDict[str, DataContainer]): Reference to the `DataContainer` objects to flush to disk.
         """
         pass
 
@@ -59,25 +59,25 @@ class StorageInterface(ABC):
 
     @abstractmethod
     def _is_to_stream(self) -> bool:
-        """Check if any streams were configured to stream.
+        """Check if any data containers were configured to `DataContainer`.
 
         Returns:
-            bool: Whether there are any streams configured to stream data.
+            bool: Whether there are any data containers configured to `DataContainer` data.
         """
         pass
 
     @abstractmethod
     def _is_to_dump(self) -> bool:
-        """Check if any streams were configured to record.
+        """Check if any data_containers were configured to record.
 
         Returns:
-            bool: Whether there are any streams configured to dump record data.
+            bool: Whether there are any data_containers configured to dump record data.
         """
         pass
 
     @abstractmethod
     def _start_stream_logging(self) -> None:
-        """Set up AV/HDF5 file writers for stream-logging, if desired."""
+        """Set up AV/HDF5 file writers for `DataContainer` logging, if desired."""
         pass
 
     @abstractmethod

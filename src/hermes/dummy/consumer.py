@@ -40,7 +40,7 @@ class DummyConsumer(Consumer):
         self,
         topic: str,
         host_ip: str,
-        stream_in_specs: list[dict],
+        data_in_specs: list[dict],
         logging_spec: LoggingSpec,
         port_sub: Optional[str] = PORT_FRONTEND,
         port_sync: Optional[str] = PORT_SYNC_HOST,
@@ -52,7 +52,7 @@ class DummyConsumer(Consumer):
         Args:
             topic (str): Topic to which the consumer will subscribe.
             host_ip (str): IP address of the local master Broker.
-            stream_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+            data_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
             logging_spec (LoggingSpec): Specification of what and how to store.
             port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
@@ -61,7 +61,7 @@ class DummyConsumer(Consumer):
         super().__init__(
             topic=topic,
             host_ip=host_ip,
-            stream_in_specs=stream_in_specs,
+            data_in_specs=data_in_specs,
             logging_spec=logging_spec,
             port_sub=port_sub,
             port_sync=port_sync,

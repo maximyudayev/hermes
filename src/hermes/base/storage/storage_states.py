@@ -30,15 +30,15 @@ import asyncio
 from collections import OrderedDict
 
 from hermes.base.state_interface import StateInterface
-from hermes.base.stream import DataContainer
+from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage_interface import StorageInterface
 
 
 class AbstractStorageState(StateInterface):
-    """Abstract class for the Storage component."""
+    """Abstract class for the `Storage` component."""
 
     def __init__(self, context: StorageInterface):
-        """Constructor of the AbstractStorageState.
+        """Constructor of the `AbstractStorageState`.
 
         Args:
             context (StorageInterface): Reference to the Storage object.
@@ -58,44 +58,45 @@ class AbstractStorageState(StateInterface):
 
 
 class StartState(AbstractStorageState):
-    """Startup state that initializes Storage.
+    """Startup state that initializes `Storage`.
 
     Will immediately transition into `StreamState` after initialization.
     """
 
-    def __init__(self, context: StorageInterface, streams: OrderedDict[str, DataContainer]):
+    def __init__(self, context: StorageInterface, data_containers: OrderedDict[str, DataContainer]):
         """Constructor of the StartState.
 
         Args:
             context (StorageInterface): Reference to the Storage object.
-            streams (OrderedDict[str, Stream]): Reference to the mapping between uniquly identifying Node keys and the corresponding Stream datastructures.
+            data_containers (OrderedDict[str, DataContainer]): Reference to the mapping between
+                uniquly identifying Node keys and the corresponding `DataContainer` datastructures.
         """
         super().__init__(context)
-        self._context._initialize(streams)
+        self._context._initialize(data_containers)
 
     def run(self) -> None:
         self._context._set_state(StreamState(self._context))
 
 
 class StreamState(AbstractStorageState):
-    """Streaming state of the Storage component.
+    """Streaming state of the `Storage` component.
 
     Will periodically flush data to disk, to clear memory,
-    if any streams were specified to stream.
+    if any `DataContainer` were specified to stream.
 
     Will flush remaining data to disk on exit.
 
-    Using some streams in stream and others in dump has undefined behavior.
+    Using some `DataContainer`s in stream and others in dump has undefined behavior.
     """
 
     def __init__(self, context: StorageInterface):
-        """Constructor of the StreamState.
+        """Constructor of the `StreamState`.
 
         Args:
-            context (StorageInterface): Reference to the Storage object.
+            context (StorageInterface): Reference to the `Storage` object.
         """
         super().__init__(context)
-        # Prepare stream-logging.
+        # Prepare DataContainer-logging.
         if self._context._is_to_stream():
             self._context._start_stream_logging()
 
@@ -107,14 +108,14 @@ class StreamState(AbstractStorageState):
 
 
 class DumpState(AbstractStorageState):
-    """Passive recording state of the Storage component.
+    """Passive recording state of the `Storage` component.
 
     Will flush data to disk once upon system termination.
 
     May run out of memory if the recording is long or
     user doesn't provision sufficient data.
 
-    Using some streams in stream and others in dump has undefined behavior.
+    Using some `DataContainer`s stream and others in dump has undefined behavior.
     """
 
     def __init__(self, context: StorageInterface):
