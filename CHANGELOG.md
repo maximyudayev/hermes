@@ -7,6 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [0.4.2](https://github.com/maximyudayev/hermes/releases/tag/0.4.2) - 2026-06-28
+
+<small>[Compare with 0.4.1](https://github.com/maximyudayev/hermes/compare/0.4.1...0.4.2)</small>
+
+### Features
+
+- Atomic access to data bundles ([1d47911](https://github.com/maximyudayev/hermes/commit/1d47911150ab44bd8cfb541f312d4b0252a7d653) by Maxim Yudayev). Relates-to: maximyudayev/hermes#33
+
+### Bug Fixes
+
+- FFmpeg subproc can't write MJPEG ([ba6c706](https://github.com/maximyudayev/hermes/commit/f03536cd7dbce670bed506c54f1f647c9bc95f46) by Maxim Yudayev).
+
+### Misc
+
+- wip: changes for video handling in shared buffers ([c1482c2](https://github.com/maximyudayev/hermes/commit/c1482c2be7aedfc8254072765ef9b1ee238ef4f3) by Maxim Yudayev).
+- hotfix: API compatibility `python < 3.14` ([c8da363](https://github.com/maximyudayev/hermes/commit/c8da3639ce6b13d437c418495c2e0505c20cb06f) by Maxim Yudayev).
+
 ## [0.4.1](https://github.com/maximyudayev/hermes/releases/tag/0.4.1) - 2026-06-19
 
 <small>[Compare with 0.4.0](https://github.com/maximyudayev/hermes/compare/0.4.0...0.4.1)</small>
