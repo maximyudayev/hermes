@@ -288,7 +288,7 @@ class DataBundle:
         self,
         num_oldest_to_pop: Optional[int] = None,
         is_flush: Optional[bool] = False,
-    ) -> Generator[Tuple[str, np.ndarray]]:
+    ) -> "Generator[Tuple[str, np.ndarray]]":
         """Wrap all samples ready to be popped in views over shared memory NumPy arrays.
 
         Args:
@@ -770,7 +770,7 @@ class DataContainer(ABC):
         bundle_name: str,
         num_oldest_to_pop: Optional[int] = None,
         is_flush: Optional[bool] = False,
-    ) -> Generator[Tuple[str, np.ndarray]]:
+    ) -> "Generator[Tuple[str, np.ndarray]]":
         """Wrap all samples ready to be popped in views over shared memory.
 
         Used by `Storage` to flush data to disk.
