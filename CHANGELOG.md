@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [0.5.1](https://github.com/maximyudayev/hermes/releases/tag/0.5.1) - 2026-08-25
+
+<small>[Compare with 0.5.0](https://github.com/maximyudayev/hermes/compare/0.5.0...0.5.1)</small>
+
+### Features
+
+- backend captures audio data ([c162703](https://github.com/maximyudayev/hermes/commit/c1627036696bee06d6d7da0ddbc605029a01d5bc) by Maxim Yudayev).
+
 ## [0.5.0](https://github.com/maximyudayev/hermes/releases/tag/0.5.0) - 2026-07-12
 
 <small>[Compare with 0.4.3](https://github.com/maximyudayev/hermes/compare/0.4.3...0.5.0)</small>
