@@ -102,3 +102,19 @@ Dump the video into a new container, when device or experiment crashed, to recov
 `iron ls /gbiomed/home/AID-FOG/KUL/upload/to_review --columns name | awk '/glasses/' | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses_temp.hdf5"}'`
 
 `for n in $(iron ls /gbiomed/home/AID-FOG/KUL/upload/to_review --columns name | awk '/glasses/' | sed 's/\x1b\[[0-9;]*m//g'); do echo /gbiomed/home/AID-FOG/KUL/upload/to_review/$n && echo $(echo $n | awk -F'_' '{print $2"_"$3"_"$4"/"$5"/"tolower($6)"/"$2"_"$3"_"$4"_"tolower($6)"_glasses_temp.hdf5"}'); done`
+
+## FFmpeg
+List available devices:
+`ffmpeg -list_devices true -f dshow -i dummy` (Windows)
+`ffmpeg -f avfoundation -list_devices true -i ""` (macOS)
+`pactl list short sources` or `arecord -l` (Linux)
+
+Check the working settings of a detected device:
+`ffmpeg -list_options true -f dshow -i audio="Microphone (Realtek(R) Audio)"` (Windows)
+`ffmpeg -list_options true -f avfoundation -i ":default"` (macOS)
+`ffmpeg -list_options true -f [alsa|pulse] -i "hw:0,0"` (Linux)
+
+Test record a local device with those settings:
+`ffmpeg -f dshow -i audio="Microphone (Realtek(R) Audio)" -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (Windows)
+`ffmpeg -f avfoundation -i ":default" -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (macOS)
+`ffmpeg -f alsa -i hw:0,0 -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` or `ffmpeg -f pulse -i default -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (Linux)

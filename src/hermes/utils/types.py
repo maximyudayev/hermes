@@ -41,8 +41,21 @@ import zmq
 
 ExtraDataInfoDict: TypeAlias = Dict[str, Dict[str, Any]]
 ZMQResult: TypeAlias = Iterable[tuple[zmq.SyncSocket, int]]
-VideoFormatTuple = namedtuple("VideoFormatTuple", ("write_format", "pixel_format"))
-AudioFormatTuple = namedtuple("AudioFormatTuple", ("write_format", "pixel_format"))
+
+
+@dataclass
+class AudioFormat:
+    write_format: str
+    sample_format: str
+    codec: str
+    num_bytes: int
+    extension: str
+
+
+@dataclass
+class VideoFormat:
+    write_format: str
+    pixel_format: str
 
 
 class VideoFormatEnum(Enum):
@@ -53,25 +66,32 @@ class VideoFormatEnum(Enum):
         pixel color is one of: `ffmpeg -pix_fmts`
     """
 
-    BGR = VideoFormatTuple("rawvideo", "bgr24")
-    # YUV = VideoFormatTuple("rawvideo", "yuv420p")
-    JPEG = VideoFormatTuple("image2pipe", "yuv420p")
-    MJPEG = VideoFormatTuple("jpeg_pipe", "yuv420p")
-    BAYER_RG8 = VideoFormatTuple("rawvideo", "bayer_rggb8")
+    BGR = VideoFormat("rawvideo", "bgr24")
+    # YUV = VideoFormat("rawvideo", "yuv420p")
+    JPEG = VideoFormat("image2pipe", "yuv420p")
+    MJPEG = VideoFormat("jpeg_pipe", "yuv420p")
+    BAYER_RG8 = VideoFormat("rawvideo", "bayer_rggb8")
+
+
+class AudioBackendEnum(Enum):
+    DSHOW = "dshow"
+    AVFOUNDATION = "avfoundation"
+    PULSE = "pulse"
+    ALSA = "alsa"
 
 
 class AudioFormatEnum(Enum):
-    """Audio format enumeration for supported FFmpeg video formats.
-
-    TODO:
-    Must be a tuple of (<FFmpeg write format>, ...), where:
-        write format is one of: `ffmpeg -formats`
+    """Audio format enumeration for supported FFmpeg audio formats.
     """
 
-    BGR = AudioFormatTuple("rawvideo", "bgr24")
-    YUV = AudioFormatTuple("rawvideo", "yuv420p")
-    JPEG = AudioFormatTuple("image2pipe", "yuv420p")
-    BAYER_RG8 = AudioFormatTuple("rawvideo", "bayer_rggb8")
+    MP3_MF = AudioFormat("s16le", "s16", "mp3_mf", 2, "mp3")
+    LIBMP3LAME = AudioFormat("s16le", "s16", "libmp3lame", 2, "mp3")
+    PCM_S16LE = AudioFormat("s16le", "s16", "pcm_s16le", 2, "wav")
+    PCM_S32LE = AudioFormat("s32le", "s32", "pcm_s32le", 4, "wav")
+    PCM_F32LE = AudioFormat("f32le", "flt", "pcm_f32le", 4, "wav")
+    AAC = AudioFormat("s16le", "s16", "aac", 2, "m4a")
+    AAC_MF = AudioFormat("s16le", "s16", "aac_mf", 2, "m4a")
+    FLAC = AudioFormat("s16le", "s16", "flac", 2, "flac")
 
 
 @dataclass
@@ -126,6 +146,8 @@ class DataChannelInfo:
     extra_data_info: ExtraDataInfoDict
     data_notes: Mapping[str, str]
     video_format: Optional[VideoFormatEnum] = None
+    audio_format: Optional[AudioFormatEnum] = None
+    num_audio_channels: Optional[int] = None
     is_measure_rate_hz: Optional[bool] = None
     actual_rate_hz: Optional[float] = None
     dt_circular_buffer: Optional[List[float]] = None
@@ -188,8 +210,10 @@ class AudioCodec:
     """Object specifying audio codec options for FFmpeg."""
 
     codec_name: str
-    pix_format: str
+    sample_format: str
     num_cpu: int = 1
+    num_audio_channels: Optional[int] = None
+    sample_rate: Optional[int] = None
     input_options: Mapping = None
     output_options: Mapping = None
 

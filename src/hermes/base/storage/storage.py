@@ -68,6 +68,7 @@ from hermes.utils.types import (
     AudioWriter,
     CsvWriter,
     VideoFormatEnum,
+    AudioFormatEnum,
 )
 
 
@@ -469,9 +470,7 @@ class Storage(StorageInterface):
         return num_writers
 
     def _init_files_audio(self) -> int:
-        """[Not implemented] Create and initialize audio writers, one for each device.
-
-        TODO: implement audio streaming info on the `DataContainer` object.
+        """Create and initialize audio writers, one for each device.
 
         Will fail if no FFmpeg installed.
 
@@ -481,11 +480,6 @@ class Storage(StorageInterface):
         Returns:
             int: Number of initialized writers.
         """
-        if self._spec.audio_codec is None:
-            raise ValueError(
-                "Must provide audio codec specification when streaming audio."
-            )
-
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
             for bundle_name, bundle_info in container.get_info_all().items():
@@ -493,23 +487,29 @@ class Storage(StorageInterface):
                     # Skip non-audio streams.
                     if not channel_info.is_audio:
                         continue
+
+                    # Determine audio format configs.
+                    audio_format: AudioFormatEnum = channel_info.audio_format
+                    ext = audio_format.value.extension
+                    sample_format = audio_format.value.sample_format
+                    write_format = audio_format.value.write_format
+                    codec = audio_format.value.codec
+                    rate = float(channel_info.sampling_rate_hz)
+                    num_audio_channels = channel_info.num_audio_channels
+
                     # Create a unique file.
                     filename_base = "%s_%s" % (self._log_tag, bundle_name)
-                    filename_audio = "%s.mp3" % (filename_base)
+                    filename_audio = "%s.%s" % (filename_base, ext)
                     filepath_audio = os.path.join(self._spec.log_dir, filename_audio)
                     num_to_append = 0
                     while os.path.exists(filepath_audio):
                         num_to_append += 1
-                        filename_audio = "%s_%02d.mp3" % (filename_base, num_to_append)
+                        filename_audio = "%s_%02d.%s" % (filename_base, num_to_append, ext)
                         filepath_audio = os.path.join(
                             self._spec.log_dir, filename_audio
                         )
 
                     # Create an audio writer.
-                    fps = channel_info.sampling_rate_hz
-                    num_channels = channel_info.num_channels
-                    input_stream_sample_fmt = channel_info.sample_format
-
                     metadata_dict = {
                         "metadata:g:%d" % i: "%s=%s" % (k, v)
                         for i, (k, v) in enumerate(
@@ -527,33 +527,33 @@ class Storage(StorageInterface):
                                     lambda tup: ("X%s" % tup[0], tup[1]),
                                     list(self._spec.experiment.items()),
                                 ),
-                                ("Xencoder", self._spec.audio_codec.codec_name),
-                                ("Xencoded-by", "HERMES"),
+                                ("Xencoder", codec),
+                                ("Xencoded-by", f"HERMES v{__version__}"),
                             ]
                         )
                     }
                     # Make a subprocess pipe to FFMPEG that streams in our frames and encode them into an audio.
                     audio_stream = ffmpeg.input(
                         "pipe:",  # type: ignore
-                        ar=fps,
-                        ac=num_channels,
-                        cpucount=self._spec.audio_codec.num_cpu,
-                        **self._spec.audio_codec.input_options,
+                        format=write_format,
+                        ar=rate,
+                        ac=num_audio_channels,
+                        cpucount=1,
                     )
                     # TODO: use this to stream encoded audio into a local file, and also as RTSP stream to the GUI.
                     # audio_stream = ffmpeg.filter_multi_output
                     audio_stream = ffmpeg.output(
                         audio_stream,  # type: ignore
                         filename=filepath_audio,
-                        acodec=self._spec.audio_codec.codec_name,
-                        sample_fmt=input_stream_sample_fmt,
-                        cpucount=self._spec.audio_codec.num_cpu,  # prevent ffmpeg from suffocating the processor.
-                        **self._spec.audio_codec.output_options,
+                        acodec=codec,
+                        sample_fmt=sample_format,
+                        cpucount=1,  # prevent ffmpeg from suffocating the processor.
                         **metadata_dict,
                     )
                     audio_stream = audio_stream.global_args("-hide_banner")
+                    pipe_out_target = DEVNULL if self._spec.is_quiet else None
                     audio_subproc: Popen = ffmpeg.run_async(
-                        audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True
+                        audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True, pipe_stderr=pipe_out_target, pipe_stdout=pipe_out_target,
                     )  # type: ignore
                     # Store the writer.
                     self._audio_writers["/".join([node_name, bundle_name, channel_name])] = (
@@ -705,9 +705,6 @@ class Storage(StorageInterface):
         """Flush/close the audio file writers."""
         for audio_writer in self._audio_writers.values():
             audio_writer.subproc.stdin.close()  # type: ignore
-            if self._spec.is_quiet:
-                audio_writer.subproc.stderr.close()  # type: ignore
-                audio_writer.subproc.stdout.close()  # type: ignore
             audio_writer.subproc.wait()
         self._audio_writers = {}
 

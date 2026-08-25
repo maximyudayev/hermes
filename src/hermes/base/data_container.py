@@ -42,6 +42,7 @@ from hermes.utils.types import (
     SharedMemoryCircularBufferMetadata,
     DataChannelInfo,
     VideoFormatEnum,
+    AudioFormatEnum,
     ExtraDataInfoDict,
     NewData,
 )
@@ -81,6 +82,8 @@ class DataBundle:
         is_video: Optional[bool] = False,
         video_format: Optional[VideoFormatEnum] = None,
         is_audio: Optional[bool] = False,
+        audio_format: Optional[AudioFormatEnum] = None,
+        num_audio_channels: Optional[int] = None,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
         **kwargs,
@@ -104,6 +107,8 @@ class DataBundle:
             is_video (bool, optional): Whether it is a video channel. Defaults to `False`.
             video_format (VideoFormatEnum, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
             is_audio (bool, optional): Whether it is an audio channel. Defaults to `False`.
+            audio_format (AudioFormatEnum, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
+            num_audio_channels (int, optional): Number of audio channels in the captured audio stream. Defaults to `None`.
             timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
             extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
                 with at least `data_type` and `sample_size`. Defaults to `{}`.
@@ -120,6 +125,8 @@ class DataBundle:
             is_video=is_video,
             video_format=video_format,
             is_audio=is_audio,
+            audio_format=audio_format,
+            num_audio_channels=num_audio_channels,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
             **kwargs,
@@ -138,6 +145,8 @@ class DataBundle:
         is_video: Optional[bool] = False,
         video_format: Optional[VideoFormatEnum] = None,
         is_audio: Optional[bool] = False,
+        audio_format: Optional[AudioFormatEnum] = None,
+        num_audio_channels: Optional[int] = None,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
         **kwargs,
@@ -160,6 +169,8 @@ class DataBundle:
             is_video=is_video,
             video_format=video_format,
             is_audio=is_audio,
+            audio_format=audio_format,
+            num_audio_channels=num_audio_channels,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
         )
@@ -191,6 +202,8 @@ class DataBundle:
         is_video: Optional[bool] = False,
         video_format: Optional[VideoFormatEnum] = None,
         is_audio: Optional[bool] = False,
+        audio_format: Optional[AudioFormatEnum] = None,
+        num_audio_channels: Optional[int] = None,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
     ) -> None:
@@ -208,6 +221,9 @@ class DataBundle:
             extra_data_info=extra_data_info,
             data_notes=data_notes,
             is_measure_rate_hz=is_measure_rate_hz,
+            video_format=video_format,
+            audio_format=audio_format,
+            num_audio_channels=num_audio_channels,
         )
 
         # Record color formats to use by FFmpeg, for saving and displaying frames.
@@ -221,6 +237,19 @@ class DataBundle:
                 print(
                     "Video format %s is not supported when specifying video pixel format and write format on a channel."
                     % video_format
+                )
+
+        # Record audio format to use by FFmpeg, for saving audio.
+        if is_audio:
+            try:
+                if audio_format is not None:
+                    self._bundle_info.channels[channel_name].audio_format = audio_format
+                else:
+                    raise KeyError
+            except KeyError:
+                print(
+                    "Audio format %s is not supported when specifying audio sample format and write format on a channel."
+                    % audio_format
                 )
 
         # Some metadata to keep track of during running to measure the actual frame rate.
@@ -611,6 +640,8 @@ class DataContainer(ABC):
         is_video: Optional[bool] = False,
         video_format: Optional[VideoFormatEnum] = None,
         is_audio: Optional[bool] = False,
+        audio_format: Optional[AudioFormatEnum] = None,
+        num_audio_channels: Optional[int] = None,
         timesteps_before_solidified: Optional[int] = 0,
         extra_data_info: Optional[ExtraDataInfoDict] = {},
     ) -> None:
@@ -629,6 +660,8 @@ class DataContainer(ABC):
             is_video (bool, optional): Whether it is a video channel. Defaults to `False`.
             video_format (VideoFormatEnum, optional): One of the supported identifiers (see `types.py`). Defaults to `None`.
             is_audio (bool, optional): Whether it is an audio channel. Defaults to `False`.
+            audio_format (AudioFormatEnum, optional): One of the supported identifiers. Defaults to `None`.
+            num_audio_channels (int, optional): Number of audio channels. Defaults to `None`.
             timesteps_before_solidified (int, optional): How many most recent samples to keep in memory before flushing. Defaults to `0`.
             extra_data_info (ExtraDataInfoDict, optional): Additional mapping that will be streamed along with data,
                 with at least 'data_type' and 'sample_size'. Defaults to `{}`.
@@ -656,6 +689,8 @@ class DataContainer(ABC):
             is_video=is_video,
             video_format=video_format,
             is_audio=is_audio,
+            audio_format=audio_format,
+            num_audio_channels=num_audio_channels,
             timesteps_before_solidified=timesteps_before_solidified,
             extra_data_info=extra_data_info,
         )

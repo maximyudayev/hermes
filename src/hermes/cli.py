@@ -55,7 +55,7 @@ from hermes.utils.zmq_utils import (
     PORT_KILL,
     PORT_SYNC_HOST,
 )
-from hermes.utils.types import LoggingSpec, VideoCodec, AudioCodec, VideoFormatEnum
+from hermes.utils.types import LoggingSpec, VideoCodec, VideoFormatEnum
 
 
 # TODO: replace with HERMES-branded font
@@ -73,7 +73,7 @@ DESCRIPTION = (
 )
 EPILOG = (
     "Copyright (c) 2024-2026 Maxim Yudayev and KU Leuven eMedia Lab.\n"
-    "Created 2024-2025 at KU Leuven for the AidWear, AID-FOG, and RevalExo "
+    "Created 2024-2026 at KU Leuven for the AidWear, AID-FOG, and RevalExo "
     "projects of prof. Bart Vanrumste, by Maxim Yudayev [https://yudayev.com]."
 )
 
@@ -325,12 +325,6 @@ def load_codec_spec(args: argparse.Namespace) -> argparse.Namespace:
             args.producer_specs = [
                 replace_video_format_nested(spec) for spec in args.producer_specs
             ]
-    if "stream_audio" in args.logging_spec and args.logging_spec["stream_audio"]:
-        with open(args.audio_codec_config_filepath, "r") as f:
-            try:
-                args.logging_spec["audio_codec"] = AudioCodec(**yaml.safe_load(f))
-            except yaml.YAMLError as e:
-                print(e)
     return args
 
 
@@ -374,7 +368,7 @@ def init_output_files(args: argparse.Namespace) -> tuple[float, str, str]:
 
 def configure_specs(
     args: argparse.Namespace, log_time_s: float, log_dir: str
-) -> tuple[argparse.Namespace, list[dict]]:
+) -> tuple[argparse.Namespace, list[dict], float]:
     """Build logging specification and inject settings into node specs.
 
     Constructs a `LoggingSpec` object from provided arguments and updates
