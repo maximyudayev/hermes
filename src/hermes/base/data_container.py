@@ -607,14 +607,14 @@ class DataContainer(ABC):
     _data: Dict[str, DataBundle]
     _container_info: DataContainerInfo
 
-    def __init__(self) -> None:
+    def __init__(self, bundles_not_to_write: Optional[list[str]] = [], **_) -> None:
         self._data = dict()
-        self._container_info = dict()
+        self._container_info = DataContainerInfo(bundles_not_to_write=bundles_not_to_write)
 
     @classmethod
     def create_from_metadata(cls, container_info: DataContainerInfo):
-        container = cls()
-        for bundle_name, bundle_info in container_info.items():
+        container = cls(bundles_not_to_write=container_info.bundles_not_to_write)
+        for bundle_name, bundle_info in container_info.bundles.items():
             for channel_name, channel_info in bundle_info.channels.items():
                 container.set_channel(
                     bundle_name=bundle_name,
@@ -671,6 +671,7 @@ class DataContainer(ABC):
                 self._data[bundle_name] = RawBytesDataBundle(bundle_name)
             else:
                 self._data[bundle_name] = DataBundle(bundle_name)
+            self._container_info.bundles[bundle_name] = self._data[bundle_name].get_info_all()
         elif is_video and video_format in [VideoFormatEnum.MJPEG] and type(self._data[bundle_name]) is DataBundle:
             old_bundle = self._data[bundle_name]
             new_bundle = RawBytesDataBundle(bundle_name, old_bundle._bundle_info)
@@ -797,14 +798,19 @@ class DataContainer(ABC):
             data (NewData): Newly processed batch of samples for (multiple) bundles.
         """
         for bundle_name, bundle_data in data.items():
-            if bundle_data is not None:
+            if bundle_name in self._container_info.bundles_not_to_write:
+                continue
+
+            elif bundle_data is not None:
                 self._data[bundle_name].push(bundle_data)
-                metadata = {
-                    "process_time_s": np.array([[process_time_s]], dtype=np.float64),
-                    "count": np.array([[bundle_data["toa_s"].shape[0]]], dtype=np.uint16),
-                    "toa_s": bundle_data["toa_s"][0][None],
-                }
-                self._data[f"{bundle_name}_metadata"].push(metadata)
+
+                if f"{bundle_name}_metadata" not in self._container_info.bundles_not_to_write:
+                    metadata = {
+                        "process_time_s": np.array([[process_time_s]], dtype=np.float64),
+                        "count": np.array([[bundle_data["toa_s"].shape[0]]], dtype=np.uint16),
+                        "toa_s": bundle_data["toa_s"][0][None],
+                    }
+                    self._data[f"{bundle_name}_metadata"].push(metadata)
 
     def pop(
         self,
@@ -897,4 +903,10 @@ class DataContainer(ABC):
         Returns:
             DataContainerInfo: Nested dictionary of metadata, with bundle and channel names as keys.
         """
-        return {bundle_name: bundle.get_info_all() for bundle_name, bundle in self._data.items()}
+        return DataContainerInfo(
+            bundles={
+                bundle_name: bundle.get_info_all()
+                for bundle_name, bundle in self._data.items()
+            },
+            bundles_not_to_write=self._container_info.bundles_not_to_write,
+        ) 

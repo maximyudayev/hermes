@@ -113,20 +113,28 @@ class Consumer(ConsumerInterface, Node):
 
         # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Consumer`s inputs.
         self._is_cleanup_event = Event()
-        self._storage_proc = Process(
-            target=launch_handler,
-            args=(Storage,),
-            kwargs={
-                "log_tag": self.node_id,
-                "spec": logging_spec,
-                "data_containers": {
-                    node_name: data_container.get_info_all()
-                    for node_name, data_container in self._data_containers.items()
-                },
-                "is_cleanup_event": self._is_cleanup_event,
-            },
+
+        self._is_storage_enabled = (
+            logging_spec.stream_hdf5 or
+            logging_spec.stream_csv or
+            logging_spec.stream_video or
+            logging_spec.stream_audio
         )
-        self._storage_proc.start()
+        if self._is_storage_enabled:
+            self._storage_proc = Process(
+                target=launch_handler,
+                args=(Storage,),
+                kwargs={
+                    "log_tag": self.node_id,
+                    "spec": logging_spec,
+                    "data_containers": {
+                        node_name: data_container.get_info_all()
+                        for node_name, data_container in self._data_containers.items()
+                    },
+                    "is_cleanup_event": self._is_cleanup_event,
+                },
+            )
+            self._storage_proc.start()
 
     def _initialize(self):
         super()._initialize()
@@ -213,7 +221,8 @@ class Consumer(ConsumerInterface, Node):
         self._sub.close()
 
         # Join on the logging background process last, so that all things can finish in parallel.
-        self._storage_proc.join()
+        if self._is_storage_enabled:
+            self._storage_proc.join()
 
         # Release allocated shared memory for the `Streams`.
         for stream in self._data_containers.values():

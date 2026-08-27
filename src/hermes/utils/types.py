@@ -25,7 +25,6 @@
 #
 # ############
 
-from collections import namedtuple
 from dataclasses import dataclass, field
 from io import TextIOWrapper
 from typing import List, Optional, TypeAlias, Any, Iterable, Mapping, Dict
@@ -158,16 +157,17 @@ class DataChannelInfo:
 
 @dataclass
 class DataBundleInfo:
-    metadata: BundleMetadata = field(init=False)
-    channels: Dict[str, DataChannelInfo] = field(init=False)
+    metadata: BundleMetadata = field(default_factory=BundleMetadata)
+    channels: Dict[str, DataChannelInfo] = field(default_factory=dict)
 
-    def __post_init__(self):
-        self.metadata = BundleMetadata()
-        self.channels = dict()
+
+@dataclass
+class DataContainerInfo:
+    bundles: Dict[str, DataBundleInfo] = field(default_factory=dict)
+    bundles_not_to_write: List[str] = field(default_factory=list)
 
 
 NewData: TypeAlias = Dict[str, Dict[str, np.ndarray]]
-DataContainerInfo: TypeAlias = Dict[str, DataBundleInfo]
 
 
 @dataclass
@@ -229,6 +229,7 @@ class LoggingSpec:
         ref_time_s (float): Reference time of the Broker to align all Nodes to.
         stream_period_s (float, optional): Duration of periods over which to flush streamed accumulated data from memory to disk. Defaults to `30.0`.
         is_quiet (bool): Whether to print FFmpeg stats to the terminal. Defaults to `False`.
+        is_metadata (bool): Whether to record tabular data's metadata to files (e.g. count for chunked samples in HDF5/CSV). Defaults to `True`.
         stream_hdf5 (bool, optional): Whether to stream data into HDF5 files. Defaults to `False`.
         stream_video (bool, optional): Whether to stream video data into MP4/MKV files. Defaults to `False`.
         stream_csv (bool, optional): Whether to stream data into CSV files. Defaults to `False`.
@@ -246,7 +247,8 @@ class LoggingSpec:
     log_time_s: float
     ref_time_s: float
     stream_period_s: Optional[float] = 30.0
-    is_quiet: Optional[bool] = False
+    is_quiet: Optional[bool] = True
+    is_metadata: Optional[bool] = False
     stream_hdf5: Optional[bool] = False
     stream_video: Optional[bool] = False
     stream_csv: Optional[bool] = False

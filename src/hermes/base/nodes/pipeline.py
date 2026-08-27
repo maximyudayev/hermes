@@ -128,23 +128,32 @@ class Pipeline(PipelineInterface, Node):
 
         # Create and spawn data storing subprocess with reference to the `DataContainer` objects, to save `Pipeline`s outputs and inputs.
         self._is_cleanup_event = Event()
-        self._storage_proc = Process(
-            target=launch_handler,
-            args=(Storage,),
-            kwargs={
-                "log_tag": self.node_id,
-                "spec": logging_spec,
-                "data_containers": {
-                    node_name: data_container.get_info_all()
-                    for node_name, data_container in {
-                        self.node_id: self._data_container_out,
-                        **self._data_containers_in,
-                    }.items()
-                },
-                "is_cleanup_event": self._is_cleanup_event,
-            },
+
+        self._is_storage_enabled = (
+            logging_spec.stream_hdf5 or
+            logging_spec.stream_csv or
+            logging_spec.stream_video or
+            logging_spec.stream_audio
         )
-        self._storage_proc.start()
+
+        if self._is_storage_enabled:
+            self._storage_proc = Process(
+                target=launch_handler,
+                args=(Storage,),
+                kwargs={
+                    "log_tag": self.node_id,
+                    "spec": logging_spec,
+                    "data_containers": {
+                        node_name: data_container.get_info_all()
+                        for node_name, data_container in {
+                            self.node_id: self._data_container_out,
+                            **self._data_containers_in,
+                        }.items()
+                    },
+                    "is_cleanup_event": self._is_cleanup_event,
+                },
+            )
+            self._storage_proc.start()
 
     def _publish(self, process_time_s: float, new_data: NewData) -> None:
         """Common method to save and publish the captured sample.
@@ -332,7 +341,8 @@ class Pipeline(PipelineInterface, Node):
         self._sub.close()
 
         # Join on the logging background process last, so that all things can finish in parallel.
-        self._storage_proc.join()
+        if self._is_storage_enabled:
+            self._storage_proc.join()
 
         # Release allocated shared memory for the `DataContainer`s.
         for data_container in [self._data_container_out, *list(self._data_containers_in.values())]:

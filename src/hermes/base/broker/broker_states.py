@@ -364,8 +364,8 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
         Will get trigerred at most once per Node because publishing Nodes send it only once.
         """
-        #   Once the Broker registers arrival of 'END' packet from a local Producer/Pipeline,
-        #     it will signal 'BYE' to it to allow it to exit.
+        # Once the Broker registers arrival of 'END' packet from a local Producer/Pipeline,
+        #   it will signal 'BYE' to it to allow it to exit.
         if CMD_END.encode("utf-8") in msg:
             # Check if the END packet came from the Broker's scope, (one of the Broker's local Nodes).
             #   Continue brokering packets if just proxing it (not Broker's local Nodes).

@@ -204,7 +204,7 @@ class Storage(StorageInterface):
             num_file_writers += self._init_files_audio()
         self._init_log_indices()
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=sum(map(lambda x: x.get_num_bundles(), self._data_containers.values()))
+            max_workers=max(1, sum(map(lambda x: x.get_num_bundles(), self._data_containers.values())))
         )
         self._is_streaming = True
         self._is_flush = False
@@ -262,7 +262,10 @@ class Storage(StorageInterface):
         and the number of timesteps that each bundle needs before data is solidified.
         """
         for node_name, container in self._data_containers.items():
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all() 
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 self._timesteps_before_solidified[node_name][bundle_name] = OrderedDict()
                 for channel_name, channel_info in bundle_info.channels.items():
                     self._timesteps_before_solidified[node_name][bundle_name][
@@ -280,7 +283,10 @@ class Storage(StorageInterface):
         """
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all() 
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip saving video or audio in a CSV.
                     if channel_info.is_video or channel_info.is_audio:
@@ -350,7 +356,10 @@ class Storage(StorageInterface):
         # Create a dataset for each data key of each stream of each device.
         for node_name, container in self._data_containers.items():
             node_group = self._hdf5_writer.create_group(node_name)
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all() 
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 device_group = node_group.create_group(bundle_name)
                 self._next_data_indices_hdf5[node_name][bundle_name] = OrderedDict()
                 for channel_name, channel_info in bundle_info.channels.items():
@@ -389,7 +398,10 @@ class Storage(StorageInterface):
 
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all() 
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip non-video streams.
                     if not channel_info.is_video:
@@ -482,7 +494,10 @@ class Storage(StorageInterface):
         """
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all() 
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 for channel_name, channel_info in bundle_info.channels.items():
                     # Skip non-audio streams.
                     if not channel_info.is_audio:
@@ -568,7 +583,10 @@ class Storage(StorageInterface):
         TODO: validate logic.
         """
         for node_name, container in self._data_containers.items():
-            for bundle_name, bundle_info in container.get_info_all().items():
+            container_info = container.get_info_all()
+            for bundle_name, bundle_info in container_info.bundles.items():
+                if bundle_name in container_info.bundles_not_to_write:
+                    continue
                 # Get data notes for each stream.
                 for channel_name, channel_info in bundle_info.channels.items():
                     data_notes = channel_info.data_notes
@@ -618,7 +636,10 @@ class Storage(StorageInterface):
                 )
                 node_group = self._hdf5_writer["/".join([node_name])]
                 node_group.attrs.update(container_metadata)
-                for bundle_name, bundle_info in container.get_info_all().items():
+                container_info = container.get_info_all()
+                for bundle_name, bundle_info in container_info.bundles.items():
+                    if bundle_name in container_info.bundles_not_to_write:
+                        continue
                     # NOTE: no per-bundle metadata for now.
                     # Get data notes for each channel.
                     for channel_name, channel_info in bundle_info.channels.items():
@@ -669,7 +690,10 @@ class Storage(StorageInterface):
         """
         if self._hdf5_writer is not None:
             for node_name, container in self._data_containers.items():
-                for bundle_name, bundle_info in container.get_info_all().items():
+                container_info = container.get_info_all()
+                for bundle_name, bundle_info in container_info.bundles.items():
+                    if bundle_name in container_info.bundles_not_to_write:
+                        continue
                     for channel_name, channel_info in bundle_info.channels.items():
                         try:
                             dataset: h5py.Dataset = self._hdf5_writer[
@@ -931,15 +955,17 @@ class Storage(StorageInterface):
             tasks = []
             # Execute all data bundles writing concurrently.
             for node_name, container in self._data_containers.items():
-                for bundle_name, bundle_info in container.get_info_all().items():
-                    tasks.append(
-                        self._write_bundle(
-                            container=container,
-                            node_name=node_name,
-                            bundle_name=bundle_name,
-                            is_flush=is_flush_all_in_current_iteration,
+                container_info = container.get_info_all() 
+                for bundle_name, bundle_info in container_info.bundles.items():
+                    if bundle_name not in container_info.bundles_not_to_write:
+                        tasks.append(
+                            self._write_bundle(
+                                container=container,
+                                node_name=node_name,
+                                bundle_name=bundle_name,
+                                is_flush=is_flush_all_in_current_iteration,
+                            )
                         )
-                    )
             await asyncio.gather(*tasks)
             # If stream-logging is disabled, but a final flush had been requested,
             #   record that the flush is complete so streaming can really stop now.

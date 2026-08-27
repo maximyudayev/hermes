@@ -99,19 +99,27 @@ class Producer(ProducerInterface, Node):
 
         # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
         self._is_cleanup_event = Event()
-        self._storage_proc = Process(
-            target=launch_handler,
-            args=(Storage,),
-            kwargs={
-                "log_tag": self.node_id,
-                "spec": logging_spec,
-                "data_containers": {
-                    self.node_id: self._data_container.get_info_all(),
-                },
-                "is_cleanup_event": self._is_cleanup_event,
-            },
+
+        self._is_storage_enabled = (
+            logging_spec.stream_hdf5 or
+            logging_spec.stream_csv or
+            logging_spec.stream_video or
+            logging_spec.stream_audio
         )
-        self._storage_proc.start()
+        if self._is_storage_enabled:
+            self._storage_proc = Process(
+                target=launch_handler,
+                args=(Storage,),
+                kwargs={
+                    "log_tag": self.node_id,
+                    "spec": logging_spec,
+                    "data_containers": {
+                        self.node_id: self._data_container.get_info_all(),
+                    },
+                    "is_cleanup_event": self._is_cleanup_event,
+                },
+            )
+            self._storage_proc.start()
 
         # Conditional creation of the transmission delay estimate thread.
         if not math.isnan(self._transmit_delay_sample_period_s):
@@ -238,7 +246,8 @@ class Producer(ProducerInterface, Node):
         self._pub.close()
 
         # Join on the logging background process last, so that all things can finish in parallel.
-        self._storage_proc.join()
+        if self._is_storage_enabled:
+            self._storage_proc.join()
 
         if not math.isnan(self._transmit_delay_sample_period_s):
             self._delay_thread.join()
