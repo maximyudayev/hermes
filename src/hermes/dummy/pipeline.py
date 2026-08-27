@@ -26,7 +26,6 @@
 # ############
 
 import random
-import string
 from typing import Optional
 import numpy as np
 
@@ -39,7 +38,7 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.dummy.data_container import DummyPipeDataContainer
+from hermes.dummy.data_container import DummyPipeDataContainer, DummyEchoPipeDataContainer
 from hermes.base.nodes.pipeline import Pipeline
 
 
@@ -74,10 +73,15 @@ class DummyPipeline(Pipeline):
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
             port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
         """
-        self._is_continue_generate = True
         self._is_keep_samples = False
-        self._sequence = np.array([[0]], dtype=np.uint32)
         self._period = 1 / data_out_spec["sampling_rate_hz"]
+
+        self._payload_num_bytes = data_out_spec["payload_num_bytes"]
+        self._sequence = np.array([[0]], dtype=np.uint32)
+        self._data = np.array(
+            [[random.randbytes(self._payload_num_bytes)]],
+            dtype=f"S{self._payload_num_bytes}",
+        )
         self._next_period: float
 
         super().__init__(
@@ -102,43 +106,110 @@ class DummyPipeline(Pipeline):
         self._next_period = get_time() + self._period
 
     def _process_data(self, topic: str, msg: dict) -> None:
-        process_time_s: float = get_time()
-        data = msg["sensor_emulator1"]
-        data["flag"] = np.array([[1]], dtype=np.uint8)
+        recv_time_s = np.array([[get_time()]], dtype=np.float64)
+        send_time_s = msg["echo"]["toa_s"]
+
+        data = {
+            "rtt": {
+                "rtt": recv_time_s - send_time_s,
+                "toa_s": recv_time_s,
+                "sequence": msg["echo"]["sequence"],
+            }
+        }
         self._publish(
-            process_time_s=process_time_s, new_data={"sensor_emulator_processed": data}
+            process_time_s=get_time(),
+            new_data=data,
         )
 
     def _generate_data(self) -> None:
-        if self._is_keep_samples and self._is_continue_generate:
+        if self._is_keep_samples:
             process_time_s = get_time()
             if self._next_period <= process_time_s:
                 data = {
-                    "data": np.array(
-                        [[
-                            "".join(
-                                [
-                                    random.choice(string.printable)
-                                    for _ in range(random.randint(1, 100))
-                                ]
-                            ).encode("ascii")
-                        ]],
-                        dtype=f"V{100}",
-                    ),
-                    "sequence": self._sequence,
-                    "toa_s": np.array([process_time_s], dtype=np.float64),
+                    "probe": {
+                        "data": self._data,
+                        "sequence": self._sequence,
+                        "toa_s": np.array([[process_time_s]], dtype=np.float64),
+                    }
                 }
                 self._publish(
                     process_time_s=process_time_s,
-                    new_data={"sensor_emulator_internal": data},
+                    new_data=data,
                 )
                 self._sequence += 1
                 self._next_period += self._period
-        elif self._is_keep_samples and not self._is_continue_generate:
-            self._notify_no_more_data_out()
 
     def _stop_new_data(self):
-        self._is_continue_generate = False
+        self._notify_no_more_data_out()
+
+    def _cleanup(self) -> None:
+        super()._cleanup()
+
+
+class DummyEchoPipeline(Pipeline):
+    """A Node showcasing the Pipeline behavior, consuming external data and generating new data relayed back to the Broker."""
+
+    def __init__(
+        self,
+        node_id: str,
+        host_ip: str,
+        data_out_spec: dict,
+        data_in_specs: list[dict],
+        logging_spec: LoggingSpec,
+        port_pub: Optional[str] = PORT_BACKEND,
+        port_sub: Optional[str] = PORT_FRONTEND,
+        port_sync: Optional[str] = PORT_SYNC_HOST,
+        port_killsig: Optional[str] = PORT_KILL,
+        **_,
+    ):
+        """Constructor of the DummyPipeline Node.
+
+        Args:
+            node_id (str): Node to which the pipeline will publish messages.
+            host_ip (str): IP address of the local master Broker.
+            data_out_spec (dict): Mapping of corresponding Stream object parameters to user-defined configuration values.
+            data_in_specs (list[dict]): List of mappings of user-configured incoming modalities.
+            logging_spec (LoggingSpec): Specification of what and how to store.
+            port_pub (str, optional): Local port to publish to for local master Broker to relay. Defaults to `PORT_BACKEND`.
+            port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
+            port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
+            port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
+        """
+        super().__init__(
+            node_id=node_id,
+            host_ip=host_ip,
+            data_out_spec=data_out_spec,
+            data_in_specs=data_in_specs,
+            logging_spec=logging_spec,
+            is_async_generate=False,
+            port_pub=port_pub,
+            port_sub=port_sub,
+            port_sync=port_sync,
+            port_killsig=port_killsig,
+        )
+
+    @classmethod
+    def create_data_container(cls, data_spec: dict) -> DummyEchoPipeDataContainer:
+        return DummyEchoPipeDataContainer(**data_spec)
+
+    def _keep_samples(self) -> None:
+        pass
+
+    def _process_data(self, topic: str, msg: dict) -> None:
+        process_time_s: float = get_time()
+        data = {
+            "echo": msg["probe"]
+        }
+        self._publish(
+            process_time_s=process_time_s,
+            new_data=data,
+        )
+
+    def _generate_data(self) -> None:
+        pass
+
+    def _stop_new_data(self):
+        pass
 
     def _cleanup(self) -> None:
         super()._cleanup()

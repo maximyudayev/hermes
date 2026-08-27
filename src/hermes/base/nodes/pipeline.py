@@ -38,6 +38,7 @@ from hermes.utils.msgpack_utils import deserialize, serialize
 from hermes.utils.zmq_utils import (
     CMD_END,
     CMD_EXIT,
+    CMD_NO_MORE_DATA,
     DNS_LOCALHOST,
     PORT_BACKEND,
     PORT_FRONTEND,
@@ -201,6 +202,10 @@ class Pipeline(PipelineInterface, Node):
         """
         if self._sub in poll_res[0]:
             self._poll_data_fn()
+        if self._pub in poll_res[0]:
+            idx = poll_res[0].index(self._pub)
+            if poll_res[1][idx] & zmq.POLLIN:
+                self._update_subscriptions()
 
     def _on_poll_in_out(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:
         """Callback to handle incoming data and asynchronously generated internal outgoing data.
@@ -264,8 +269,8 @@ class Pipeline(PipelineInterface, Node):
         """
         topic, payload = self._sub.recv_multipart()
         receive_time = get_time()
-        # 'END' empty packet from a Producer.
-        if CMD_END.encode("utf-8") in payload:
+        # 'END' empty packet from a Producer/Pipeline.
+        if CMD_END.encode("utf-8") in payload or CMD_NO_MORE_DATA.encode("utf-8") in payload:
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._is_producer_ended[topic_tree[0]] = True
             if all(list(self._is_producer_ended.values())):
@@ -299,6 +304,12 @@ class Pipeline(PipelineInterface, Node):
     def _notify_no_more_data_out(self) -> None:
         """Notify the Pipeline that no more data will be generated."""
         self._is_more_data_out = False
+        self._pub.send_multipart(
+            [
+                ("%s.notify" % self.node_id).encode("utf-8"),
+                CMD_NO_MORE_DATA.encode("utf-8")
+            ]
+        )
         self._poller.unregister(self._pub)
         self._check_before_send_end_packet()
 

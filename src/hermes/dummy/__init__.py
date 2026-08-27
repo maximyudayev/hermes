@@ -1,4 +1,4 @@
-from .data_container import DummyDataContainer, DummyPipeDataContainer
+from .data_container import DummyDataContainer, DummyPipeDataContainer, DummyEchoPipeDataContainer
 from .producer import DummyProducer
 from .consumer import DummyConsumer
-from .pipeline import DummyPipeline
+from .pipeline import DummyPipeline, DummyEchoPipeline

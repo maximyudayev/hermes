@@ -37,7 +37,7 @@ class DummyDataContainer(DataContainer):
         self,
         sampling_rate_hz: Optional[int] = 1,
         payload_num_bytes: Optional[int] = 100,
-        buf_len: Optional[int] = 10000,
+        buf_len: Optional[int] = 10_000,
         **_,
     ) -> None:
         """Constructor of the DummyStream datastructure.
@@ -45,7 +45,7 @@ class DummyDataContainer(DataContainer):
         Args:
             sampling_rate_hz (int, optional): Duration of the period over which new data becomes available. Defaults to `1`.
             payload_num_bytes (int, optional): Size of the messages to send. Defaults to `100`.
-            buf_len (int, optional): Length of the circular buffer. Defaults to `10000`.
+            buf_len (int, optional): Length of the circular buffer. Defaults to `10_000`.
         """
         super().__init__()
 
@@ -113,81 +113,108 @@ class DummyPipeDataContainer(DataContainer):
 
     def __init__(
         self,
-        sampling_rate_hz: Optional[int] = 1,
-        incoming_payload_num_bytes: Optional[int] = 100,
-        buf_len: Optional[int] = 10000,
+        sampling_rate_hz: int,
+        payload_num_bytes: int,
+        buf_len: int,
         **_,
     ) -> None:
         """Constructor of the DummyStream datastructure.
 
         Args:
-            sampling_rate_hz (int, optional): Number of times per second, monotonically spaced, that new data becomes available. Defaults to `1`.
-            incoming_payload_num_bytes (int, optional): Size of the messages to send. Defaults to `100`.
-            buf_len (int, optional): Length of the circular buffer. Defaults to `10000`.
+            sampling_rate_hz (int): Number of times per second, monotonically spaced, that new data becomes available.
+            payload_num_bytes (int): Size of the messages to send.
+            buf_len (int): Length of the circular buffer.
         """
-        super().__init__()
+        super().__init__(**_)
 
         self.add_channel(
-            bundle_name="sensor_emulator_processed",
-            channel_name="sequence",
-            data_type="uint32",
+            bundle_name="rtt",
+            channel_name="rtt",
+            data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
         )
         self.add_channel(
-            bundle_name="sensor_emulator_processed",
+            bundle_name="rtt",
             channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
         )
         self.add_channel(
-            bundle_name="sensor_emulator_processed",
-            channel_name="data",
-            data_type=f"V{incoming_payload_num_bytes}",
-            sample_size=[1],
-            buf_len=buf_len,
-        )
-        self.add_channel(
-            bundle_name="sensor_emulator_processed",
-            channel_name="flag",
-            data_type="uint8",
-            sample_size=[1],
-            buf_len=buf_len,
-        )
-
-        self.add_channel(
-            bundle_name="sensor_emulator_internal",
+            bundle_name="rtt",
             channel_name="sequence",
             data_type="uint32",
             sample_size=[1],
             buf_len=buf_len,
-            sampling_rate_hz=int(sampling_rate_hz),
+        )
+
+        self.add_channel(
+            bundle_name="probe",
+            channel_name="data",
+            data_type=f"S{payload_num_bytes}",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
         )
         self.add_channel(
-            bundle_name="sensor_emulator_internal",
+            bundle_name="probe",
+            channel_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
+        )
+        self.add_channel(
+            bundle_name="probe",
             channel_name="toa_s",
             data_type="float64",
             sample_size=[1],
             buf_len=buf_len,
-            sampling_rate_hz=int(sampling_rate_hz),
-        )
-        self.add_channel(
-            bundle_name="sensor_emulator_internal",
-            channel_name="data",
-            data_type=f"V{incoming_payload_num_bytes}",
-            sample_size=[1],
-            buf_len=buf_len,
-            sampling_rate_hz=int(sampling_rate_hz),
-            is_measure_rate_hz=True,
+            sampling_rate_hz=sampling_rate_hz,
         )
 
-    def get_fps(self) -> dict[str, float | None]:
-        return {
-            "sensor_emulator_processed": super()._get_fps(
-                "sensor_emulator_processed", "data"
-            ),
-            "sensor_emulator_internal": super()._get_fps(
-                "sensor_emulator_internal", "data"
-            ),
-        }
+
+class DummyEchoPipeDataContainer(DataContainer):
+    """A Stream structure to store Dummy Echo Pipeline modality data."""
+
+    def __init__(
+        self,
+        sampling_rate_hz: int,
+        payload_num_bytes: int,
+        buf_len: int,
+        **_,
+    ) -> None:
+        """Constructor of the DummyStream datastructure.
+
+        Args:
+            sampling_rate_hz (int): Number of times per second, monotonically spaced, that new data becomes available.
+            payload_num_bytes (int): Size of the messages to send.
+            buf_len (int): Length of the circular buffer.
+        """
+        super().__init__(**_)
+
+        self.add_channel(
+            bundle_name="echo",
+            channel_name="data",
+            data_type=f"S{payload_num_bytes}",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
+        )
+        self.add_channel(
+            bundle_name="echo",
+            channel_name="sequence",
+            data_type="uint32",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
+        )
+        self.add_channel(
+            bundle_name="echo",
+            channel_name="toa_s",
+            data_type="float64",
+            sample_size=[1],
+            buf_len=buf_len,
+            sampling_rate_hz=sampling_rate_hz,
+        )
