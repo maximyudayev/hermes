@@ -568,7 +568,7 @@ class Storage(StorageInterface):
                     audio_stream = audio_stream.global_args("-hide_banner")
                     pipe_out_target = DEVNULL if self._spec.is_quiet else None
                     audio_subproc: Popen = ffmpeg.run_async(
-                        audio_stream, quiet=self._spec.is_quiet, pipe_stdin=True, pipe_stderr=pipe_out_target, pipe_stdout=pipe_out_target,
+                        audio_stream, pipe_stdin=True, pipe_stderr=pipe_out_target, pipe_stdout=pipe_out_target,
                     )  # type: ignore
                     # Store the writer.
                     self._audio_writers["/".join([node_name, bundle_name, channel_name])] = (
