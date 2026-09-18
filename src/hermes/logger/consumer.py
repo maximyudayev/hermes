@@ -27,7 +27,7 @@
 
 from typing import Optional
 
-from hermes.utils.types import LoggingSpec
+from hermes.utils.types import LoggingSpec, NewData
 from hermes.utils.zmq_utils import PORT_FRONTEND, PORT_KILL, PORT_SYNC_HOST
 
 from hermes.base.nodes.consumer import Consumer
@@ -50,7 +50,6 @@ class DataLogger(Consumer):
         port_sub: Optional[str] = PORT_FRONTEND,
         port_sync: Optional[str] = PORT_SYNC_HOST,
         port_killsig: Optional[str] = PORT_KILL,
-        log_history_filepath: Optional[str] = None,
         **_,
     ):
         """Constructor of the centralized Storage Node.
@@ -63,7 +62,6 @@ class DataLogger(Consumer):
             port_sub (str, optional): Local port to subscribe to for incoming relayed data from the local master Broker. Defaults to `PORT_FRONTEND`.
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
             port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
-            log_history_filepath (str, optional): File path to the system log file. Defaults to `None`.
         """
         super().__init__(
             node_id=node_id,
@@ -73,8 +71,10 @@ class DataLogger(Consumer):
             port_sub=port_sub,
             port_sync=port_sync,
             port_killsig=port_killsig,
-            log_history_filepath=log_history_filepath,
         )
+
+    def _process_data(self, topic: str, msg: NewData) -> None:
+        pass
 
     def _cleanup(self):
         super()._cleanup()

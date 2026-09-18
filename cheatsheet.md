@@ -122,3 +122,6 @@ Test record a local device with those settings:
 `ffmpeg -f dshow -i audio="Microphone (Realtek(R) Audio)" -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (Windows)
 `ffmpeg -f avfoundation -i ":default" -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (macOS)
 `ffmpeg -f alsa -i hw:0,0 -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` or `ffmpeg -f pulse -i default -t 10 -ar 48000 -ac 1 -c:a pcm_s16le test_output.wav` (Linux)
+
+Turn video into a GIF:
+`ffmpeg -i input.mp4 -vf "setpts=PTS/2,fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 output.gif`

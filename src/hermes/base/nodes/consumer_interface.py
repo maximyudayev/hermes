@@ -25,10 +25,20 @@
 #
 # ############
 
+from abc import abstractmethod
 from hermes.base.nodes.node_interface import NodeInterface
+from hermes.utils.types import NewData
 
 
 class ConsumerInterface(NodeInterface):
     """Interface for the Consumer Node component."""
 
-    pass
+    @abstractmethod
+    def _process_data(self, topic: str, msg: NewData) -> None:
+        """Main iteration loop logic for the Node during its running phase.
+
+        Args:
+            topic (str): Uniquely identified modality of the contained data.
+            msg (NewData): Received data of the corresponding modality.
+        """
+        pass

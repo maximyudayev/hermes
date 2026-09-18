@@ -173,6 +173,7 @@ class Consumer(ConsumerInterface, Node):
         msg: NewData = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
         self._data_containers[topic_tree[0]].push(process_time_s=receive_time, data=msg)
+        self._process_data(topic=topic_tree[0], msg=msg)
 
     def _poll_ending_data_packets(self) -> None:
         """Receive data packets from producers and monitor for end-of-stream signal.
@@ -197,6 +198,7 @@ class Consumer(ConsumerInterface, Node):
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._data_containers[topic_tree[0]].push(process_time_s=receive_time, data=msg)
+            self._process_data(topic=topic_tree[0], msg=msg)
 
     def _trigger_stop(self):
         self._poll_data_fn = self._poll_ending_data_packets

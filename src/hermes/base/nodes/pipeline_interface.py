@@ -29,6 +29,7 @@ from abc import abstractmethod
 
 from hermes.base.nodes.node_interface import NodeInterface
 from hermes.base.data_container import DataContainer
+from hermes.utils.types import NewData
 
 
 class PipelineInterface(NodeInterface):
@@ -50,7 +51,7 @@ class PipelineInterface(NodeInterface):
         pass
 
     @abstractmethod
-    def _process_data(self, topic: str, msg: dict) -> None:
+    def _process_data(self, topic: str, msg: NewData) -> None:
         """Main iteration loop logic for the Node during its running phase.
 
         Contained logic has to deal with async multiple modalities.
@@ -58,7 +59,7 @@ class PipelineInterface(NodeInterface):
 
         Args:
             topic (str): Uniquely identified modality of the contained data.
-            msg (dict): Received data of the corresponding modality.
+            msg (NewData): Received data of the corresponding modality.
         """
         pass
 
