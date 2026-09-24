@@ -29,6 +29,7 @@ from multiprocessing import Event, set_start_method
 from multiprocessing.synchronize import Event as _EventClass
 import subprocess
 import threading
+import shutil
 import os
 import sys
 import yaml
@@ -109,6 +110,14 @@ def define_parser() -> argparse.ArgumentParser:
         dest="out_dir",
         required=True,
         help="path to the output directory of the current host device",
+    )
+    parser.add_argument(
+        "--overwrite",
+        "-y",
+        action="store_true",
+        dest="overwrite",
+        default=False,
+        help="overwrite existing output directory if it already exists",
     )
     parser.add_argument(
         "--experiment",
@@ -356,6 +365,11 @@ def init_output_files(args: argparse.Namespace) -> tuple[float, str, str]:
     log_history_filepath: str = os.path.join(log_dir, "%s.log" % args.host_ip)
 
     try:
+        if args.overwrite:
+            if os.path.isdir(log_dir):
+                shutil.rmtree(log_dir)
+            elif os.path.isfile(log_dir):
+                os.remove(log_dir)
         os.makedirs(log_dir)
     except OSError:
         exit(
@@ -469,7 +483,10 @@ def parse_stdin(
 
 
 def launch_slave_hosts(
-    connections: list[dict], log_time_s: float, experiment: dict[str, str]
+    connections: list[dict],
+    log_time_s: float,
+    experiment: dict[str, str],
+    is_overwrite: bool = False,
 ) -> list[subprocess.Popen]:
     """Launch slave HERMES hosts over SSH, each in a new interactive terminal window.
 
@@ -484,6 +501,7 @@ def launch_slave_hosts(
             each slave host, including SSH credentials and paths.
         log_time_s (float): Master logging start time to pass to slaves.
         experiment (dict[str, str]): Experiment key-value pairs to pass to slaves.
+        is_overwrite (bool): Whether to overwrite the existing recorded folder, if exists.
 
     Returns:
         list[subprocess.Popen]: List of subprocess handles for the launched slave hosts.
@@ -500,6 +518,7 @@ def launch_slave_hosts(
                 pre_hook = conn.get("pre_hook", None)
                 pre_hook_script = f"{pre_hook} && " if pre_hook else ""
 
+                overwrite_flag = "-y " if is_overwrite else ""
                 if conn["platform"] == "Windows":
                     escaped_config_str = config_str.replace('"', "'")
                     remote_cmd = (
@@ -507,7 +526,7 @@ def launch_slave_hosts(
                         f"cd /d {conn['project_dir']} && "
                         f"call .venv\\Scripts\\activate.bat && "
                         f"{pre_hook_script}"
-                        f'hermes-cli -o {conn["output_dir"]} -t {log_time_s} -e {experiment_str} -j "{escaped_config_str}" && '
+                        f'hermes-cli {overwrite_flag} -o {conn["output_dir"]} -t {log_time_s} -e {experiment_str} -j "{escaped_config_str}" && '
                         f"exit"
                     )
                 else:
@@ -518,7 +537,7 @@ def launch_slave_hosts(
                         f"source .venv/bin/activate && "
                         f'export PYTHONPATH="$(pwd):$PYTHONPATH" && '
                         f"{pre_hook_script}"
-                        f"hermes-cli -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' && "
+                        f"hermes-cli {overwrite_flag} -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' && "
                         f"exit"
                     )
 
@@ -584,7 +603,12 @@ def app():
             os.system(f"title HERMES - {args.host_ip}")
         else:
             os.system(f'echo -ne "\033]0;HERMES - {args.host_ip}\007"')
-        slave_procs = launch_slave_hosts(args.connections, log_time_s, args.experiment)
+        slave_procs = launch_slave_hosts(
+            args.connections,
+            log_time_s,
+            args.experiment,
+            args.overwrite,
+        )
 
     is_ready_event = Event()
     is_quit_event = Event()
