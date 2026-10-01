@@ -38,6 +38,7 @@ from hermes.utils.di_utils import search_module_class
 from hermes.utils.zmq_utils import (
     CMD_END,
     CMD_EXIT,
+    CMD_NO_MORE_DATA,
     DNS_LOCALHOST,
     PORT_FRONTEND,
     PORT_KILL,
@@ -109,16 +110,18 @@ class Consumer(ConsumerInterface, Node):
             self._data_containers.setdefault(in_node_id, class_object)
             self._is_producer_ended.setdefault(in_node_id, False)
             # Allow for specific subscriptions to sub-topics, defaulting to the main topic.
-            self._subscriptions.extend(map(lambda topic: f"{in_node_id}.{topic}", [*topics, "notify"]))
+            self._subscriptions.extend(
+                map(lambda topic: f"{in_node_id}.{topic}", [*topics, "notify"])
+            )
 
         # Create and spawn data storing subprocess with reference to the `Stream` objects, to save `Consumer`s inputs.
         self._is_cleanup_event = Event()
 
         self._is_storage_enabled = (
-            logging_spec.stream_hdf5 or
-            logging_spec.stream_csv or
-            logging_spec.stream_video or
-            logging_spec.stream_audio
+            logging_spec.stream_hdf5
+            or logging_spec.stream_csv
+            or logging_spec.stream_video
+            or logging_spec.stream_audio
         )
         if self._is_storage_enabled:
             self._storage_proc = Process(
@@ -188,7 +191,10 @@ class Consumer(ConsumerInterface, Node):
         topic, payload = self._sub.recv_multipart()
         receive_time = get_time()
         # 'END' empty packet from a Producer.
-        if CMD_END.encode("utf-8") in payload:
+        if (
+            CMD_END.encode("utf-8") in payload
+            or CMD_NO_MORE_DATA.encode("utf-8") in payload
+        ):
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._is_producer_ended[topic_tree[0]] = True
             if all(list(self._is_producer_ended.values())):
@@ -197,7 +203,9 @@ class Consumer(ConsumerInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._data_containers[topic_tree[0]].push(process_time_s=receive_time, data=msg)
+            self._data_containers[topic_tree[0]].push(
+                process_time_s=receive_time, data=msg
+            )
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _trigger_stop(self):
