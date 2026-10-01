@@ -99,7 +99,7 @@ class Consumer(ConsumerInterface, Node):
             module_name: str = data_spec["package"]
             class_name: str = data_spec["class"]
             spec: dict = data_spec["settings"]
-            topics: list[str] = data_spec["topics"]
+            topics: list[str] = data_spec.get("topics") or ["data"]
             # Create the stream datastructure.
             class_type: type[ProducerInterface] | type[PipelineInterface] = (
                 search_module_class(module_name, class_name)

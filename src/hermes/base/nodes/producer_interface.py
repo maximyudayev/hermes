@@ -86,3 +86,13 @@ class ProducerInterface(NodeInterface):
     def _stop_new_data(self) -> None:
         """Stop sampling data, continue sending already captured until none is left."""
         pass
+
+    def register_topic_map(self, topic_map: dict[str, list[str]]) -> None:
+        """Register hierarchical or grouped topics mapping to lists of flat bundle names.
+
+        Args:
+            topic_map (dict[str, list[str]]): Mapping from relative topic string
+                (e.g., 'telemetry.all', 'telemetry.nicla.all') to the list of bundle names
+                it encompasses.
+        """
+        pass

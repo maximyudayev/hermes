@@ -27,7 +27,7 @@
 
 from collections import OrderedDict
 from io import TextIOWrapper
-from subprocess import Popen, DEVNULL
+from subprocess import Popen, PIPE, DEVNULL
 import os
 import time
 import asyncio
@@ -471,9 +471,13 @@ class Storage(StorageInterface):
                     )
                     video_stream = video_stream.global_args("-hide_banner")
                     pipe_out_target = DEVNULL if self._spec.is_quiet else None
-                    video_subproc: Popen = ffmpeg.run_async(
-                        video_stream, pipe_stdin=True, pipe_stderr=pipe_out_target, pipe_stdout=pipe_out_target,
-                    )  # type: ignore
+                    args = ffmpeg.compile(video_stream)
+                    video_subproc: Popen = Popen(
+                        args,
+                        stdin=PIPE,
+                        stdout=pipe_out_target,
+                        stderr=pipe_out_target,
+                    )
                     # Store the writer.
                     self._video_writers["/".join([node_name, bundle_name, channel_name])] = (
                         VideoWriter(video_subproc, node_name, bundle_name, channel_name)
@@ -567,9 +571,13 @@ class Storage(StorageInterface):
                     )
                     audio_stream = audio_stream.global_args("-hide_banner")
                     pipe_out_target = DEVNULL if self._spec.is_quiet else None
-                    audio_subproc: Popen = ffmpeg.run_async(
-                        audio_stream, pipe_stdin=True, pipe_stderr=pipe_out_target, pipe_stdout=pipe_out_target,
-                    )  # type: ignore
+                    args = ffmpeg.compile(audio_stream)
+                    audio_subproc: Popen = Popen(
+                        args,
+                        stdin=PIPE,
+                        stdout=pipe_out_target,
+                        stderr=pipe_out_target,
+                    )
                     # Store the writer.
                     self._audio_writers["/".join([node_name, bundle_name, channel_name])] = (
                         AudioWriter(audio_subproc, node_name, bundle_name, channel_name)

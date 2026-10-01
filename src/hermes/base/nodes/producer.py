@@ -97,6 +97,14 @@ class Producer(ProducerInterface, Node):
         # Data structure for keeping track of data.
         self._data_container: DataContainer = self.create_data_container(data_out_spec)
 
+        self._topic_map: dict[str, list[str]] = {}
+        bundle_names = self._data_container.get_bundle_names()
+        self.register_topic_map({
+            "all": bundle_names,
+            "data": bundle_names,
+            **{b: [b] for b in bundle_names},
+        })
+
         # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
         self._is_cleanup_event = Event()
 
@@ -129,9 +137,8 @@ class Producer(ProducerInterface, Node):
                 kwargs={
                     "ping_fn": self._ping_device,
                     "publish_fn": lambda time_s, delay_s: self._publish(
-                        node_id="%s.connection" % self.node_id,
-                        time_s=time_s,
-                        data={
+                        process_time_s=time_s,
+                        new_data={
                             "%s_connection" % self.node_id: {
                                 "transmission_delay": delay_s
                             }
@@ -168,18 +175,51 @@ class Producer(ProducerInterface, Node):
     def _activate_data_poller(self) -> None:
         self._poller.register(self._pub, zmq.POLLOUT)
 
+    def register_topic_map(self, topic_map: dict[str, list[str]]) -> None:
+        """Register hierarchical or grouped topics mapping to lists of flat bundle names.
+
+        Args:
+            topic_map (dict[str, list[str]]): Mapping from relative topic string
+                (e.g., 'telemetry.all', 'telemetry.nicla.all') to the list of bundle names
+                it encompasses.
+        """
+        for topic, bundles in topic_map.items():
+            self._topic_map[topic] = list(bundles)
+
     def _update_subscriptions(self) -> None:
         msg = self._pub.recv_multipart()
         msg_decoded = msg[0].decode("utf-8")
-        topic = msg_decoded[1:].split(".")[1]
-        if topic in self._data_container.get_bundle_names():
-            if "\x01" == msg_decoded[0]:
-                self._active_subscriptions.add(topic)
-            elif "\x00" == msg_decoded[0]:
-                self._active_subscriptions.discard(topic)
+        if not msg_decoded:
+            return
+
+        cmd = msg_decoded[0]
+        raw_topic = msg_decoded[1:]
+
+        prefix = f"{self.node_id}."
+        if raw_topic.startswith(prefix):
+            topic = raw_topic[len(prefix):]
+        elif raw_topic == self.node_id:
+            topic = "all"
+        else:
+            return
+
+        if topic == "notify":
+            return
+
+        if cmd == "\x01":
+            self._active_subscriptions.add(topic)
+        elif cmd == "\x00":
+            self._active_subscriptions.discard(topic)
 
     def _is_bundle_requested(self, bundle_name: str) -> bool:
-        return bundle_name in self._active_subscriptions
+        if "all" in self._active_subscriptions or "data" in self._active_subscriptions:
+            return True
+        if bundle_name in self._active_subscriptions:
+            return True
+        for topic in self._active_subscriptions:
+            if topic in self._topic_map and bundle_name in self._topic_map[topic]:
+                return True
+        return False
 
     def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]):
         # Process custom event first, then Node generic (killsig).
@@ -202,11 +242,23 @@ class Producer(ProducerInterface, Node):
             process_time_s (float): Time of consumption of the captured samples by the `HERMES` middleware.
             new_data (NewData): Data in bundles to be serialized and sent, and stored locally.
         """
-        for bundle_name, bundle_data in new_data.items():
-            if self._is_bundle_requested(bundle_name):
-                comp_topic = f"{self.node_id}.{bundle_name}"
-                msg = serialize({bundle_name: bundle_data})
+        for topic in self._active_subscriptions:
+            if topic in self._topic_map:
+                bundles = self._topic_map[topic]
+                bundle_subset = {b: new_data[b] for b in bundles if b in new_data}
+                if bundle_subset:
+                    comp_topic = f"{self.node_id}.{topic}"
+                    msg = serialize(bundle_subset)
+                    self._pub.send_multipart([comp_topic.encode("utf-8"), msg])
+            elif topic in new_data:
+                comp_topic = f"{self.node_id}.{topic}"
+                msg = serialize({topic: new_data[topic]})
                 self._pub.send_multipart([comp_topic.encode("utf-8"), msg])
+            elif topic in ("all", "data"):
+                comp_topic = f"{self.node_id}.{topic}"
+                msg = serialize(new_data)
+                self._pub.send_multipart([comp_topic.encode("utf-8"), msg])
+
         self._data_container.push(process_time_s=process_time_s, data=new_data)
 
     def _trigger_stop(self):

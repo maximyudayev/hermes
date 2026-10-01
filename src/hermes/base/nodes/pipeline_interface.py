@@ -68,6 +68,16 @@ class PipelineInterface(NodeInterface):
         """Node-specific externally triggered function to start keeping in memory streamed data."""
         pass
 
+    def register_topic_map(self, topic_map: dict[str, list[str]]) -> None:
+        """Register hierarchical or grouped topics mapping to lists of flat bundle names.
+
+        Args:
+            topic_map (dict[str, list[str]]): Mapping from relative topic string
+                (e.g., 'telemetry.all', 'telemetry.nicla.all') to the list of bundle names
+                it encompasses.
+        """
+        pass
+
     @abstractmethod
     def _generate_data(self) -> None:
         """Main iteration loop logic to process and distribute internal asynchronously generated data.
