@@ -35,8 +35,8 @@ import math
 from hermes.utils.mp_utils import launch_handler
 from hermes.utils.msgpack_utils import serialize
 from hermes.utils.zmq_utils import (
-    CMD_END,
-    CMD_EXIT,
+    CMD_END_BYTES,
+    CMD_EXIT_BYTES,
     DNS_LOCALHOST,
     PORT_BACKEND,
     PORT_KILL,
@@ -272,7 +272,7 @@ class Producer(ProducerInterface, Node):
         self._pub.send_multipart(
             [
                 ("%s.notify" % self.node_id).encode("utf-8"),
-                CMD_END.encode("utf-8"),
+                CMD_END_BYTES,
             ]
         )
         self._is_done = True
@@ -287,7 +287,7 @@ class Producer(ProducerInterface, Node):
 
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
-            [self.node_id.encode("utf-8"), CMD_EXIT.encode("utf-8")]
+            [self.node_id.encode("utf-8"), CMD_EXIT_BYTES]
         )
         host, cmd = (
             self._sync.recv_multipart()

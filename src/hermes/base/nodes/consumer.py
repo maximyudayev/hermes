@@ -36,15 +36,15 @@ from hermes.utils.time_utils import get_time
 from hermes.utils.msgpack_utils import deserialize
 from hermes.utils.di_utils import search_module_class
 from hermes.utils.zmq_utils import (
-    CMD_END,
-    CMD_EXIT,
-    CMD_NO_MORE_DATA,
+    CMD_EXIT_BYTES,
+    CMD_END_BYTES,
+    CMD_NO_MORE_DATA_BYTES,
     DNS_LOCALHOST,
     PORT_FRONTEND,
     PORT_KILL,
     PORT_SYNC_HOST,
 )
-from hermes.utils.types import LoggingSpec, NewData
+from hermes.utils.types import LoggingSpec
 
 from hermes.base.nodes.node import Node
 from hermes.base.data_container import DataContainer
@@ -90,7 +90,6 @@ class Consumer(ConsumerInterface, Node):
         )
         self._port_sub = port_sub
         self._is_producer_ended: OrderedDict[str, bool] = OrderedDict()
-        self._poll_data_fn = self._poll_data_packets
         self._subscriptions: list[str] = []
 
         # Instantiate all desired `Streams` that the `Consumer` will subscribe to.
@@ -159,26 +158,13 @@ class Consumer(ConsumerInterface, Node):
     # Process custom event first, then Node generic (killsig).
     def _on_poll(self, poll_res):
         if self._sub in poll_res[0]:
-            self._poll_data_fn()
+            self._poll_data_packets()
         super()._on_poll(poll_res)
 
     def _on_sync_complete(self) -> None:
         pass
 
     def _poll_data_packets(self) -> None:
-        """Receive data packets in a steady state.
-
-        Gets called every time one of the requestes modalities produced new data.
-        In normal operation mode, all messages are 2-part.
-        """
-        topic, payload = self._sub.recv_multipart()
-        receive_time = get_time()
-        msg: NewData = deserialize(payload)
-        topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._data_containers[topic_tree[0]].push(process_time_s=receive_time, data=msg)
-        self._process_data(topic=topic_tree[0], msg=msg)
-
-    def _poll_ending_data_packets(self) -> None:
         """Receive data packets from producers and monitor for end-of-stream signal.
 
         When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
@@ -192,8 +178,8 @@ class Consumer(ConsumerInterface, Node):
         receive_time = get_time()
         # 'END' empty packet from a Producer.
         if (
-            CMD_END.encode("utf-8") in payload
-            or CMD_NO_MORE_DATA.encode("utf-8") in payload
+            CMD_END_BYTES in payload
+            or CMD_NO_MORE_DATA_BYTES in payload
         ):
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._is_producer_ended[topic_tree[0]] = True
@@ -209,7 +195,7 @@ class Consumer(ConsumerInterface, Node):
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _trigger_stop(self):
-        self._poll_data_fn = self._poll_ending_data_packets
+        pass
 
     @abstractmethod
     def _cleanup(self):
@@ -218,7 +204,7 @@ class Consumer(ConsumerInterface, Node):
 
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
-            [self.node_id.encode("utf-8"), CMD_EXIT.encode("utf-8")]
+            [self.node_id.encode("utf-8"), CMD_EXIT_BYTES]
         )
         host, cmd = (
             self._sync.recv_multipart()

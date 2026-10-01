@@ -41,6 +41,21 @@ MSG_ON = "ON"
 MSG_OFF = "OFF"
 MSG_OK = "OK"
 
+TOPIC_KILL_BYTES = TOPIC_KILL.encode("utf-8")
+CMD_HELLO_BYTES = CMD_HELLO.encode("utf-8")
+CMD_ACK_BYTES = CMD_ACK.encode("utf-8")
+CMD_START_TIME_BYTES = CMD_START_TIME.encode("utf-8")
+CMD_GO_BYTES = CMD_GO.encode("utf-8")
+CMD_END_BYTES = CMD_END.encode("utf-8")
+CMD_NO_MORE_DATA_BYTES = CMD_NO_MORE_DATA.encode("utf-8")
+CMD_EXIT_BYTES = CMD_EXIT.encode("utf-8")
+CMD_BYE_BYTES = CMD_BYE.encode("utf-8")
+CMD_IS_START_BYTES = CMD_IS_START.encode("utf-8")
+CMD_START_BYTES = CMD_START.encode("utf-8")
+MSG_ON_BYTES = MSG_ON.encode("utf-8")
+MSG_OFF_BYTES = MSG_OFF.encode("utf-8")
+MSG_OK_BYTES = MSG_OK.encode("utf-8")
+
 # Ports used for ZeroMQ by our system
 PORT_BACKEND = "42069"
 PORT_FRONTEND = "42070"

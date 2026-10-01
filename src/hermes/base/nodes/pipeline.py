@@ -36,9 +36,9 @@ from hermes.utils.time_utils import get_time
 from hermes.utils.di_utils import search_module_class
 from hermes.utils.msgpack_utils import deserialize, serialize
 from hermes.utils.zmq_utils import (
-    CMD_END,
-    CMD_EXIT,
-    CMD_NO_MORE_DATA,
+    CMD_EXIT_BYTES,
+    CMD_END_BYTES,
+    CMD_NO_MORE_DATA_BYTES,
     DNS_LOCALHOST,
     PORT_BACKEND,
     PORT_FRONTEND,
@@ -116,7 +116,6 @@ class Pipeline(PipelineInterface, Node):
 
         # Instantiate all desired `DataContainer`s that the `Pipeline` will process.
         self._data_containers_in: OrderedDict[str, DataContainer] = OrderedDict()
-        self._poll_data_fn = self._poll_data_packets
         self._on_poll_fn = (
             self._on_poll_in_out if self._is_async_generate else self._on_poll_in_only
         )
@@ -215,7 +214,7 @@ class Pipeline(PipelineInterface, Node):
             poll_res: Result of zmq.Poller.poll() call.
         """
         if self._sub in poll_res[0]:
-            self._poll_data_fn()
+            self._poll_data_packets()
         if self._pub in poll_res[0]:
             idx = poll_res[0].index(self._pub)
             if poll_res[1][idx] & zmq.POLLIN:
@@ -228,7 +227,7 @@ class Pipeline(PipelineInterface, Node):
             poll_res: Result of zmq.Poller.poll() call.
         """
         if self._sub in poll_res[0]:
-            self._poll_data_fn()
+            self._poll_data_packets()
         if self._pub in poll_res[0]:
             idx = poll_res[0].index(self._pub)
             if poll_res[1][idx] & zmq.POLLOUT:
@@ -292,21 +291,6 @@ class Pipeline(PipelineInterface, Node):
         self._keep_samples()
 
     def _poll_data_packets(self) -> None:
-        """Receive data packets in a steady state.
-
-        Gets called every time one of the requestes modalities produced new data.
-        In normal operation mode, all messages are 2-part.
-        """
-        topic, payload = self._sub.recv_multipart()
-        receive_time = get_time()
-        msg = deserialize(payload)
-        topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._data_containers_in[topic_tree[0]].push(
-            process_time_s=receive_time, data=msg
-        )
-        self._process_data(topic=topic_tree[0], msg=msg)
-
-    def _poll_ending_data_packets(self) -> None:
         """Receive data packets from producers and monitor for end-of-stream signal.
 
         When system triggered a safe exit, Pipeline gets a mix of normal 2-part messages
@@ -320,8 +304,8 @@ class Pipeline(PipelineInterface, Node):
         receive_time = get_time()
         # 'END' empty packet from a Producer/Pipeline.
         if (
-            CMD_END.encode("utf-8") in payload
-            or CMD_NO_MORE_DATA.encode("utf-8") in payload
+            CMD_END_BYTES in payload
+            or CMD_NO_MORE_DATA_BYTES in payload
         ):
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._is_producer_ended[topic_tree[0]] = True
@@ -364,7 +348,6 @@ class Pipeline(PipelineInterface, Node):
         self._data_container_out.push(process_time_s=process_time_s, data=new_data)
 
     def _trigger_stop(self):
-        self._poll_data_fn = self._poll_ending_data_packets
         self._stop_new_data()
 
     def _notify_no_more_data_out(self) -> None:
@@ -373,7 +356,7 @@ class Pipeline(PipelineInterface, Node):
         self._pub.send_multipart(
             [
                 ("%s.notify" % self.node_id).encode("utf-8"),
-                CMD_NO_MORE_DATA.encode("utf-8"),
+                CMD_NO_MORE_DATA_BYTES,
             ]
         )
         self._poller.unregister(self._pub)
@@ -390,7 +373,7 @@ class Pipeline(PipelineInterface, Node):
     def _send_end_packet(self) -> None:
         """Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads."""
         self._pub.send_multipart(
-            [("%s.notify" % self.node_id).encode("utf-8"), CMD_END.encode("utf-8")]
+            [("%s.notify" % self.node_id).encode("utf-8"), CMD_END_BYTES]
         )
         self._is_done = True
 
@@ -401,7 +384,7 @@ class Pipeline(PipelineInterface, Node):
 
         # Before closing the PUB socket, wait for the 'BYE' signal from the Broker.
         self._sync.send_multipart(
-            [self.node_id.encode("utf-8"), CMD_EXIT.encode("utf-8")]
+            [self.node_id.encode("utf-8"), CMD_EXIT_BYTES]
         )
         host, cmd = (
             self._sync.recv_multipart()
