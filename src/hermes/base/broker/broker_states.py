@@ -107,8 +107,7 @@ class SyncNodeBarrierState(AbstractBrokerState):
                 num_left_to_sync -= 1
                 node_addresses[node_name] = address
                 print(
-                    "%s connected to %s with %s message."
-                    % (node_name, host_ip, cmd),
+                    "%s connected to %s with %s message." % (node_name, host_ip, cmd),
                     flush=True,
                 )
         self._context._set_node_addresses(node_addresses)
@@ -195,8 +194,7 @@ class SyncBrokerBarrierState(AbstractBrokerState):
 
 
 class SubscribeState(AbstractBrokerState):
-    """Subscription state of the Broker that relays subscription messages across Nodes and Brokers.
-    """
+    """Subscription state of the Broker that relays subscription messages across Nodes and Brokers."""
 
     def run(self) -> None:
         sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
@@ -265,8 +263,7 @@ class StartState(AbstractBrokerState):
             if cmd == CMD_IS_START:
                 num_left_to_sync -= 1
                 print(
-                    "%s responded to %s with %s message."
-                    % (node_name, host_ip, cmd),
+                    "%s responded to %s with %s message." % (node_name, host_ip, cmd),
                     flush=True,
                 )
 

@@ -80,8 +80,7 @@ class AudioBackendEnum(Enum):
 
 
 class AudioFormatEnum(Enum):
-    """Audio format enumeration for supported FFmpeg audio formats.
-    """
+    """Audio format enumeration for supported FFmpeg audio formats."""
 
     MP3_MF = AudioFormat("s16le", "s16", "mp3_mf", 2, "mp3")
     LIBMP3LAME = AudioFormat("s16le", "s16", "libmp3lame", 2, "mp3")
@@ -103,6 +102,7 @@ class BundleFillLevel:
 @dataclass
 class BundleMetadata:
     """Atomic data bundle synchronization primitives (non-blocking) to guard `SharedMemoryCircularBuffer` across processes."""
+
     lock: Lock = field(init=False)
     is_writing: "Synchronized[bool]" = field(init=False)
     is_reading: "Synchronized[bool]" = field(init=False)
@@ -122,6 +122,7 @@ class BundleMetadata:
 @dataclass
 class SharedMemoryCircularBufferMetadata:
     """Shared memory circular buffer information to bind processes to the same underlying allocated memory."""
+
     buf_len: int
     data_type: str
     sample_size: Iterable[int]
@@ -132,6 +133,7 @@ class SharedMemoryCircularBufferMetadata:
 @dataclass
 class RawBytesSharedMemoryCircularBufferMetadata(SharedMemoryCircularBufferMetadata):
     """Shared memory circular buffer information to bind processes to the same underlying allocated memory."""
+
     mem_size: int
 
 

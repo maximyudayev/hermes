@@ -100,15 +100,19 @@ class Pipeline(PipelineInterface, Node):
         self._active_subscriptions: set[str] = set()
 
         # Data structure for keeping track of the `Pipeline`s output data.
-        self._data_container_out: DataContainer = self.create_data_container(data_out_spec)
+        self._data_container_out: DataContainer = self.create_data_container(
+            data_out_spec
+        )
 
         self._topic_map: dict[str, list[str]] = {}
         bundle_names = self._data_container_out.get_bundle_names()
-        self.register_topic_map({
-            "all": bundle_names,
-            "data": bundle_names,
-            **{b: [b] for b in bundle_names},
-        })
+        self.register_topic_map(
+            {
+                "all": bundle_names,
+                "data": bundle_names,
+                **{b: [b] for b in bundle_names},
+            }
+        )
 
         # Instantiate all desired `DataContainer`s that the `Pipeline` will process.
         self._data_containers_in: OrderedDict[str, DataContainer] = OrderedDict()
@@ -133,16 +137,18 @@ class Pipeline(PipelineInterface, Node):
             self._data_containers_in.setdefault(in_node_id, class_object)
             self._is_producer_ended.setdefault(in_node_id, False)
             # Allow for specific subscriptions to sub-topics, defaulting to the main topic.
-            self._subscriptions.extend(map(lambda topic: f"{in_node_id}.{topic}", [*topics, "notify"]))
+            self._subscriptions.extend(
+                map(lambda topic: f"{in_node_id}.{topic}", [*topics, "notify"])
+            )
 
         # Create and spawn data storing subprocess with reference to the `DataContainer` objects, to save `Pipeline`s outputs and inputs.
         self._is_cleanup_event = Event()
 
         self._is_storage_enabled = (
-            logging_spec.stream_hdf5 or
-            logging_spec.stream_csv or
-            logging_spec.stream_video or
-            logging_spec.stream_audio
+            logging_spec.stream_hdf5
+            or logging_spec.stream_csv
+            or logging_spec.stream_video
+            or logging_spec.stream_audio
         )
 
         if self._is_storage_enabled:
@@ -252,7 +258,7 @@ class Pipeline(PipelineInterface, Node):
 
         prefix = f"{self.node_id}."
         if raw_topic.startswith(prefix):
-            topic = raw_topic[len(prefix):]
+            topic = raw_topic[len(prefix) :]
         elif raw_topic == self.node_id:
             topic = "all"
         else:
@@ -295,7 +301,9 @@ class Pipeline(PipelineInterface, Node):
         receive_time = get_time()
         msg = deserialize(payload)
         topic_tree: list[str] = topic.decode("utf-8").split(".")
-        self._data_containers_in[topic_tree[0]].push(process_time_s=receive_time, data=msg)
+        self._data_containers_in[topic_tree[0]].push(
+            process_time_s=receive_time, data=msg
+        )
         self._process_data(topic=topic_tree[0], msg=msg)
 
     def _poll_ending_data_packets(self) -> None:
@@ -311,7 +319,10 @@ class Pipeline(PipelineInterface, Node):
         topic, payload = self._sub.recv_multipart()
         receive_time = get_time()
         # 'END' empty packet from a Producer/Pipeline.
-        if CMD_END.encode("utf-8") in payload or CMD_NO_MORE_DATA.encode("utf-8") in payload:
+        if (
+            CMD_END.encode("utf-8") in payload
+            or CMD_NO_MORE_DATA.encode("utf-8") in payload
+        ):
             topic_tree: list[str] = topic.decode("utf-8").split(".")
             self._is_producer_ended[topic_tree[0]] = True
             if all(list(self._is_producer_ended.values())):
@@ -321,7 +332,9 @@ class Pipeline(PipelineInterface, Node):
         else:
             msg = deserialize(payload)
             topic_tree: list[str] = topic.decode("utf-8").split(".")
-            self._data_containers_in[topic_tree[0]].push(process_time_s=receive_time, data=msg)
+            self._data_containers_in[topic_tree[0]].push(
+                process_time_s=receive_time, data=msg
+            )
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _store_and_broadcast(self, process_time_s: float, new_data: NewData) -> None:
@@ -360,7 +373,7 @@ class Pipeline(PipelineInterface, Node):
         self._pub.send_multipart(
             [
                 ("%s.notify" % self.node_id).encode("utf-8"),
-                CMD_NO_MORE_DATA.encode("utf-8")
+                CMD_NO_MORE_DATA.encode("utf-8"),
             ]
         )
         self._poller.unregister(self._pub)
@@ -377,10 +390,7 @@ class Pipeline(PipelineInterface, Node):
     def _send_end_packet(self) -> None:
         """Send 'END' empty packet and label Node as done to safely finish and exit the process and its threads."""
         self._pub.send_multipart(
-            [
-                ("%s.notify" % self.node_id).encode("utf-8"),
-                CMD_END.encode("utf-8")
-            ]
+            [("%s.notify" % self.node_id).encode("utf-8"), CMD_END.encode("utf-8")]
         )
         self._is_done = True
 
@@ -409,7 +419,10 @@ class Pipeline(PipelineInterface, Node):
             self._storage_proc.join()
 
         # Release allocated shared memory for the `DataContainer`s.
-        for data_container in [self._data_container_out, *list(self._data_containers_in.values())]:
+        for data_container in [
+            self._data_container_out,
+            *list(self._data_containers_in.values()),
+        ]:
             data_container.clear_all()
             data_container.close_all()
             data_container.unlink_all()

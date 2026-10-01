@@ -50,7 +50,7 @@ try:
     from importlib.metadata import PackageNotFoundError, version
 except ImportError:
     # For Python < 3.8
-    from importlib_metadata import PackageNotFoundError, version # type: ignore
+    from importlib_metadata import PackageNotFoundError, version  # type: ignore
 try:
     __version__ = version("pysio-hermes")
 except PackageNotFoundError:
@@ -126,7 +126,9 @@ class Storage(StorageInterface):
 
         self._data_containers: Dict[str, DataContainer] = {}
         for node_name, data_container_reconstructor in data_containers.items():
-            self._data_containers[node_name] = DataContainer.create_from_metadata(data_container_reconstructor)
+            self._data_containers[node_name] = DataContainer.create_from_metadata(
+                data_container_reconstructor
+            )
 
         # Create the log directory if needed.
         if self._is_to_stream() or self._is_to_dump():
@@ -204,7 +206,10 @@ class Storage(StorageInterface):
             num_file_writers += self._init_files_audio()
         self._init_log_indices()
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=max(1, sum(map(lambda x: x.get_num_bundles(), self._data_containers.values())))
+            max_workers=max(
+                1,
+                sum(map(lambda x: x.get_num_bundles(), self._data_containers.values())),
+            )
         )
         self._is_streaming = True
         self._is_flush = False
@@ -242,7 +247,9 @@ class Storage(StorageInterface):
         # Initialize indices and log all of the data.
         self._init_log_indices()
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=sum(map(lambda x: x.get_num_bundles(), self._data_containers.values()))
+            max_workers=sum(
+                map(lambda x: x.get_num_bundles(), self._data_containers.values())
+            )
         )
 
     def _wait_till_flush(self) -> None:
@@ -262,11 +269,13 @@ class Storage(StorageInterface):
         and the number of timesteps that each bundle needs before data is solidified.
         """
         for node_name, container in self._data_containers.items():
-            container_info = container.get_info_all() 
+            container_info = container.get_info_all()
             for bundle_name, bundle_info in container_info.bundles.items():
                 if bundle_name in container_info.bundles_not_to_write:
                     continue
-                self._timesteps_before_solidified[node_name][bundle_name] = OrderedDict()
+                self._timesteps_before_solidified[node_name][bundle_name] = (
+                    OrderedDict()
+                )
                 for channel_name, channel_info in bundle_info.channels.items():
                     self._timesteps_before_solidified[node_name][bundle_name][
                         channel_name
@@ -283,7 +292,7 @@ class Storage(StorageInterface):
         """
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            container_info = container.get_info_all() 
+            container_info = container.get_info_all()
             for bundle_name, bundle_info in container_info.bundles.items():
                 if bundle_name in container_info.bundles_not_to_write:
                     continue
@@ -298,9 +307,9 @@ class Storage(StorageInterface):
                     )
                     filepath_csv = os.path.join(self._spec.log_dir, filename_csv)
                     csv_file = open(filepath_csv, "w")
-                    self._csv_writers["/".join([node_name, bundle_name, channel_name])] = (
-                        CsvWriter(csv_file, node_name, bundle_name, channel_name)
-                    )
+                    self._csv_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ] = CsvWriter(csv_file, node_name, bundle_name, channel_name)
                     num_writers += 1
 
         # Open a writer for a CSV metadata file.
@@ -309,15 +318,24 @@ class Storage(StorageInterface):
         self._csv_writer_metadata = open(filepath_csv, "w")
 
         # Write CSV headers.
-        for csv_file, node_name, bundle_name, channel_name in self._csv_writers.values():
+        for (
+            csv_file,
+            node_name,
+            bundle_name,
+            channel_name,
+        ) in self._csv_writers.values():
             # First check if custom header titles have been specified.
-            channel_info = self._data_containers[node_name].get_info(bundle_name, channel_name)
+            channel_info = self._data_containers[node_name].get_info(
+                bundle_name, channel_name
+            )
             sample_size = channel_info.shm_buffer_metadata.sample_size
             if (
                 isinstance(channel_info.data_notes, dict)
                 and DataContainer.metadata_data_headings_key in channel_info.data_notes
             ):
-                data_headers = channel_info.data_notes[DataContainer.metadata_data_headings_key]
+                data_headers = channel_info.data_notes[
+                    DataContainer.metadata_data_headings_key
+                ]
             else:
                 # Write a number of data headers based on how many values are in each data sample.
                 # Each sample may be a matrix that will be unwrapped into columns,
@@ -356,7 +374,7 @@ class Storage(StorageInterface):
         # Create a dataset for each data key of each stream of each device.
         for node_name, container in self._data_containers.items():
             node_group = self._hdf5_writer.create_group(node_name)
-            container_info = container.get_info_all() 
+            container_info = container.get_info_all()
             for bundle_name, bundle_info in container_info.bundles.items():
                 if bundle_name in container_info.bundles_not_to_write:
                     continue
@@ -366,7 +384,9 @@ class Storage(StorageInterface):
                     # Skip saving video and audio in the HDF5.
                     if channel_info.is_video or channel_info.is_audio:
                         continue
-                    self._next_data_indices_hdf5[node_name][bundle_name][channel_name] = 0
+                    self._next_data_indices_hdf5[node_name][bundle_name][
+                        channel_name
+                    ] = 0
                     # The main data has specifications defined by stream_info.
                     sample_size = channel_info.shm_buffer_metadata.sample_size
                     data_type = channel_info.shm_buffer_metadata.data_type
@@ -398,7 +418,7 @@ class Storage(StorageInterface):
 
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            container_info = container.get_info_all() 
+            container_info = container.get_info_all()
             for bundle_name, bundle_info in container_info.bundles.items():
                 if bundle_name in container_info.bundles_not_to_write:
                     continue
@@ -479,9 +499,9 @@ class Storage(StorageInterface):
                         stderr=pipe_out_target,
                     )
                     # Store the writer.
-                    self._video_writers["/".join([node_name, bundle_name, channel_name])] = (
-                        VideoWriter(video_subproc, node_name, bundle_name, channel_name)
-                    )
+                    self._video_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ] = VideoWriter(video_subproc, node_name, bundle_name, channel_name)
                     num_writers += 1
         return num_writers
 
@@ -498,7 +518,7 @@ class Storage(StorageInterface):
         """
         num_writers: int = 0
         for node_name, container in self._data_containers.items():
-            container_info = container.get_info_all() 
+            container_info = container.get_info_all()
             for bundle_name, bundle_info in container_info.bundles.items():
                 if bundle_name in container_info.bundles_not_to_write:
                     continue
@@ -523,7 +543,11 @@ class Storage(StorageInterface):
                     num_to_append = 0
                     while os.path.exists(filepath_audio):
                         num_to_append += 1
-                        filename_audio = "%s_%02d.%s" % (filename_base, num_to_append, ext)
+                        filename_audio = "%s_%02d.%s" % (
+                            filename_base,
+                            num_to_append,
+                            ext,
+                        )
                         filepath_audio = os.path.join(
                             self._spec.log_dir, filename_audio
                         )
@@ -579,9 +603,9 @@ class Storage(StorageInterface):
                         stderr=pipe_out_target,
                     )
                     # Store the writer.
-                    self._audio_writers["/".join([node_name, bundle_name, channel_name])] = (
-                        AudioWriter(audio_subproc, node_name, bundle_name, channel_name)
-                    )
+                    self._audio_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ] = AudioWriter(audio_subproc, node_name, bundle_name, channel_name)
                     num_writers += 1
         return num_writers
 
@@ -771,15 +795,12 @@ class Storage(StorageInterface):
 
         num_elements = view.shape[0]
         # Extend the dataset as needed while iterating over the `new_data`.
-        start_index = self._next_data_indices_hdf5[node_name][bundle_name][
-            channel_name
-        ]
+        start_index = self._next_data_indices_hdf5[node_name][bundle_name][channel_name]
         # Expand the dataset if needed.
         if not (start_index + num_elements < len(dataset)):
             dataset.resize(
                 (
-                    len(dataset)
-                    + max(self._hdf5_log_length_increment, num_elements),
+                    len(dataset) + max(self._hdf5_log_length_increment, num_elements),
                     *dataset.shape[1:],
                 )
             )
@@ -787,9 +808,7 @@ class Storage(StorageInterface):
         # Write the new entries.
         # Update the next starting index to use.
         start_index += num_elements
-        self._next_data_indices_hdf5[node_name][bundle_name][channel_name] = (
-            start_index
-        )
+        self._next_data_indices_hdf5[node_name][bundle_name][channel_name] = start_index
 
         # Flush the file with the new data.
         self._hdf5_writer.flush()
@@ -848,12 +867,14 @@ class Storage(StorageInterface):
         is_flush: bool,
     ) -> None:
         """Routes channel data from an atomic bundle to the corresponding synchronous writer.
-        
+
         Will synchronously write collected channels data to disk, releasing the atomic bundle at the end.
         """
         for channel_name, view in container.pop(bundle_name, is_flush=is_flush):
             channel_info = container.get_info(bundle_name, channel_name)
-            if self._spec.stream_hdf5 and not (channel_info.is_video or channel_info.is_audio):
+            if self._spec.stream_hdf5 and not (
+                channel_info.is_video or channel_info.is_audio
+            ):
                 self._sync_write_hdf5(
                     node_name=node_name,
                     bundle_name=bundle_name,
@@ -862,17 +883,25 @@ class Storage(StorageInterface):
                 )
             elif self._spec.stream_video and channel_info.is_video:
                 self._sync_write_video(
-                    video_writer=self._video_writers["/".join([node_name, bundle_name, channel_name])].subproc,
+                    video_writer=self._video_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ].subproc,
                     view=view,
                 )
             elif self._spec.stream_audio and channel_info.is_audio:
                 self._sync_write_audio(
-                    audio_writer=self._audio_writers["/".join([node_name, bundle_name, channel_name])].subproc,
+                    audio_writer=self._audio_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ].subproc,
                     view=view,
                 )
-            elif self._spec.stream_csv and not (channel_info.is_video or channel_info.is_audio):
+            elif self._spec.stream_csv and not (
+                channel_info.is_video or channel_info.is_audio
+            ):
                 self._sync_write_csv(
-                    csv_writer=self._csv_writers["/".join([node_name, bundle_name, channel_name])].file,
+                    csv_writer=self._csv_writers[
+                        "/".join([node_name, bundle_name, channel_name])
+                    ].file,
                     view=view,
                 )
 
@@ -893,8 +922,8 @@ class Storage(StorageInterface):
                 container=container,
                 node_name=node_name,
                 bundle_name=bundle_name,
-                is_flush=is_flush,   
-            )
+                is_flush=is_flush,
+            ),
         )
 
     ##########################
@@ -963,7 +992,7 @@ class Storage(StorageInterface):
             tasks = []
             # Execute all data bundles writing concurrently.
             for node_name, container in self._data_containers.items():
-                container_info = container.get_info_all() 
+                container_info = container.get_info_all()
                 for bundle_name, bundle_info in container_info.bundles.items():
                     if bundle_name not in container_info.bundles_not_to_write:
                         tasks.append(

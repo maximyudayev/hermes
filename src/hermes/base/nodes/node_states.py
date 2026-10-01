@@ -84,7 +84,10 @@ class SubscribeState(AbstractNodeState):
         sync_res = self._sync_poller.poll(500)
         if sync_res:
             host, cmd = self._sync.recv_multipart()
-            print("%s received %s from %s" % (self._context.node_id, cmd, host), flush=True)
+            print(
+                "%s received %s from %s" % (self._context.node_id, cmd, host),
+                flush=True,
+            )
             self._sync_poller.unregister(self._sync)
             self._context._set_state(SyncState(self._context))
 

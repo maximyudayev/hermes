@@ -134,7 +134,9 @@ class Node(NodeInterface):
     def _send_kill_to_broker(self):
         self._babykillsig.send_string(TOPIC_KILL)
 
-    def _poll(self, timeout_ms: Optional[int] = None) -> tuple[list[zmq.SyncSocket], list[int]]:
+    def _poll(
+        self, timeout_ms: Optional[int] = None
+    ) -> tuple[list[zmq.SyncSocket], list[int]]:
         return tuple(zip(*(self._poller.poll(timeout_ms))))
 
     @abstractmethod

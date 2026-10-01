@@ -106,7 +106,9 @@ class NodeInterface(ABC):
         pass
 
     @abstractmethod
-    def _poll(self, timeout_ms: Optional[int] = None) -> tuple[list[zmq.SyncSocket], list[int]]:
+    def _poll(
+        self, timeout_ms: Optional[int] = None
+    ) -> tuple[list[zmq.SyncSocket], list[int]]:
         """Block for new ZeroMQ data to collect at the Poller.
 
         Listens for events when new data is received from or when new data can be written to sockets,

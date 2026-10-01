@@ -99,20 +99,22 @@ class Producer(ProducerInterface, Node):
 
         self._topic_map: dict[str, list[str]] = {}
         bundle_names = self._data_container.get_bundle_names()
-        self.register_topic_map({
-            "all": bundle_names,
-            "data": bundle_names,
-            **{b: [b] for b in bundle_names},
-        })
+        self.register_topic_map(
+            {
+                "all": bundle_names,
+                "data": bundle_names,
+                **{b: [b] for b in bundle_names},
+            }
+        )
 
         # Create and spawn data storing subprocess with reference to the `Stream` object, to save `Producer`s outputs.
         self._is_cleanup_event = Event()
 
         self._is_storage_enabled = (
-            logging_spec.stream_hdf5 or
-            logging_spec.stream_csv or
-            logging_spec.stream_video or
-            logging_spec.stream_audio
+            logging_spec.stream_hdf5
+            or logging_spec.stream_csv
+            or logging_spec.stream_video
+            or logging_spec.stream_audio
         )
         if self._is_storage_enabled:
             self._storage_proc = Process(
@@ -197,7 +199,7 @@ class Producer(ProducerInterface, Node):
 
         prefix = f"{self.node_id}."
         if raw_topic.startswith(prefix):
-            topic = raw_topic[len(prefix):]
+            topic = raw_topic[len(prefix) :]
         elif raw_topic == self.node_id:
             topic = "all"
         else:

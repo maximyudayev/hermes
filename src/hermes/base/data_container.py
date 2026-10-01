@@ -269,7 +269,7 @@ class DataBundle:
         """Atomic addition of a batch of new samples to the channels of the data bundle.
 
         Atomically checks if all the channels in the bundle can accommodate the new data.
-        If a channel would overlap and drop incoming data - a channel with 
+        If a channel would overlap and drop incoming data - a channel with
         `BytesSharedMemoryCircularBuffer` underlying data structure - then the samples in the batch
         are symmetrically truncated (preserving the newest samples) for ALL channels in the bundle
         to maintain atomic access and perfect one-to-one relational mapping.
@@ -284,11 +284,11 @@ class DataBundle:
             metadata.is_writing.value = True
             buf = self._data["toa_s"]
             write_tail = metadata.write_head.value
-            
+
             free_space = (metadata.read_tail.value - write_tail - 1) % buf.buf_len
             if num_elements > free_space:
                 num_elements = free_space
-            
+
             write_head = (write_tail + num_elements) % buf.buf_len
 
         if num_elements == 0:
@@ -337,9 +337,10 @@ class DataBundle:
             start = metadata.read_tail.value
 
         # Can pop all available data, except what must be kept peekable.
-        num_poppable: int = max(0,
+        num_poppable: int = max(
+            0,
             num_available
-            - self._bundle_info.channels["toa_s"].timesteps_before_solidified
+            - self._bundle_info.channels["toa_s"].timesteps_before_solidified,
         )
         # If experiment ended, flush all available data from the `DataContainer`.
         if is_flush:
@@ -437,7 +438,7 @@ class DataBundle:
             ChannelInfo: Metadata dictionary describing the data channel.
         """
         return self._bundle_info.channels[channel_name]
-    
+
     def get_info_all(self) -> DataBundleInfo:
         """Get metadata of all the channels of the bundle.
 
@@ -445,10 +446,10 @@ class DataBundle:
             DataBundleInfo: Metadata dictionary describing all the data channels in the bundle.
         """
         return self._bundle_info
-    
+
     def update_running_stats(self, channel_name: str) -> None:
         """Update the actual sampling rate during operation.
-        
+
         Args:
             channel_name (str): Valid data channel name.
         """
@@ -510,7 +511,9 @@ class RawBytesDataBundle(DataBundle):
         if channel_name not in self._data:
             if is_video:
                 if mem_size is None:
-                    raise ValueError(f"`mem_size` must be provided for video channels to allocate ax space for video frames (channel '{channel_name}').")
+                    raise ValueError(
+                        f"`mem_size` must be provided for video channels to allocate ax space for video frames (channel '{channel_name}')."
+                    )
                 self._data[channel_name] = RawBytesSharedMemoryCircularBuffer(
                     buf_len=buf_len,
                     mem_size=mem_size,
@@ -534,7 +537,9 @@ class RawBytesDataBundle(DataBundle):
         num_elements = data["toa_s"].shape[0]
 
         if num_elements > 1:
-            raise NotImplementedError("Can't push multiple frames to `RawBytesDataBundle` yet.")
+            raise NotImplementedError(
+                "Can't push multiple frames to `RawBytesDataBundle` yet."
+            )
 
         metadata = self._bundle_info.metadata
         with metadata.lock:
@@ -546,12 +551,20 @@ class RawBytesDataBundle(DataBundle):
             write_tail = metadata.write_head.value  # `metadata.write_head` is a synchronized pointer to the next empty cell to write to.
             free_space_index = (metadata.read_tail.value - write_tail - 1) % buf.buf_len
 
-            oldest_frame_offset, oldest_frame_num_bytes = buf.index_buffer[metadata.read_tail.value]  # oldest unread frame (incl.)
-            newest_frame_offset, newest_frame_num_bytes = buf.index_buffer[(write_tail - 1) % buf.buf_len]
-            free_space_frame = (oldest_frame_offset.item() - (newest_frame_offset.item() + newest_frame_num_bytes.item()) - 1) % buf.mem_size
+            oldest_frame_offset, oldest_frame_num_bytes = buf.index_buffer[
+                metadata.read_tail.value
+            ]  # oldest unread frame (incl.)
+            newest_frame_offset, newest_frame_num_bytes = buf.index_buffer[
+                (write_tail - 1) % buf.buf_len
+            ]
+            free_space_frame = (
+                oldest_frame_offset.item()
+                - (newest_frame_offset.item() + newest_frame_num_bytes.item())
+                - 1
+            ) % buf.mem_size
             requested_space_frame = len(data["frame"])
 
-            # TODO: 
+            # TODO:
             # Truncate oldest of the newest frames until:
             #   1. The number of frames to be written is less than the free space in the index;
             #   2. The total number of bytes for all frames to be written is less than the free space in the memory buffer;
@@ -609,7 +622,9 @@ class DataContainer(ABC):
 
     def __init__(self, bundles_not_to_write: Optional[list[str]] = [], **_) -> None:
         self._data = dict()
-        self._container_info = DataContainerInfo(bundles_not_to_write=bundles_not_to_write)
+        self._container_info = DataContainerInfo(
+            bundles_not_to_write=bundles_not_to_write
+        )
 
     @classmethod
     def create_from_metadata(cls, container_info: DataContainerInfo):
@@ -671,8 +686,14 @@ class DataContainer(ABC):
                 self._data[bundle_name] = RawBytesDataBundle(bundle_name)
             else:
                 self._data[bundle_name] = DataBundle(bundle_name)
-            self._container_info.bundles[bundle_name] = self._data[bundle_name].get_info_all()
-        elif is_video and video_format in [VideoFormatEnum.MJPEG] and type(self._data[bundle_name]) is DataBundle:
+            self._container_info.bundles[bundle_name] = self._data[
+                bundle_name
+            ].get_info_all()
+        elif (
+            is_video
+            and video_format in [VideoFormatEnum.MJPEG]
+            and type(self._data[bundle_name]) is DataBundle
+        ):
             old_bundle = self._data[bundle_name]
             new_bundle = RawBytesDataBundle(bundle_name, old_bundle._bundle_info)
             new_bundle._data = old_bundle._data
@@ -752,13 +773,13 @@ class DataContainer(ABC):
         shm_buffer_metadata: SharedMemoryCircularBufferMetadata,
         bundle_info: DataBundleInfo,
     ) -> None:
-        is_video_bundle = any(ch_info.is_video for ch_info in bundle_info.channels.values())
+        is_video_bundle = any(
+            ch_info.is_video for ch_info in bundle_info.channels.values()
+        )
         is_raw_bytes = any(
             filter(
-                lambda x: 
-                    getattr(x, "video_format", False) in
-                    [VideoFormatEnum.MJPEG],
-                bundle_info.channels.values()
+                lambda x: getattr(x, "video_format", False) in [VideoFormatEnum.MJPEG],
+                bundle_info.channels.values(),
             )
         )
 
@@ -769,7 +790,11 @@ class DataContainer(ABC):
             else:
                 self._data[bundle_name] = DataBundle(bundle_name, bundle_info)
         # Dynamically convert the `DataBundle` to `RawBytesDataBundle` if sensed that the bundle contains MJPEG video.
-        elif is_video_bundle and is_raw_bytes and type(self._data[bundle_name]) is DataBundle:
+        elif (
+            is_video_bundle
+            and is_raw_bytes
+            and type(self._data[bundle_name]) is DataBundle
+        ):
             old_bundle = self._data[bundle_name]
             new_bundle = RawBytesDataBundle(bundle_name, old_bundle._bundle_info)
             new_bundle._data = old_bundle._data
@@ -777,7 +802,11 @@ class DataContainer(ABC):
 
         # Extract size of the memory preallocation for the MJPEG video channels.
         kwargs = {}
-        if is_video_bundle and hasattr(shm_buffer_metadata, "mem_size") and is_raw_bytes:
+        if (
+            is_video_bundle
+            and hasattr(shm_buffer_metadata, "mem_size")
+            and is_raw_bytes
+        ):
             kwargs["mem_size"] = shm_buffer_metadata.mem_size
 
         self._data[bundle_name]._alloc_channel(
@@ -804,10 +833,17 @@ class DataContainer(ABC):
             elif bundle_data is not None:
                 self._data[bundle_name].push(bundle_data)
 
-                if f"{bundle_name}_metadata" not in self._container_info.bundles_not_to_write:
+                if (
+                    f"{bundle_name}_metadata"
+                    not in self._container_info.bundles_not_to_write
+                ):
                     metadata = {
-                        "process_time_s": np.array([[process_time_s]], dtype=np.float64),
-                        "count": np.array([[bundle_data["toa_s"].shape[0]]], dtype=np.uint16),
+                        "process_time_s": np.array(
+                            [[process_time_s]], dtype=np.float64
+                        ),
+                        "count": np.array(
+                            [[bundle_data["toa_s"].shape[0]]], dtype=np.uint16
+                        ),
                         "toa_s": bundle_data["toa_s"][0][None],
                     }
                     self._data[f"{bundle_name}_metadata"].push(metadata)
@@ -832,7 +868,9 @@ class DataContainer(ABC):
         """
         return self._data[bundle_name].pop(num_oldest_to_pop, is_flush)
 
-    def clear(self, bundle_name: str, num_oldest_to_clear: Optional[int] = None) -> None:
+    def clear(
+        self, bundle_name: str, num_oldest_to_clear: Optional[int] = None
+    ) -> None:
         self._data[bundle_name].clear(num_oldest_to_clear)
 
     def clear_all(self) -> None:
@@ -847,7 +885,7 @@ class DataContainer(ABC):
 
     def unlink_all(self) -> None:
         """Free allocated memory from all channels of all atomic data bundles.
-        
+
         NOTE: Must be called only once, from the corresponding `Node`,
             after all subprocesses closed shared access to it.
         """
@@ -909,4 +947,4 @@ class DataContainer(ABC):
                 for bundle_name, bundle in self._data.items()
             },
             bundles_not_to_write=self._container_info.bundles_not_to_write,
-        ) 
+        )

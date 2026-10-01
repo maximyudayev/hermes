@@ -38,7 +38,10 @@ from hermes.utils.zmq_utils import (
 )
 from hermes.utils.types import LoggingSpec
 
-from hermes.dummy.data_container import DummyPipeDataContainer, DummyEchoPipeDataContainer
+from hermes.dummy.data_container import (
+    DummyPipeDataContainer,
+    DummyEchoPipeDataContainer,
+)
 from hermes.base.nodes.pipeline import Pipeline
 
 
@@ -197,9 +200,7 @@ class DummyEchoPipeline(Pipeline):
 
     def _process_data(self, topic: str, msg: dict) -> None:
         process_time_s: float = get_time()
-        data = {
-            "echo": msg["probe"]
-        }
+        data = {"echo": msg["probe"]}
         self._publish(
             process_time_s=process_time_s,
             new_data=data,

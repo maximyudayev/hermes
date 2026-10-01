@@ -227,7 +227,9 @@ class RawBytesSharedMemoryCircularBuffer(SharedMemoryCircularBuffer):
         oldest_index = (write_tail - 1) % self.buf_len
         oldest_offset, oldest_num_bytes = self.index_buffer[oldest_index]
 
-        write_tail_buf = (oldest_offset.item() + oldest_num_bytes.item()) % self.mem_size
+        write_tail_buf = (
+            oldest_offset.item() + oldest_num_bytes.item()
+        ) % self.mem_size
         write_head_buf = (write_tail_buf + num_bytes) % self.mem_size
 
         # Update index with pointers for each added frame, respecting the wrap-around of the index array.
@@ -239,11 +241,17 @@ class RawBytesSharedMemoryCircularBuffer(SharedMemoryCircularBuffer):
 
         # Write target data, respecting the wrap-around of the raw bytes buffer.
         if write_tail_buf < write_head_buf:
-            self.buffer[write_tail_buf:write_head_buf] = np.frombuffer(new_data, dtype=np.uint8)
+            self.buffer[write_tail_buf:write_head_buf] = np.frombuffer(
+                new_data, dtype=np.uint8
+            )
         else:
             first_part = self.mem_size - write_tail_buf
-            self.buffer[write_tail_buf:] = np.frombuffer(new_data[:first_part], dtype=np.uint8)
-            self.buffer[:write_head_buf] = np.frombuffer(new_data[first_part:], dtype=np.uint8)
+            self.buffer[write_tail_buf:] = np.frombuffer(
+                new_data[:first_part], dtype=np.uint8
+            )
+            self.buffer[:write_head_buf] = np.frombuffer(
+                new_data[first_part:], dtype=np.uint8
+            )
 
     def pop_unprotected(self, start: int, end: int) -> List[np.ndarray]:
         """Provides contiguous views over the requested sample range.
@@ -256,7 +264,9 @@ class RawBytesSharedMemoryCircularBuffer(SharedMemoryCircularBuffer):
             List[np.ndarray]: List of 1D views over the requested frames. Wrap-around frames will be 2 contiguous views.
         """
         start_pointer = self.index_buffer[start, 0].item()
-        end_pointer = np.sum(self.index_buffer[(end - 1) % self.buf_len]).item() % self.mem_size
+        end_pointer = (
+            np.sum(self.index_buffer[(end - 1) % self.buf_len]).item() % self.mem_size
+        )
 
         if start_pointer < end_pointer:
             return [self.buffer[start_pointer:end_pointer]]

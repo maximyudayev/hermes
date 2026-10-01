@@ -63,7 +63,11 @@ class StartState(AbstractStorageState):
     Will immediately transition into `StreamState` after initialization.
     """
 
-    def __init__(self, context: StorageInterface, data_containers: OrderedDict[str, DataContainer]):
+    def __init__(
+        self,
+        context: StorageInterface,
+        data_containers: OrderedDict[str, DataContainer],
+    ):
         """Constructor of the StartState.
 
         Args:
