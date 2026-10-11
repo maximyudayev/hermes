@@ -113,10 +113,10 @@ Check out the [full documentation site](https://yudayev.com/hermes) for more usa
 
 # Data Annotation
 <br>
-<div align="center"><img src="images/gui.png" alt="Pysioviz: A dashboard for visualization and annotation of collected multimodal data for AI workflows" width="80%"></div>
+<div align="center"><img src="images/gui.gif" alt="PysioViz: A dashboard for visualization and annotation of collected multimodal data for AI workflows" width="80%"></div>
 <br>
 
-We developed [PysioViz](https://github.com/maximyudayev/pysioviz) a complementary dashboard based on [Dash Plotly](https://dash.plotly.com/) for analysis and annotation of the collected multimodal data. We use it ourselves to generate ground truth labels for the AI training workflows. Check it out and leave feedback!
+We developed [PysioViz](https://github.com/maximyudayev/pysioviz) a complementary local dashboard based on [PyQt6](https://doc.qt.io/qtforpython-6/index.html), for analysis and annotation of the raw collected HERMES multimodal data. We use it ourselves to generate ground truth labels for the AI training workflows. Check it out and leave feedback!
 
 # Showcase
 These are some of our own projects enabled by HERMES to excite you to adopt it in your smart closed-looop healthtech usecases.
