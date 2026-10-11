@@ -224,6 +224,8 @@ class Producer(ProducerInterface, Node):
         return False
 
     def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]):
+        if not poll_res or not poll_res[0]:
+            return
         # Process custom event first, then Node generic (killsig).
         if self._pub in poll_res[0]:
             idx = poll_res[0].index(self._pub)
@@ -297,7 +299,7 @@ class Producer(ProducerInterface, Node):
             % (self.node_id, cmd.decode("utf-8"), host.decode("utf-8")),
             flush=True,
         )
-        self._pub.close()
+        self._pub.close(linger=0)
 
         # Join on the logging background process last, so that all things can finish in parallel.
         if self._is_storage_enabled:

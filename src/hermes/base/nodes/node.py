@@ -36,6 +36,7 @@ from hermes.utils.zmq_utils import (
     PORT_KILL_BTN,
     PORT_SYNC_HOST,
     TOPIC_KILL,
+    TOPIC_KILL_BYTES,
 )
 
 from hermes.base.nodes.node_interface import NodeInterface
@@ -67,6 +68,7 @@ class Node(NodeInterface):
         self._port_killsig = port_killsig
         self.__node_id = node_id
         self.__is_done = False
+        self._is_babykill_sent = False
         self._ref_time_s = ref_time
         init_time(ref_time=ref_time)
 
@@ -111,6 +113,7 @@ class Node(NodeInterface):
         self._sync.connect("tcp://%s:%s" % (self._host_ip, self._port_sync))
         # Socket to indicate to broker that the Node caught interrupt signal
         self._babykillsig: zmq.SyncSocket = self._ctx.socket(zmq.REQ)
+        self._babykillsig.setsockopt(zmq.LINGER, 0)
         self._babykillsig.connect("tcp://%s:%s" % (DNS_LOCALHOST, PORT_KILL_BTN))
 
     def _get_sync_socket(self) -> zmq.SyncSocket:
@@ -129,18 +132,29 @@ class Node(NodeInterface):
 
     def _deactivate_kill_poller(self) -> None:
         print("%s received KILL signal" % self.node_id, flush=True)
-        self._poller.unregister(self._killsig)
+        try:
+            self._poller.unregister(self._killsig)
+        except KeyError:
+            pass
+        self._is_babykill_sent = True
 
-    def _send_kill_to_broker(self):
-        self._babykillsig.send_string(TOPIC_KILL)
+    def _send_kill_to_broker(self) -> None:
+        if not self._is_babykill_sent:
+            self._babykillsig.send(TOPIC_KILL_BYTES)
+            self._is_babykill_sent = True
 
     def _poll(
         self, timeout_ms: Optional[int] = None
     ) -> tuple[list[zmq.SyncSocket], list[int]]:
-        return tuple(zip(*(self._poller.poll(timeout_ms))))
+        poll_result = self._poller.poll(timeout_ms)
+        if not poll_result:
+            return ([], [])
+        return tuple(zip(*poll_result))
 
     @abstractmethod
     def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]) -> None:
+        if not poll_res or not poll_res[0]:
+            return
         if self._killsig in poll_res[0]:
             self._state.kill()
 
@@ -151,8 +165,8 @@ class Node(NodeInterface):
     @abstractmethod
     def _cleanup(self):
         """Release of generic Node resources, must be done after releasing higher-level resources."""
-        self._killsig.close()
-        self._babykillsig.close()
-        self._sync.close()
+        self._killsig.close(linger=0)
+        self._babykillsig.close(linger=0)
+        self._sync.close(linger=0)
         # Destroy ZeroMQ context.
         self._ctx.term()

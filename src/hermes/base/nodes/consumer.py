@@ -157,6 +157,8 @@ class Consumer(ConsumerInterface, Node):
 
     # Process custom event first, then Node generic (killsig).
     def _on_poll(self, poll_res):
+        if not poll_res or not poll_res[0]:
+            return
         if self._sub in poll_res[0]:
             self._poll_data_packets()
         super()._on_poll(poll_res)
@@ -195,7 +197,8 @@ class Consumer(ConsumerInterface, Node):
             self._process_data(topic=topic_tree[0], msg=msg)
 
     def _trigger_stop(self):
-        pass
+        if not self._is_producer_ended or all(self._is_producer_ended.values()):
+            self._is_done = True
 
     @abstractmethod
     def _cleanup(self):
@@ -214,7 +217,7 @@ class Consumer(ConsumerInterface, Node):
             % (self.node_id, cmd.decode("utf-8"), host.decode("utf-8")),
             flush=True,
         )
-        self._sub.close()
+        self._sub.close(linger=0)
 
         # Join on the logging background process last, so that all things can finish in parallel.
         if self._is_storage_enabled:

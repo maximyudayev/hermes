@@ -282,6 +282,8 @@ class Pipeline(PipelineInterface, Node):
         return False
 
     def _on_poll(self, poll_res: tuple[list[zmq.SyncSocket], list[int]]):
+        if not poll_res or not poll_res[0]:
+            return
         # Receiving a modality packet, process until all data sources sent 'END' packet.
         self._on_poll_fn(poll_res)
         super()._on_poll(poll_res)
@@ -394,8 +396,8 @@ class Pipeline(PipelineInterface, Node):
             % (self.node_id, cmd.decode("utf-8"), host.decode("utf-8")),
             flush=True,
         )
-        self._pub.close()
-        self._sub.close()
+        self._pub.close(linger=0)
+        self._sub.close(linger=0)
 
         # Join on the logging background process last, so that all things can finish in parallel.
         if self._is_storage_enabled:

@@ -34,6 +34,7 @@ from hermes.utils.node_utils import launch_node
 from hermes.utils.time_utils import get_time
 from hermes.utils.types import ZMQResult
 from hermes.utils.zmq_utils import (
+    CMD_ACK,
     IP_LOOPBACK,
     PORT_BACKEND,
     PORT_FRONTEND,
@@ -360,6 +361,11 @@ class Broker(BrokerInterface):
         for sock, _ in poll_res:
             # Receives KILL from the GUI.
             if sock == self._gui_btn_kill:
+                try:
+                    self._gui_btn_kill.recv(zmq.NOBLOCK)
+                    self._gui_btn_kill.send(CMD_ACK.encode("utf-8"), zmq.NOBLOCK)
+                except Exception:
+                    pass
                 return True
             # Receives KILL signal from another broker.
             elif sock in self._killsigs:
@@ -378,18 +384,21 @@ class Broker(BrokerInterface):
     def _stop(self) -> None:
         """Gracefully exit after all local subprocesses terminate, and cleanup."""
         for p in self._processes:
-            p.join()
+            p.join(timeout=3.0)
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=1.0)
 
         # Release all used local sockets.
         for s in self._backends:
-            s.close()
+            s.close(linger=0)
         for s in self._frontends:
-            s.close()
+            s.close(linger=0)
         for s in self._killsigs:
-            s.close()
-        self._sync_host.close()
-        self._sync_remote.close()
-        self._gui_btn_kill.close()
+            s.close(linger=0)
+        self._sync_host.close(linger=0)
+        self._sync_remote.close(linger=0)
+        self._gui_btn_kill.close(linger=0)
 
         # Destroy ZeroMQ context.
         self._ctx.term()
