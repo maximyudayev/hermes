@@ -7,6 +7,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [0.6.0](https://github.com/maximyudayev/hermes/releases/tag/0.6.0) - 2026-10-11
+
+<small>[Compare with 0.5.1](https://github.com/maximyudayev/hermes/compare/0.5.1...0.6.0)</small>
+
+### Features
+
+- hierarchical bundles subscription ([cfe1e71](https://github.com/maximyudayev/hermes/commit/cfe1e71b2c180fc3aee16edf439be25000ecde37) by Maxim Yudayev).
+- data folder overwrite flag ([b81284d](https://github.com/maximyudayev/hermes/commit/b81284dd82ef628de9ae455abd78cad0e98836b7) by Maxim Yudayev).
+- selective saving of data bundles ([d16231d](https://github.com/maximyudayev/hermes/commit/d16231d513d99e977bf5c44207608f057abf4ce7) by Maxim Yudayev).
+
+### Bug Fixes
+
+- `babykill` does not stop experiment ([e1f1ecb](https://github.com/maximyudayev/hermes/commit/e1f1ecb366ba89dd4104c3943dd2c077252af748) by Maxim Yudayev).
+- end packet deserializaiton race condition ([f5bfb3a](https://github.com/maximyudayev/hermes/commit/f5bfb3a9874ee4f568d7bcd0e081a070c05ca135) by Maxim Yudayev).
+- Consumer serdes race condition on exit ([98bd927](https://github.com/maximyudayev/hermes/commit/98bd927bde60a71edd219ea55c16850db829665c) by Maxim Yudayev).
+- Consumer nodes don't run on new samples ([d22de90](https://github.com/maximyudayev/hermes/commit/d22de90b52a1498a87306db4659ea7e05a72ba83) by Maxim Yudayev).
+- quiet audio storage doesn't exit ([49f077b](https://github.com/maximyudayev/hermes/commit/49f077bd70d2cf136f7d3ec23358d09034dc8d97) by Maxim Yudayev).
+- chain of sync and async Pipeline deadlocks ([4e7eb05](https://github.com/maximyudayev/hermes/commit/4e7eb0522a89e3ebcd552ac69efe72872885eecd) by Maxim Yudayev).
+
+### Code Refactoring
+
+- moved FSMs to `python-statemachine` ([269c638](https://github.com/maximyudayev/hermes/commit/269c638ca02027db8b3d55cb380b5a36ff84b936) by Maxim Yudayev).
+- prettified formatting ([62e1bbe](https://github.com/maximyudayev/hermes/commit/62e1bbe40f61d138cf6066a745d4480399c50eba) by Maxim Yudayev).
+
+
 ## [0.5.1](https://github.com/maximyudayev/hermes/releases/tag/0.5.1) - 2026-08-25
 
 <small>[Compare with 0.5.0](https://github.com/maximyudayev/hermes/compare/0.5.0...0.5.1)</small>
