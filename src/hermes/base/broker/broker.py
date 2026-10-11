@@ -46,7 +46,7 @@ from hermes.utils.zmq_utils import (
 )
 
 from hermes.base.broker.broker_interface import BrokerInterface
-from hermes.base.broker.broker_states import AbstractBrokerState, InitState
+from hermes.base.broker.broker_states import BrokerStateMachine
 
 
 class Broker(BrokerInterface):
@@ -125,7 +125,8 @@ class Broker(BrokerInterface):
         self._queues: list[Queue[tuple[float, str]]] = [Queue() for _ in node_specs]
 
         # FSM for the broker
-        self._state = InitState(self)
+        self._sm = BrokerStateMachine(self)
+        self._state_start_time_s = get_time()
 
         # Pass exactly one ZeroMQ context instance throughout the program
         self._ctx: zmq.Context = zmq.Context()
@@ -216,17 +217,17 @@ class Broker(BrokerInterface):
             duration_s (float, optional): Duration of data capturing/streaming. Defaults to `None`.
         """
         self._duration_s = duration_s
-        while self._state.is_continue() and not self._is_quit_event.is_set():
-            self._state.run()
+        while self._sm.is_continue() and not self._is_quit_event.is_set():
+            self._sm.run()
         if self._is_quit_event.is_set():
             print(
                 "Keyboard exit signalled. Safely closing and saving, have some patience...",
                 flush=True,
             )
-        self._state.kill()
+        self._sm.kill()
         # Continue with the FSM until it gracefully wraps up.
-        while self._state.is_continue():
-            self._state.run()
+        while self._sm.is_continue():
+            self._sm.run()
         self._stop()
         print("Experiment ended, thank you for using our system <3", flush=True)
 
@@ -242,8 +243,8 @@ class Broker(BrokerInterface):
     #############################
     ###### GETTERS/SETTERS ######
     #############################
-    def _set_state(self, state: AbstractBrokerState) -> None:
-        self._state = state
+    def _set_state(self, state) -> None:
+        self._sm = state
         self._state_start_time_s = get_time()
 
     def _set_broker_ready(self) -> None:

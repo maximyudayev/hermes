@@ -33,15 +33,15 @@ class StateInterface(ABC):
 
     @abstractmethod
     def run(self) -> None:
-        """Run the logic of the currently selected state."""
+        """Execute the logic for the currently active state."""
         pass
 
     @abstractmethod
     def is_continue(self) -> bool:
-        """Check if to stay in the current state.
+        """Check whether the Node state machine should continue running.
 
         Returns:
-            bool: Whether to stay in the same state.
+            bool: Whether the state machine is active and has not terminated.
         """
         pass
 

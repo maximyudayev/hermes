@@ -40,7 +40,7 @@ from hermes.utils.zmq_utils import (
 )
 
 from hermes.base.nodes.node_interface import NodeInterface
-from hermes.base.nodes.node_states import AbstractNodeState, StartState
+from hermes.base.nodes.node_states import NodeStateMachine
 
 
 class Node(NodeInterface):
@@ -72,7 +72,7 @@ class Node(NodeInterface):
         self._ref_time_s = ref_time
         init_time(ref_time=ref_time)
 
-        self._state = StartState(self)
+        self._sm = NodeStateMachine(self)
 
         self._ctx: zmq.Context = zmq.Context.instance()
         self._poller: zmq.Poller = zmq.Poller()
@@ -91,13 +91,10 @@ class Node(NodeInterface):
 
     def __call__(self):
         """Node objects are callable to start the FSM as entry-point."""
-        while self._state.is_continue():
-            self._state.run()
+        while self._sm.is_continue():
+            self._sm.run()
         self._cleanup()
         print("%s exited, goodbye <3" % self.node_id, flush=True)
-
-    def _set_state(self, state: AbstractNodeState) -> None:
-        self._state = state
 
     @abstractmethod
     def _initialize(self):
@@ -156,7 +153,7 @@ class Node(NodeInterface):
         if not poll_res or not poll_res[0]:
             return
         if self._killsig in poll_res[0]:
-            self._state.kill()
+            self._sm.kill()
 
     @abstractmethod
     def _trigger_stop(self) -> None:

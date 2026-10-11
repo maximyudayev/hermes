@@ -25,8 +25,10 @@
 #
 # ############
 
+from typing import Callable, Optional
 import time
 import zmq
+from statemachine import StateMachine, State
 
 from hermes.utils.time_utils import get_time
 from hermes.utils.types import ZMQResult
@@ -46,25 +48,75 @@ from hermes.base.broker.broker_interface import BrokerInterface
 from hermes.base.state_interface import StateInterface
 
 
-class AbstractBrokerState(StateInterface):
-    """Abstract class for the Broker FSM.
+class BrokerStateMachine(StateMachine):
+    """State machine managing the Broker lifecycle and transitions."""
 
-    Can be externally triggered into the KILL state from any child State class.
-    """
+    allow_event_without_transition = True
+
+    init = State("Init", value="init", initial=True)
+    sync_node_barrier = State("SyncNodeBarrier", value="sync_node_barrier")
+    sync_broker_barrier = State("SyncBrokerBarrier", value="sync_broker_barrier")
+    subscribe = State("Subscribe", value="subscribe")
+    start = State("Start", value="start")
+    running = State("Running", value="running")
+    kill_state = State("Kill", value="kill")
+    join_node_barrier = State("JoinNodeBarrier", value="join_node_barrier")
+    join_broker_barrier = State("JoinBrokerBarrier", value="join_broker_barrier")
+    done = State("Done", value="done", final=True)
+
+    to_sync_node_barrier = init.to(sync_node_barrier)
+    to_sync_broker_barrier = sync_node_barrier.to(sync_broker_barrier)
+    to_subscribe = sync_broker_barrier.to(subscribe)
+    to_start = subscribe.to(start)
+    to_running = start.to(running)
+    to_kill = (
+        init.to(kill_state)
+        | sync_node_barrier.to(kill_state)
+        | sync_broker_barrier.to(kill_state)
+        | subscribe.to(kill_state)
+        | start.to(kill_state)
+        | running.to(kill_state)
+    )
+    to_join_node_barrier = kill_state.to(join_node_barrier)
+    to_join_broker_barrier = join_node_barrier.to(join_broker_barrier)
+    to_done = join_broker_barrier.to(done)
 
     def __init__(self, context: BrokerInterface):
-        """Constructor of the AbstractBrokerState class.
+        """Constructor of the BrokerStateMachine.
 
         Args:
             context (BrokerInterface): Reference to the Broker object.
         """
         self._context = context
+        self._is_running = True
+        self._is_continue_fn: Callable[[], bool] = lambda: True
 
-    def is_continue(self) -> bool:
-        return True
+        # SyncBrokerBarrier state variables
+        self._sync_remote_socket: Optional[zmq.SyncSocket] = None
+        self._sync_broker_poller: Optional[zmq.Poller] = None
+        self._remote_sub_brokers: list[str] = []
+        self._remote_pub_brokers: list[str] = []
+        self._brokers: dict[str, bytes] = {}
+        self._brokers_left_to_acknowledge: set[str] = set()
+        self._brokers_left_to_checkin: set[str] = set()
 
-    def kill(self) -> None:
-        self._context._set_state(KillState(self._context))
+        # JoinNodeBarrier state variables
+        self._join_nodes: dict[str, bytes] = {}
+        self._nodes_waiting_to_exit: set[str] = set()
+        self._nodes_expected_end_pub_packet: set[str] = set()
+        self._join_node_sync_socket: Optional[zmq.SyncSocket] = None
+        self._join_node_poller: Optional[zmq.Poller] = None
+
+        # JoinBrokerBarrier state variables
+        self._join_remote_brokers: dict[str, bytes] = {}
+        self._join_remote_sub_brokers: list[str] = []
+        self._join_remote_pub_brokers: list[str] = []
+        self._join_broker_left_to_acknowledge: set[str] = set()
+        self._join_broker_left_to_checkin: set[str] = set()
+        self._join_broker_sync_remote_socket: Optional[zmq.SyncSocket] = None
+        self._join_broker_poller: Optional[zmq.Poller] = None
+
+        super().__init__()
 
     def _on_subscription_changed(self, msg: list[bytes]) -> None:
         """Update a list on the Broker that keeps track of which Nodes are being brokered for."""
@@ -75,58 +127,9 @@ class AbstractBrokerState(StateInterface):
         elif "\x00" in msg_decoded:
             topic: str = msg_decoded.split("\x00")[1]
 
-
-class InitState(AbstractBrokerState):
-    """Initialization state of the Broker to launch local Nodes.
-
-    Activates broker poller sockets and goes in sync to wait for local Nodes to start up.
-    """
-
-    def run(self) -> None:
-        self._context._activate_pubsub_poller()
-        self._context._start_local_nodes()
-        self._context._set_state(SyncNodeBarrierState(self._context))
-
-
-class SyncNodeBarrierState(AbstractBrokerState):
-    """Synchronization state of the Broker that waits until all local Nodes setup.
-
-    Waits until all local Nodes signalled that they are initialized and ready to go.
-    """
-
-    def run(self) -> None:
-        host_ip: str = self._context._get_host_ip()
-        sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
-        node_addresses = dict()
-        num_left_to_sync: int = self._context._get_num_local_nodes()
-        while num_left_to_sync:
-            address, _, node_name, cmd = sync_host_socket.recv_multipart()
-            cmd = cmd.decode("utf-8")
-            node_name = node_name.decode("utf-8")
-            if cmd == CMD_HELLO:
-                num_left_to_sync -= 1
-                node_addresses[node_name] = address
-                print(
-                    "%s connected to %s with %s message." % (node_name, host_ip, cmd),
-                    flush=True,
-                )
-        self._context._set_node_addresses(node_addresses)
-        self._context._set_state(SyncBrokerBarrierState(self._context))
-
-
-class SyncBrokerBarrierState(AbstractBrokerState):
-    """Synchronization state of the Broker that waits until all remote Brokers setup.
-
-    Communicate to other Brokers that every local device is ready.
-    """
-
-    def __init__(self, context: BrokerInterface):
-        super().__init__(context)
-        self._host_ip: str = self._context._get_host_ip()
-        self._sync_remote_socket: zmq.SyncSocket = (
-            self._context._get_sync_remote_socket()
-        )
-
+    def on_enter_sync_broker_barrier(self) -> None:
+        """Hook when entering SyncBrokerBarrier state."""
+        self._sync_remote_socket = self._context._get_sync_remote_socket()
         self._remote_sub_brokers = self._context._get_remote_sub_brokers()
         self._remote_pub_brokers = self._context._get_remote_pub_brokers()
         self._brokers = dict()
@@ -135,226 +138,311 @@ class SyncBrokerBarrierState(AbstractBrokerState):
         self._brokers_left_to_checkin = set(self._remote_pub_brokers)
         for ip in self._remote_sub_brokers:
             self._sync_remote_socket.connect("tcp://%s:%s" % (ip, PORT_SYNC_REMOTE))
-        # Register remote SYNC socket to receive requests from remote publishers,
-        #   and responses from remote subscribers.
-        self._poller = zmq.Poller()
-        self._poller.register(self._sync_remote_socket, zmq.POLLIN)
 
-    def run(self) -> None:
-        # I am remote publishing Broker, I must notify subscribing Brokers that I am ready.
-        for ip in self._brokers_left_to_acknowledge:
-            self._sync_remote_socket.send_multipart(
-                [
-                    ("%s:%s" % (ip, PORT_SYNC_REMOTE)).encode("utf-8"),
-                    b"",
-                    self._host_ip.encode("utf-8"),
-                    CMD_HELLO.encode("utf-8"),
-                ]
-            )
+        self._sync_broker_poller = zmq.Poller()
+        self._sync_broker_poller.register(self._sync_remote_socket, zmq.POLLIN)
 
-        # Check every 5 seconds if other Brokers completed their setup and responded back.
-        # Could be that no other Brokers exist.
-        poll_res: list[tuple[zmq.SyncSocket, zmq.PollEvent]]
-        if poll_res := self._poller.poll(5000):  # type: ignore
-            socket, _ = poll_res[0]
-            address, _, broker_name, cmd = socket.recv_multipart()
-            broker_name = broker_name.decode("utf-8")
-            print(
-                "%s sent %s to %s" % (broker_name, cmd.decode("utf-8"), self._host_ip),
-                flush=True,
-            )
-            if (
-                cmd == CMD_ACK.encode("utf-8")
-                and broker_name in self._brokers_left_to_acknowledge
-            ):
-                # Remote publisher received ACK from remote subscriber.
-                self._brokers_left_to_acknowledge.remove(broker_name)
-                self._brokers[broker_name] = address
-            elif (
-                cmd == CMD_HELLO.encode("utf-8")
-                and broker_name in self._brokers_left_to_checkin
-            ):
-                self._brokers_left_to_checkin.remove(broker_name)
-                self._brokers[broker_name] = address
-                # Remote subscriber responds with ACK to remote publisher.
-                self._sync_remote_socket.send_multipart(
-                    [
-                        address,
-                        b"",
-                        self._host_ip.encode("utf-8"),
-                        CMD_ACK.encode("utf-8"),
-                    ]
-                )
-
-        # Proceed to the next state to agree on the common time once all Brokers synchronized.
-        if not self._brokers_left_to_acknowledge and not self._brokers_left_to_checkin:
-            self._poller.unregister(self._sync_remote_socket)
-            self._context._set_remote_broker_addresses(self._brokers)
-            self._context._set_state(SubscribeState(self._context))
-
-
-class SubscribeState(AbstractBrokerState):
-    """Subscription state of the Broker that relays subscription messages across Nodes and Brokers."""
-
-    def run(self) -> None:
-        sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
-
-        while poll_res := self._context._poll(5000):
-            self._context._broker_packets(
-                poll_res, on_subscription_changed=self._on_subscription_changed
-            )
-
-        host_ip: str = self._context._get_host_ip()
-        nodes: dict[str, bytes] = self._context._get_node_addresses()
-        # Trigger local Nodes to start logging. TODO: wait before continuing.
-        for name, address in list(nodes.items()):
-            sync_host_socket.send_multipart(
-                [address, b"", host_ip.encode("utf-8"), CMD_START.encode("utf-8")]
-            )
-            print("%s sending %s to %s" % (host_ip, CMD_START, name), flush=True)
-
-        self._context._set_state(StartState(self._context))
-
-
-class StartState(AbstractBrokerState):
-    """Start state of the Broker that waits or initiates distributed launch.
-
-    Trigger local Nodes to start logging when the agreed start time arrives.
-    """
-
-    def run(self) -> None:
-        # If current Broker is not Master, wait for the SYNC signal with time when to start.
-        host_ip: str = self._context._get_host_ip()
-        sync_remote_socket: zmq.SyncSocket = self._context._get_sync_remote_socket()
-        sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
-        nodes: dict[str, bytes] = self._context._get_node_addresses()
-        brokers: dict[str, bytes] = self._context._get_remote_broker_addresses()
-
-        # Master Broker selects start time as 5 seconds from now and distributes across Brokers.
-        if self._context._get_is_master_broker():
-            start_time_s: int = round(get_time()) + 5
-            for address in brokers.values():
-                sync_remote_socket.send_multipart(
-                    [
-                        address,
-                        b"",
-                        CMD_START_TIME.encode("utf-8"),
-                        start_time_s.to_bytes(length=4, byteorder="big"),
-                    ]
-                )
-        # Slave Brokers block on the reeceive socket, waiting for the time.
-        else:
-            while True:
-                address, _, cmd, start_time_bytes = sync_remote_socket.recv_multipart()
-                if cmd == CMD_START_TIME.encode("utf-8"):
-                    start_time_s = int.from_bytes(start_time_bytes, byteorder="big")
-                    break
-
-        # Each Broker waits until that time comes to trigger start of logging, with 1ms precision.
-        while (current_time_s := get_time()) < start_time_s:
-            time.sleep(min(0.0001, start_time_s - current_time_s))
-
-        # Wait for the CMD_IS_START from all local Nodes.
-        num_left_to_sync: int = self._context._get_num_local_nodes()
-        while num_left_to_sync:
-            address, _, node_name, cmd = sync_host_socket.recv_multipart()
-            cmd = cmd.decode("utf-8")
-            node_name = node_name.decode("utf-8")
-            if cmd == CMD_IS_START:
-                num_left_to_sync -= 1
-                print(
-                    "%s responded to %s with %s message." % (node_name, host_ip, cmd),
-                    flush=True,
-                )
-
-        # Trigger local Nodes to start logging.
-        for name, address in list(nodes.items()):
-            sync_host_socket.send_multipart(
-                [address, b"", host_ip.encode("utf-8"), CMD_GO.encode("utf-8")]
-            )
-            print("%s sending %s to %s" % (host_ip, CMD_GO, name), flush=True)
-
-        self._context._set_state(RunningState(self._context))
-
-
-class RunningState(AbstractBrokerState):
-    """Stead-state capturing or streaming state of the Broker.
-
-    Will run until the the experiment is stopped or after a fixed period, if provided.
-    """
-
-    def __init__(self, context: BrokerInterface):
-        super().__init__(context)
-        context._set_broker_ready()
+    def on_enter_running(self) -> None:
+        """Hook when entering Running state."""
+        self._context._set_broker_ready()
+        self._context._set_state(self)
         print("\n\n### %s ###\n\n" % (CMD_GO), flush=True)
-        if (duration_s := self._context._get_duration()) is not None:
+        self._is_running = True
+        duration_s = self._context._get_duration()
+        if duration_s is not None:
             self._is_continue_fn = lambda: (
                 get_time() < (self._context._get_start_time() + duration_s)
             )
         else:
             self._is_continue_fn = lambda: True
 
-    def run(self) -> None:
-        poll_res: ZMQResult = self._context._poll(1000)
-        self._context._broker_packets(
-            poll_res, on_subscription_changed=self._on_subscription_changed
+    def on_enter_join_node_barrier(self) -> None:
+        """Hook when entering JoinNodeBarrier state."""
+        self._join_nodes = self._context._get_node_addresses().copy()
+        self._nodes_waiting_to_exit = set()
+        self._nodes_expected_end_pub_packet = set(self._context._get_brokered_nodes())
+        self._join_node_sync_socket = self._context._get_sync_host_socket()
+        self._join_node_poller = self._context._get_poller()
+        self._join_node_poller.register(self._join_node_sync_socket, zmq.POLLIN)
+
+    def on_enter_join_broker_barrier(self) -> None:
+        """Hook when entering JoinBrokerBarrier state."""
+        self._join_remote_brokers = self._context._get_remote_broker_addresses().copy()
+        self._join_broker_sync_remote_socket = self._context._get_sync_remote_socket()
+        self._join_remote_sub_brokers = self._context._get_remote_sub_brokers()
+        self._join_remote_pub_brokers = self._context._get_remote_pub_brokers()
+        self._join_broker_left_to_acknowledge = set(self._join_remote_sub_brokers)
+        self._join_broker_left_to_checkin = set(self._join_remote_pub_brokers)
+        self._join_broker_poller = zmq.Poller()
+        self._join_broker_poller.register(
+            self._join_broker_sync_remote_socket, zmq.POLLIN
         )
-        if self._context._check_for_kill(poll_res):
-            self.kill()
+
+    def run(self) -> None:
+        if self.init.is_active:
+            self._context._activate_pubsub_poller()
+            self._context._start_local_nodes()
+            self.send("to_sync_node_barrier")
+
+        elif self.sync_node_barrier.is_active:
+            host_ip: str = self._context._get_host_ip()
+            sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
+            node_addresses = dict()
+            num_left_to_sync: int = self._context._get_num_local_nodes()
+            while num_left_to_sync:
+                address, _, node_name, cmd = sync_host_socket.recv_multipart()
+                cmd = cmd.decode("utf-8")
+                node_name = node_name.decode("utf-8")
+                if cmd == CMD_HELLO:
+                    num_left_to_sync -= 1
+                    node_addresses[node_name] = address
+                    print(
+                        "%s connected to %s with %s message."
+                        % (node_name, host_ip, cmd),
+                        flush=True,
+                    )
+            self._context._set_node_addresses(node_addresses)
+            self.send("to_sync_broker_barrier")
+
+        elif self.sync_broker_barrier.is_active:
+            host_ip = self._context._get_host_ip()
+            if self._sync_remote_socket is not None:
+                for ip in self._brokers_left_to_acknowledge:
+                    self._sync_remote_socket.send_multipart(
+                        [
+                            ("%s:%s" % (ip, PORT_SYNC_REMOTE)).encode("utf-8"),
+                            b"",
+                            host_ip.encode("utf-8"),
+                            CMD_HELLO.encode("utf-8"),
+                        ]
+                    )
+
+            # Check every 5 seconds if other Brokers completed their setup and responded back.
+            # Could be that no other Brokers exist.
+            if self._sync_broker_poller is not None and self._sync_remote_socket is not None:
+                poll_res: list[tuple[zmq.SyncSocket, zmq.PollEvent]] = self._sync_broker_poller.poll(5000)  # type: ignore
+                if poll_res:
+                    socket, _ = poll_res[0]
+                    address, _, broker_name, cmd = socket.recv_multipart()
+                    broker_name = broker_name.decode("utf-8")
+                    print(
+                        "%s sent %s to %s" % (broker_name, cmd.decode("utf-8"), host_ip),
+                        flush=True,
+                    )
+                    if (
+                        cmd == CMD_ACK.encode("utf-8")
+                        and broker_name in self._brokers_left_to_acknowledge
+                    ):
+                        # Remote publisher received ACK from remote subscriber.
+                        self._brokers_left_to_acknowledge.remove(broker_name)
+                        self._brokers[broker_name] = address
+                    elif (
+                        cmd == CMD_HELLO.encode("utf-8")
+                        and broker_name in self._brokers_left_to_checkin
+                    ):
+                        self._brokers_left_to_checkin.remove(broker_name)
+                        self._brokers[broker_name] = address
+                        # Remote subscriber responds with ACK to remote publisher.
+                        self._sync_remote_socket.send_multipart(
+                            [
+                                address,
+                                b"",
+                                host_ip.encode("utf-8"),
+                                CMD_ACK.encode("utf-8"),
+                            ]
+                        )
+
+            if not self._brokers_left_to_acknowledge and not self._brokers_left_to_checkin:
+                if self._sync_broker_poller is not None and self._sync_remote_socket is not None:
+                    try:
+                        self._sync_broker_poller.unregister(self._sync_remote_socket)
+                    except Exception:
+                        pass
+                self._context._set_remote_broker_addresses(self._brokers)
+                self.send("to_subscribe")
+
+        elif self.subscribe.is_active:
+            sync_host_socket = self._context._get_sync_host_socket()
+            while True:
+                poll_res = self._context._poll(5000)
+                if not poll_res:
+                    break
+                self._context._broker_packets(
+                    poll_res, on_subscription_changed=self._on_subscription_changed
+                )
+
+            host_ip = self._context._get_host_ip()
+            nodes: dict[str, bytes] = self._context._get_node_addresses()
+            # Trigger local Nodes to start logging. TODO: wait before continuing.
+            for name, address in list(nodes.items()):
+                sync_host_socket.send_multipart(
+                    [address, b"", host_ip.encode("utf-8"), CMD_START.encode("utf-8")]
+                )
+                print("%s sending %s to %s" % (host_ip, CMD_START, name), flush=True)
+
+            self.send("to_start")
+
+        elif self.start.is_active:
+            host_ip = self._context._get_host_ip()
+            sync_remote_socket: zmq.SyncSocket = self._context._get_sync_remote_socket()
+            sync_host_socket = self._context._get_sync_host_socket()
+            nodes = self._context._get_node_addresses()
+            brokers: dict[str, bytes] = self._context._get_remote_broker_addresses()
+
+            # Master Broker selects start time as 5 seconds from now and distributes across Brokers.
+            if self._context._get_is_master_broker():
+                start_time_s: int = round(get_time()) + 5
+                for address in brokers.values():
+                    sync_remote_socket.send_multipart(
+                        [
+                            address,
+                            b"",
+                            CMD_START_TIME.encode("utf-8"),
+                            start_time_s.to_bytes(length=4, byteorder="big"),
+                        ]
+                    )
+            # Slave Brokers block on the reeceive socket, waiting for the time.
+            else:
+                while True:
+                    address, _, cmd, start_time_bytes = sync_remote_socket.recv_multipart()
+                    if cmd == CMD_START_TIME.encode("utf-8"):
+                        start_time_s = int.from_bytes(start_time_bytes, byteorder="big")
+                        break
+
+            # Each Broker waits until that time comes to trigger.
+            while True:
+                current_time_s = get_time()
+                if current_time_s >= start_time_s:
+                    break
+                time.sleep(min(0.0001, start_time_s - current_time_s))
+
+            # Wait for the CMD_IS_START from all local Nodes.
+            num_left_to_sync = self._context._get_num_local_nodes()
+            while num_left_to_sync:
+                address, _, node_name, cmd = sync_host_socket.recv_multipart()
+                cmd = cmd.decode("utf-8")
+                node_name = node_name.decode("utf-8")
+                if cmd == CMD_IS_START:
+                    num_left_to_sync -= 1
+                    print(
+                        "%s responded to %s with %s message."
+                        % (node_name, host_ip, cmd),
+                        flush=True,
+                    )
+
+            # Trigger local Nodes to start logging.
+            for name, address in list(nodes.items()):
+                sync_host_socket.send_multipart(
+                    [address, b"", host_ip.encode("utf-8"), CMD_GO.encode("utf-8")]
+                )
+                print("%s sending %s to %s" % (host_ip, CMD_GO, name), flush=True)
+
+            self.send("to_running")
+
+        elif self.running.is_active:
+            poll_res: ZMQResult = self._context._poll(1000)
+            self._context._broker_packets(
+                poll_res, on_subscription_changed=self._on_subscription_changed
+            )
+            if self._context._check_for_kill(poll_res):
+                self._is_running = False
+                self.kill()
+
+        elif self.kill_state.is_active:
+            self._context._publish_kill()
+            self.send("to_join_node_barrier")
+
+        elif self.join_node_barrier.is_active:
+            poll_res = self._context._poll(1000)
+            self._context._broker_packets(
+                poll_res, on_data_received=self._on_is_end_packet
+            )
+            self._check_host_sync_socket(poll_res)
+            if not self._join_nodes:
+                if self._join_node_poller is not None and self._join_node_sync_socket is not None:
+                    try:
+                        self._join_node_poller.unregister(self._join_node_sync_socket)
+                    except Exception:
+                        pass
+                self._context._deactivate_pubsub_poller()
+                self.send("to_join_broker_barrier")
+
+        elif self.join_broker_barrier.is_active:
+            host_ip = self._context._get_host_ip()
+            if self._join_broker_sync_remote_socket is not None:
+                for ip in self._join_broker_left_to_acknowledge:
+                    self._join_broker_sync_remote_socket.send_multipart(
+                        [
+                            ("%s:%s" % (ip, PORT_SYNC_REMOTE)).encode("utf-8"),
+                            b"",
+                            host_ip.encode("utf-8"),
+                            CMD_BYE.encode("utf-8"),
+                        ]
+                    )
+
+            if (
+                self._join_broker_poller is not None
+                and self._join_broker_sync_remote_socket is not None
+            ):
+                poll_res: list[tuple[zmq.SyncSocket, zmq.PollEvent]] = self._join_broker_poller.poll(5000)  # type: ignore
+                if poll_res:
+                    socket, _ = poll_res[0]
+                    address, _, broker_name, cmd = socket.recv_multipart()
+                    broker_name = broker_name.decode("utf-8")
+                    print(
+                        "%s sent %s to %s."
+                        % (broker_name, cmd.decode("utf-8"), host_ip),
+                        flush=True,
+                    )
+
+                    if broker_name in self._join_broker_left_to_acknowledge:
+                        self._join_broker_left_to_acknowledge.remove(broker_name)
+                        self._join_remote_brokers.pop(broker_name, None)
+                    elif broker_name in self._join_broker_left_to_checkin:
+                        self._join_broker_left_to_checkin.remove(broker_name)
+                        self._join_remote_brokers.pop(broker_name, None)
+                        self._join_broker_sync_remote_socket.send_multipart(
+                            [
+                                address,
+                                b"",
+                                host_ip.encode("utf-8"),
+                                CMD_BYE.encode("utf-8"),
+                            ]
+                        )
+
+            if not self._join_remote_brokers:
+                if (
+                    self._join_broker_poller is not None
+                    and self._join_broker_sync_remote_socket is not None
+                ):
+                    try:
+                        self._join_broker_poller.unregister(
+                            self._join_broker_sync_remote_socket
+                        )
+                    except Exception:
+                        pass
+                self.send("to_done")
 
     def is_continue(self) -> bool:
-        return self._is_continue_fn()
+        """Check whether the Broker state machine should continue running.
 
+        Returns:
+            bool: Whether the state machine should stay in its loop.
+        """
+        if self.is_terminated:
+            return False
+        if self.running.is_active:
+            return self._is_running and self._is_continue_fn()
+        return True
 
-class KillState(AbstractBrokerState):
-    """Received 1 of 3 possible KILL signals to terminate.
-
-    Relay it to all Nodes and Brokers and wrap up gracefully.
-        from the local Keyboard Interrupt;
-        from the Master Broker;
-        from the GUI;
-    """
-
-    def run(self) -> None:
-        self._context._publish_kill()
-        self._context._set_state(JoinNodeBarrierState(self._context))
-
-    # Override default kill function behavior because we are already in the killing process
     def kill(self) -> None:
-        pass
+        # Received 1 of 3 possible KILL signals to terminate.
 
-
-class JoinNodeBarrierState(AbstractBrokerState):
-    """Waits until all local Nodes send final packets then quits itself.
-
-    Wait for all processes (local and remote) to send the last messages before closing.
-    Continue brokering packets until signalled by all publishers that there will be no more packets.
-    Append a frame to the ZeroMQ message that indicates the last message from the sensor.
-    """
-
-    def __init__(self, context: BrokerInterface):
-        super().__init__(context)
-        self._host_ip = self._context._get_host_ip()
-        self._nodes = self._context._get_node_addresses()
-        self._nodes_waiting_to_exit: set[str] = set()
-        self._nodes_expected_end_pub_packet: set[str] = (
-            self._context._get_brokered_nodes()
-        )
-        self._sync_host_socket: zmq.SyncSocket = self._context._get_sync_host_socket()
-        self._poller = self._context._get_poller()
-        self._poller.register(self._sync_host_socket, zmq.POLLIN)
-
-    def run(self) -> None:
-        poll_res: ZMQResult = self._context._poll(1000)
-        # Brokers packets and releases local Producer Nodes in a callback once it published the end packet.
-        self._context._broker_packets(poll_res, on_data_received=self._on_is_end_packet)
-        # Checks if poll event was triggered by a local Node initiating closing.
-        self._check_host_sync_socket(poll_res)
-        # Proceed to exiting once all local Nodes finished.
-        if self._is_finished():
-            self._poller.unregister(self._sync_host_socket)
-            self._context._deactivate_pubsub_poller()
-            self._context._set_state(JoinBrokerBarrierState(self._context))
+        # Relay it to all Nodes and Brokers and wrap up gracefully.
+        #     from the local Keyboard Interrupt;
+        #     from the Master Broker;
+        #     from the GUI;
+        self.send("to_kill")
 
     def _on_is_end_packet(self, msg: list[bytes]) -> None:
         """Callback to track brokering of last packets of local Producers and Pipelines.
@@ -377,12 +465,15 @@ class JoinNodeBarrierState(AbstractBrokerState):
 
         Can be triggered by all local Nodes: Producer, Consumer, or Pipeline, sending 'EXIT?' request.
         """
+        if self._join_node_sync_socket is None:
+            return
+        host_ip = self._context._get_host_ip()
         for sock, _ in poll_res:
-            if sock == self._sync_host_socket:
-                address, _, node_name, cmd = self._sync_host_socket.recv_multipart()
+            if sock == self._join_node_sync_socket:
+                address, _, node_name, cmd = self._join_node_sync_socket.recv_multipart()
                 topic = node_name.decode("utf-8")
                 print(
-                    "%s received %s from %s" % (self._host_ip, cmd, topic), flush=True
+                    "%s received %s from %s" % (host_ip, cmd, topic), flush=True
                 )
                 self._nodes_waiting_to_exit.add(topic)
                 self._release_local_node(topic)
@@ -392,101 +483,18 @@ class JoinNodeBarrierState(AbstractBrokerState):
         if (
             topic in self._nodes_waiting_to_exit
             and topic not in self._nodes_expected_end_pub_packet
+            and self._join_node_sync_socket is not None
         ):
-            self._sync_host_socket.send_multipart(
+            host_ip = self._context._get_host_ip()
+            self._join_node_sync_socket.send_multipart(
                 [
-                    self._nodes[topic],
+                    self._join_nodes[topic],
                     b"",
-                    self._host_ip.encode("utf-8"),
+                    host_ip.encode("utf-8"),
                     CMD_BYE.encode("utf-8"),
                 ]
             )
-            del self._nodes[topic]
+            del self._join_nodes[topic]
             self._nodes_waiting_to_exit.remove(topic)
 
-    def _is_finished(self) -> bool:
-        """Convenience method indicating if any local Nodes remain active.
-
-        Will wait until all local Nodes finish.
-
-        Returns:
-            bool: Whether all local Nodes gracefully terminated.
-        """
-        return not self._nodes
-
-    def kill(self) -> None:
-        pass
-
-
-class JoinBrokerBarrierState(AbstractBrokerState):
-    """Waits until all remote Brokers, if any, have their local Nodes gracefully terminated.
-
-    Wait for all dependent remote Brokers to send the acknowledgement messages that they
-    no longer dependend on this Broker's data.
-
-    Continue brokering packets until signalled by all remote hosts that there will be no more packets.
-    Use the remote SYNC socket to coordinate when every Broker can exit.
-    """
-
-    def __init__(self, context: BrokerInterface):
-        super().__init__(context)
-        self._host_ip = self._context._get_host_ip()
-        self._brokers = self._context._get_remote_broker_addresses()
-        self._sync_remote_socket: zmq.SyncSocket = (
-            self._context._get_sync_remote_socket()
-        )
-
-        self._remote_sub_brokers = self._context._get_remote_sub_brokers()
-        self._remote_pub_brokers = self._context._get_remote_pub_brokers()
-
-        self._brokers_left_to_acknowledge = set(self._remote_sub_brokers)
-        self._brokers_left_to_checkin = set(self._remote_pub_brokers)
-
-        self._poller = zmq.Poller()
-        self._poller.register(self._sync_remote_socket, zmq.POLLIN)
-
-    def run(self):
-        # Notify Brokers that listen to our data that we are done and ready to exit as soon as they received all last data from us.
-        for ip in self._brokers_left_to_acknowledge:
-            self._sync_remote_socket.send_multipart(
-                [
-                    ("%s:%s" % (ip, PORT_SYNC_REMOTE)).encode("utf-8"),
-                    b"",
-                    self._host_ip.encode("utf-8"),
-                    CMD_BYE.encode("utf-8"),
-                ]
-            )
-
-        # Check every 5 seconds if other Brokers completed their cleanup and responded back ready to exit.
-        poll_res: list[tuple[zmq.SyncSocket, zmq.PollEvent]]
-        if poll_res := self._poller.poll(5000):  # type: ignore
-            socket, _ = poll_res[0]
-            address, _, broker_name, cmd = socket.recv_multipart()
-            broker_name = broker_name.decode("utf-8")
-            print(
-                "%s sent %s to %s." % (broker_name, cmd.decode("utf-8"), self._host_ip),
-                flush=True,
-            )
-
-            if broker_name in self._brokers_left_to_acknowledge:
-                # Remote subscriber responded with ACK to us.
-                self._brokers_left_to_acknowledge.remove(broker_name)
-                self._brokers.pop(broker_name)
-            elif broker_name in self._brokers_left_to_checkin:
-                # Remote publisher sent a BYE request, respond with an ACK.
-                self._brokers_left_to_checkin.remove(broker_name)
-                self._brokers.pop(broker_name)
-                self._sync_remote_socket.send_multipart(
-                    [
-                        address,
-                        b"",
-                        self._host_ip.encode("utf-8"),
-                        CMD_BYE.encode("utf-8"),
-                    ]
-                )
-
-    def is_continue(self) -> bool:
-        return not not self._brokers
-
-    def kill(self) -> None:
-        pass
+StateInterface.register(BrokerStateMachine)

@@ -58,7 +58,7 @@ except PackageNotFoundError:
 
 from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage_interface import StorageInterface
-from hermes.base.storage.storage_states import AbstractStorageState, StartState
+from hermes.base.storage.storage_states import StorageStateMachine
 from hermes.utils.time_utils import init_time, get_time, get_time_str
 from hermes.utils.dict_utils import convert_dict_values_to_str
 from hermes.utils.types import (
@@ -140,9 +140,9 @@ class Storage(StorageInterface):
         Runs continuously, ignoring Ctrl+C interrupt, until owner Node triggers an exit.
         """
         init_time(ref_time=self._spec.ref_time_s)
-        self._state = StartState(self, self._data_containers)
-        while self._state.is_continue():
-            self._state.run()
+        self._sm = StorageStateMachine(self, self._data_containers)
+        while self._sm.is_continue():
+            self._sm.run()
         print("%s Storage safely exited." % self._log_tag, flush=True)
 
     def cleanup(self) -> None:
@@ -174,9 +174,6 @@ class Storage(StorageInterface):
             # Each time an HDF5 dataset reaches its limit,
             #  its size will be increased by the following amount.
             self._next_data_indices_hdf5.setdefault(tag, OrderedDict())
-
-    def _set_state(self, state: AbstractStorageState) -> None:
-        self._state = state
 
     def _is_to_stream(self) -> bool:
         return (

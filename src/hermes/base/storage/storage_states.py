@@ -25,122 +25,77 @@
 #
 # ############
 
-from abc import abstractmethod
-import asyncio
 from collections import OrderedDict
+from typing import Optional
+import asyncio
+from statemachine import StateMachine, State
 
-from hermes.base.state_interface import StateInterface
 from hermes.base.data_container import DataContainer
+from hermes.base.state_interface import StateInterface
 from hermes.base.storage.storage_interface import StorageInterface
 
 
-class AbstractStorageState(StateInterface):
-    """Abstract class for the `Storage` component."""
+class StorageStateMachine(StateMachine):
+    """State machine managing the Storage component logging lifecycle and transitions."""
 
-    def __init__(self, context: StorageInterface):
-        """Constructor of the `AbstractStorageState`.
+    allow_event_without_transition = True
 
-        Args:
-            context (StorageInterface): Reference to the Storage object.
-        """
-        self._context = context
-        self._is_continue_fsm = True
+    start = State("Start", value="start", initial=True)
+    stream = State("Stream", value="stream")
+    dump = State("Dump", value="dump")
+    done = State("Done", value="done", final=True)
 
-    @abstractmethod
-    def run(self) -> None:
-        pass
-
-    def is_continue(self) -> bool:
-        return self._is_continue_fsm
-
-    def kill(self) -> None:
-        pass
-
-
-class StartState(AbstractStorageState):
-    """Startup state that initializes `Storage`.
-
-    Will immediately transition into `StreamState` after initialization.
-    """
+    to_stream = start.to(stream)
+    to_dump = start.to(dump) | stream.to(dump)
+    to_done = stream.to(done) | dump.to(done)
 
     def __init__(
         self,
         context: StorageInterface,
-        data_containers: OrderedDict[str, DataContainer],
+        data_containers: Optional[OrderedDict[str, DataContainer]] = None,
     ):
-        """Constructor of the StartState.
+        """Constructor of the StorageStateMachine.
 
         Args:
             context (StorageInterface): Reference to the Storage object.
-            data_containers (OrderedDict[str, DataContainer]): Reference to the mapping between
-                uniquly identifying Node keys and the corresponding `DataContainer` datastructures.
+            data_containers (OrderedDict[str, DataContainer], optional): Mapping of node IDs to DataContainers.
         """
-        super().__init__(context)
-        self._context._initialize(data_containers)
+        self._context = context
+        self._data_containers = data_containers
+        super().__init__()
 
-    def run(self) -> None:
-        self._context._set_state(StreamState(self._context))
-
-
-class StreamState(AbstractStorageState):
-    """Streaming state of the `Storage` component.
-
-    Will periodically flush data to disk, to clear memory,
-    if any `DataContainer` were specified to stream.
-
-    Will flush remaining data to disk on exit.
-
-    Using some `DataContainer`s in stream and others in dump has undefined behavior.
-    """
-
-    def __init__(self, context: StorageInterface):
-        """Constructor of the `StreamState`.
-
-        Args:
-            context (StorageInterface): Reference to the `Storage` object.
-        """
-        super().__init__(context)
-        # Prepare DataContainer-logging.
+    def on_enter_stream(self) -> None:
+        """Hook when entering Stream state: prepare stream logging writers."""
         if self._context._is_to_stream():
             self._context._start_stream_logging()
 
-    def run(self) -> None:
-        asyncio.run(self._context._log_data())
-        self._context._release_thread_pool()
-        self._is_continue_fsm = False
-        # self._context._set_state(DumpState(self._context))
-
-
-class DumpState(AbstractStorageState):
-    """Passive recording state of the `Storage` component.
-
-    Will flush data to disk once upon system termination.
-
-    May run out of memory if the recording is long or
-    user doesn't provision sufficient data.
-
-    Using some `DataContainer`s stream and others in dump has undefined behavior.
-    """
-
-    def __init__(self, context: StorageInterface):
-        """Constructor of the DumpState.
-
-        Args:
-            context (StorageInterface): Reference to the Storage object.
-        """
-        super().__init__(context)
-        # Dump write files at the end of the trial for data that hadn't been streamed.
-        #   Assumes all intermediate recorded data can fit in memory.
+    def on_enter_dump(self) -> None:
+        """Hook when entering Dump state: prepare dump logging writers."""
         if self._context._is_to_dump():
             self._context._start_dump_logging()
 
     def run(self) -> None:
-        # Until top-level module's main thread indicated that it finished producing data,
-        #   periodically sleep the thread to yield the CPU.
-        self._context._wait_till_flush()
-        # TODO: When experiment ended, write data once and wrap up.
-        #   Use the end log time to not overwrite written streamed data with empty dumped files?
-        asyncio.run(self._context._log_data())
-        # Release Thread Pool used for AsyncIO for file writing.
-        self._context._release_thread_pool()
-        self._is_continue_fsm = False
+        if self.start.is_active:
+            if self._data_containers is not None:
+                self._context._initialize(self._data_containers)
+            self.to_stream()
+
+        elif self.stream.is_active:
+            asyncio.run(self._context._log_data())
+            self._context._release_thread_pool()
+            self.to_done()
+
+        elif self.dump.is_active:
+            self._context._wait_till_flush()
+            asyncio.run(self._context._log_data())
+            self._context._release_thread_pool()
+            self.to_done()
+
+    def is_continue(self) -> bool:
+        return not self.is_terminated
+
+    def kill(self) -> None:
+        # No-op for storage termination.
+        pass
+
+StateInterface.register(StorageStateMachine)

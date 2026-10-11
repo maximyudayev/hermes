@@ -35,15 +35,6 @@ class StorageInterface(ABC):
     """Interface for the AsyncIO Storage component."""
 
     @abstractmethod
-    def _set_state(self, state) -> None:
-        """User defined logic for FSM state transition.
-
-        Args:
-            state (Any): New state to transition to.
-        """
-        pass
-
-    @abstractmethod
     def _initialize(self, data_containers: OrderedDict[str, DataContainer]) -> None:
         """Initializes files and indices for write pointer tracking.
 
