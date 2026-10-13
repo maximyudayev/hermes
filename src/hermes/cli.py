@@ -42,6 +42,7 @@ try:
     from importlib.metadata import PackageNotFoundError, version
 except ImportError:
     # For Python < 3.8
+    # pyrefly: ignore [missing-import]
     from importlib_metadata import PackageNotFoundError, version
 try:
     __version__ = version("pysio-hermes")
@@ -522,23 +523,35 @@ def launch_slave_hosts(
                 if conn["platform"] == "Windows":
                     escaped_config_str = config_str.replace('"', "'")
                     remote_cmd = (
-                        f"title HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']} && "
+                        f"title HERMES - {conn['ssh_username']}@{conn['ssh_host_ip']} & "
+                        "( "
                         f"cd /d {conn['project_dir']} && "
-                        f"call .venv\\Scripts\\activate.bat && "
+                        "call .venv\\Scripts\\activate.bat && "
                         f"{pre_hook_script}"
-                        f'hermes-cli {overwrite_flag} -o {conn["output_dir"]} -t {log_time_s} -e {experiment_str} -j "{escaped_config_str}" && '
-                        f"exit"
+                        f'hermes-cli {overwrite_flag} -o {conn["output_dir"]} -t {log_time_s} -e {experiment_str} -j "{escaped_config_str}" '
+                        ") && exit 0 || ( "
+                        "echo. & "
+                        "call echo Process failed with code ^%errorlevel^%. & "
+                        "pause & "
+                        "exit 1 "
+                        ")"
                     )
                 else:
                     remote_cmd = (
-                        f'echo -ne "\033]0;HERMES - {conn["ssh_username"]}@{conn["ssh_host_ip"]}\007" && '
-                        f"source ~/.bash_profile 2>/dev/null || source ~/.profile 2>/dev/null; "
+                        f'echo -ne "\033]0;HERMES - {conn["ssh_username"]}@{conn["ssh_host_ip"]}\007"; '
+                        "( "
+                        "source ~/.bash_profile 2>/dev/null || source ~/.profile 2>/dev/null; "
                         f"cd {conn['project_dir']} && "
-                        f"source .venv/bin/activate && "
-                        f'export PYTHONPATH="$(pwd):$PYTHONPATH" && '
+                        "source .venv/bin/activate && "
+                        'export PYTHONPATH="$(pwd):$PYTHONPATH" && '
                         f"{pre_hook_script}"
-                        f"hermes-cli {overwrite_flag} -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' && "
-                        f"exit"
+                        f"hermes-cli {overwrite_flag} -o {conn['output_dir']} -t {log_time_s} -e {experiment_str} -j '{config_str}' "
+                        "); rc=$?; "
+                        'if [ $rc -ne 0 ]; then echo ""; '
+                        'echo "Process failed with code $rc."; '
+                        'read -n 1 -s -r -p "Press any key to close..."; '
+                        "fi; "
+                        "exit $rc"
                     )
 
                 cmds.append(
