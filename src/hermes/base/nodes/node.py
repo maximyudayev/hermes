@@ -49,7 +49,6 @@ class Node(NodeInterface):
     def __init__(
         self,
         node_id: str,
-        ref_time: float,
         host_ip: Optional[str] = DNS_LOCALHOST,
         port_sync: Optional[str] = PORT_SYNC_HOST,
         port_killsig: Optional[str] = PORT_KILL,
@@ -58,7 +57,6 @@ class Node(NodeInterface):
 
         Args:
             node_id (str): Uniquely identifying tag for the Node and its data.
-            ref_time (float): Reference time of the local Broker w.r.t which to align all Nodes.
             host_ip (str, optional): IP address of the local master Broker. Defaults to `DNS_LOCALHOST`.
             port_sync (str, optional): Local port to listen to for local master Broker's startup coordination. Defaults to `PORT_SYNC_HOST`.
             port_killsig (str, optional): Local port to listen to for local master Broker's termination signal. Defaults to `PORT_KILL`.
@@ -69,8 +67,6 @@ class Node(NodeInterface):
         self.__node_id = node_id
         self.__is_done = False
         self._is_babykill_sent = False
-        self._ref_time_s = ref_time
-        init_time(ref_time=ref_time)
 
         self._sm = NodeStateMachine(self)
 

@@ -59,7 +59,7 @@ except PackageNotFoundError:
 from hermes.base.data_container import DataContainer
 from hermes.base.storage.storage_interface import StorageInterface
 from hermes.base.storage.storage_states import StorageStateMachine
-from hermes.utils.time_utils import init_time, get_time, get_time_str
+from hermes.utils.time_utils import get_time, get_time_str
 from hermes.utils.dict_utils import convert_dict_values_to_str
 from hermes.utils.types import (
     LoggingSpec,
@@ -139,7 +139,6 @@ class Storage(StorageInterface):
 
         Runs continuously, ignoring Ctrl+C interrupt, until owner Node triggers an exit.
         """
-        init_time(ref_time=self._spec.ref_time_s)
         self._sm = StorageStateMachine(self, self._data_containers)
         while self._sm.is_continue():
             self._sm.run()

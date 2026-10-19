@@ -84,7 +84,6 @@ class Producer(ProducerInterface, Node):
             host_ip=host_ip,
             port_sync=port_sync,
             port_killsig=port_killsig,
-            ref_time=logging_spec.ref_time_s,
         )
         self._sampling_rate_hz = sampling_rate_hz
         self._sampling_period = 1 / sampling_rate_hz

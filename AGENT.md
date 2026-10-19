@@ -256,14 +256,12 @@ class CustomSensorHandler:
         is_ready_event: Event,
         is_keep_data_event: Event,
         is_cleanup_event: Event,
-        ref_time_s: float,
     ):
         self._config = config
         self._data_queue = data_queue
         self._is_ready_event = is_ready_event
         self._is_keep_data_event = is_keep_data_event
         self._is_cleanup_event = is_cleanup_event
-        self._ref_time_s = ref_time_s
         self._rate_hz = float(config.get("sampling_rate_hz", 100.0))
         self._dt = 1.0 / self._rate_hz
 
@@ -357,7 +355,6 @@ class CustomSensorProducer(Producer):
                 "is_ready_event": self._is_ready_event,
                 "is_keep_data_event": self._is_keep_data_event,
                 "is_cleanup_event": self._is_dev_cleanup_event,
-                "ref_time_s": logging_spec.ref_time_s,
             },
         )
         self._handler_proc.start()
@@ -487,7 +484,6 @@ class ClosedLoopDevicePipeline(Pipeline):
                 "is_ready_event": self._is_ready_event,
                 "is_keep_data_event": self._is_keep_data_event,
                 "is_cleanup_event": self._is_dev_cleanup_event,
-                "ref_time_s": logging_spec.ref_time_s,
             },
         )
         self._handler_proc.start()

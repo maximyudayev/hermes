@@ -50,7 +50,7 @@ except PackageNotFoundError:
     __version__ = "NA"
 from hermes.base.broker.broker import Broker
 from hermes.utils.argparse_utils import ParseExperimentKwargs, validate_path
-from hermes.utils.time_utils import get_ref_time, get_time
+from hermes.utils.time_utils import get_time
 from hermes.utils.zmq_utils import (
     PORT_BACKEND,
     PORT_FRONTEND,
@@ -383,7 +383,7 @@ def init_output_files(args: argparse.Namespace) -> tuple[float, str, str]:
 
 def configure_specs(
     args: argparse.Namespace, log_time_s: float, log_dir: str
-) -> tuple[argparse.Namespace, list[dict], float]:
+) -> tuple[argparse.Namespace, list[dict]]:
     """Build logging specification and inject settings into node specs.
 
     Constructs a `LoggingSpec` object from provided arguments and updates
@@ -404,7 +404,6 @@ def configure_specs(
             consumed by the `Broker`, host device's reference time for performance
             counters.
     """
-    ref_time_s = get_ref_time()
 
     node_specs: list[dict] = (
         args.producer_specs + args.consumer_specs + args.pipeline_specs
@@ -413,7 +412,6 @@ def configure_specs(
     default_logging_spec = LoggingSpec(
         log_dir=log_dir,
         log_time_s=log_time_s,
-        ref_time_s=ref_time_s,
         experiment=args.experiment,
         **args.logging_spec,
     )
@@ -428,7 +426,6 @@ def configure_specs(
             logging_spec = LoggingSpec(
                 log_dir=log_dir,
                 log_time_s=log_time_s,
-                ref_time_s=ref_time_s,
                 experiment=args.experiment,
                 **spec["logging_spec"],
             )
@@ -436,7 +433,7 @@ def configure_specs(
         else:
             spec["settings"]["logging_spec"] = default_logging_spec
 
-    return args, node_specs, ref_time_s
+    return args, node_specs
 
 
 def parse_stdin(
@@ -604,10 +601,8 @@ def app():
     args = parse_args(parser)
 
     log_time_s, log_dir, log_history_filepath = init_output_files(args)
-    args, node_specs, ref_time_s = configure_specs(args, log_time_s, log_dir)
+    args, node_specs = configure_specs(args, log_time_s, log_dir)
 
-    # TODO: check why all of the sudden `force=True` is required (Python==3.14.4)
-    # set_start_method("spawn", force=True)
     set_start_method("spawn")
 
     # Launch slave hosts over SSH if the current broker is master and any connections are specified.

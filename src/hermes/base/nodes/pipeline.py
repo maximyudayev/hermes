@@ -89,7 +89,6 @@ class Pipeline(PipelineInterface, Node):
             host_ip=host_ip,
             port_sync=port_sync,
             port_killsig=port_killsig,
-            ref_time=logging_spec.ref_time_s,
         )
         self._port_pub = port_pub
         self._port_sub = port_sub

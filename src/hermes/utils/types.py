@@ -228,7 +228,6 @@ class LoggingSpec:
         log_dir (str): Path to the directory on disk to flush data to.
         experiment (dict[str, str]): Nested setup definition of Nodes across distributed hosts.
         log_time_s (float): Start time of saving data.
-        ref_time_s (float): Reference time of the Broker to align all Nodes to.
         stream_period_s (float, optional): Duration of periods over which to flush streamed accumulated data from memory to disk. Defaults to `30.0`.
         is_quiet (bool): Whether to print FFmpeg stats to the terminal. Defaults to `False`.
         is_metadata (bool): Whether to record tabular data's metadata to files (e.g. count for chunked samples in HDF5/CSV). Defaults to `True`.
@@ -247,7 +246,6 @@ class LoggingSpec:
     log_dir: str
     experiment: dict[str, str]
     log_time_s: float
-    ref_time_s: float
     stream_period_s: Optional[float] = 30.0
     is_quiet: Optional[bool] = True
     is_metadata: Optional[bool] = False

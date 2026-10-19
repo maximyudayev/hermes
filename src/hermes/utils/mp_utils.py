@@ -40,7 +40,6 @@ def launch_broker(
     is_ready_event: _Event,
     is_quit_event: _Event,
     is_done_event: _Event,
-    ref_time_s: float,
 ) -> None:
     """Builds the `Broker` using provided configurations and manage all the components of the experiment.
 
@@ -53,7 +52,6 @@ def launch_broker(
         is_ready_event (Event): Multiprocessing synchronization primitive indicating completion of `Broker`s setup and handshaking with `Node`s.
         is_quit_event (Event): Multiprocessing synchronization primitive triggering to the `Broker` to gracefully wrap up and end.
         is_done_event (Event): Multiprocessing synchronization primitive indicating that the `Broker` is finished and experiment ended.
-        ref_time_s (float): Main process reference system time obtained with `get_ref_time()` to use in all child processes for syncing the data.
     """
     local_broker: Broker = Broker(
         host_ip=args.host_ip,
@@ -63,7 +61,6 @@ def launch_broker(
         is_done_event=is_done_event,
         input_queue=input_queue,
         is_master_broker=args.is_master_broker,
-        ref_time_s=ref_time_s,
     )
 
     # Connect broker to remote publishers at the wearable PC to get data from the wearable sensors.
