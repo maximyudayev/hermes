@@ -29,7 +29,6 @@ from abc import abstractmethod
 from typing import Optional
 import zmq
 
-from hermes.utils.time_utils import init_time
 from hermes.utils.zmq_utils import (
     DNS_LOCALHOST,
     PORT_KILL,
