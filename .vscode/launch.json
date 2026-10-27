@@ -15,7 +15,7 @@
                 "-o",
                 "examples/data",
                 "-f",
-                "examples/dummy.yml",
+                "examples/master.yml",
                 "-e",
                 "project=Test",
                 "type=Dummy",

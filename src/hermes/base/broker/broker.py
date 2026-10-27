@@ -385,10 +385,9 @@ class Broker(BrokerInterface):
     def _stop(self) -> None:
         """Gracefully exit after all local subprocesses terminate, and cleanup."""
         for p in self._processes:
-            p.join(timeout=3.0)
-            if p.is_alive():
-                p.terminate()
-                p.join(timeout=1.0)
+            # BYE permits node cleanup to begin; storage can still be flushing.
+            # Wait for resource release rather than terminating it mid-write.
+            p.join()
 
         # Release all used local sockets.
         for s in self._backends:
@@ -397,6 +396,7 @@ class Broker(BrokerInterface):
             s.close(linger=0)
         for s in self._killsigs:
             s.close(linger=0)
+
         self._sync_host.close(linger=0)
         self._sync_remote.close(linger=0)
         self._gui_btn_kill.close(linger=0)
